@@ -31,3 +31,4 @@ class Inventory():
     quantity_reserved: int = 0
     locations: list[Address] = []
     updated_at: datetime = datetime.now()
+

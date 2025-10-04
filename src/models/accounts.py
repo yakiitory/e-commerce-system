@@ -1,3 +1,4 @@
+from __future__ import annotations
 from .addresses import Address
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
@@ -24,12 +25,12 @@ class User(Account):
     first_name: str
     last_name: str
     phone_number: str
-    addresses: list["Address"]
+    addresses: list[Address]
     order_history: list[int]
     cart_id: int
     wishlist: list[int]
-    preferences: dict
-
+    preferences: "Preferences"
+    
     def permissions(self) -> list[str]:
         return ["read"]
 
@@ -49,3 +50,6 @@ class Admin(Account):
     def permissions(self) -> list[str]:
         return ["read", "write", "execute"]
 
+@dataclass
+class Preferences():
+    settings: dict # Should have whatever settings soon
