@@ -1,10 +1,9 @@
-from abc import ABC
 from dataclasses import dataclass
 
 from .mixins import DateMixin
 
 @dataclass
-class History(ABC, DateMixin):
+class History(DateMixin):
     id: int
     user_id: str
     interaction_type: str

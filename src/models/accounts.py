@@ -2,8 +2,6 @@ from __future__ import annotations
 from .addresses import Address
 from .mixins import ContactMixin, AuthMixin, DateMixin
 from dataclasses import dataclass
-from abc import ABC, abstractmethod
-from typing import override
 
 """
 Defines the dataclasses for anything related for user models
@@ -11,7 +9,7 @@ Any list[ints] represent multiple indices of an entity in a database
 """
 
 @dataclass
-class Account(ABC, AuthMixin, DateMixin):
+class Account(AuthMixin, DateMixin):
     id: int
     role: str
 
