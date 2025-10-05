@@ -1,19 +1,19 @@
 from __future__ import annotations
 from .addresses import Address
+from .mixins import ContactMixin, AuthMixin, DateMixin
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
-from datetime import datetime
+from typing import override
+
+"""
+Defines the dataclasses for anything related for user models
+Any list[ints] represent multiple indices of an entity in a database
+"""
 
 @dataclass
-class Account(ABC):
+class Account(ABC, AuthMixin, DateMixin):
     id: int
-    username: str
-    email: str
-    hash: str
     role: str
-    is_active: bool 
-    date_created: datetime
-    last_login: datetime | None
 
     @abstractmethod
     def permissions(self) -> list[str]:
@@ -21,16 +21,17 @@ class Account(ABC):
         pass
     
 @dataclass
-class User(Account):
-    first_name: str
-    last_name: str
-    phone_number: str
+class User(Account, ContactMixin):
     addresses: list[Address]
     order_history: list[int]
+    view_history: list[int]
+    liked_products: list[int]
+    reviews: list[int]
     cart_id: int
     wishlist: list[int]
     preferences: "Preferences"
     
+    @override
     def permissions(self) -> list[str]:
         return ["read"]
 
@@ -40,6 +41,7 @@ class Merchant(Account):
     products: list[int]
     ratings: float
     
+    @override
     def permissions(self) -> list[str]:
         return ["read", "write"] 
 
@@ -47,9 +49,11 @@ class Merchant(Account):
 class Admin(Account):
     log_ids: list[int]
 
+    @override
     def permissions(self) -> list[str]:
         return ["read", "write", "execute"]
 
 @dataclass
 class Preferences():
-    settings: dict # Should have whatever settings soon
+    # Should have whatever settings soon
+    settings: dict[str, bool]

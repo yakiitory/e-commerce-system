@@ -3,15 +3,7 @@ from dataclasses import dataclass
 from enum import Enum
 from datetime import datetime
 from .addresses import Address
-
-class Status(Enum):
-    PENDING = 1
-    PAID = 2
-    SHIPPED = 3
-    DELIVERED = 4
-    CANCELLED = 5
-    REFUNDED = 6
-    RETURNED = 7
+from .status import Status
 
 @dataclass
 class Order():
@@ -33,12 +25,13 @@ class OrderItem():
 
 @dataclass
 class Invoice():
+    """TODO: Should probably fix how this can be easily printed and contain all the info needed"""
     id: int
     order_id: int
-    payment_summary: dict # Should have subtotal, tax, discounts, total
     billing_address: Address
     issue_date: datetime
     status: Status
-
-
-
+    payment_summary: dict = {"subtotal": float, 
+                             "tax": float, 
+                             "discounts": float, 
+                             "total": float}
