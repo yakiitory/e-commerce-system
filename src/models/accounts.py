@@ -27,8 +27,8 @@ class User(Account, ContactMixin):
     view_history: list[int]
     liked_products: list[int]
     reviews: list[int]
+    voucher_inventory: list[int]
     cart_id: int
-    wishlist: list[int]
     preferences: "Preferences"
     
     @override
@@ -40,6 +40,7 @@ class Merchant(Account):
     store_name: str
     products: list[int]
     ratings: float
+    vouchers: list[int]
     
     @override
     def permissions(self) -> list[str]:

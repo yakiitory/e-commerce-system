@@ -20,6 +20,3 @@ class ContactMixin:
 @dataclass
 class DateMixin:
     created_at: datetime
-    
-
-

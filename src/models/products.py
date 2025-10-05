@@ -1,11 +1,13 @@
 from __future__ import annotations
 from .addresses import Address
-from dataclasses import dataclass
+from .status import Status
+from .mixins import DateMixin
 from datetime import datetime
-from typing import Optional
+from dataclasses import dataclass
+
 
 @dataclass
-class Product():
+class Product(DateMixin):
     id: str
     sku_id: str
     name: str
@@ -13,22 +15,30 @@ class Product():
     brand: str
     category_id: int
     price: float
-    created_at: datetime = datetime.now()
-    updated_at: datetime = datetime.now()
+
 
 @dataclass
 class Category():
     id: int
     name: str
-    parent_id: Optional[int] = None
+    parent_id: int | None
     description: str = "" 
 
+
 @dataclass
-class Inventory():
+class Inventory(DateMixin):
     id: int
     product_id: int
     quantity_available: int = 0
     quantity_reserved: int = 0
     locations: list[Address] = []
-    updated_at: datetime = datetime.now()
 
+    
+@dataclass
+class Shipment():
+    id: int
+    order_id: int
+    status: Status
+    estimated_date: datetime
+    address: list[Address] 
+    carrier_information: dict[str, str]
