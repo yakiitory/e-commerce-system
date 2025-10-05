@@ -34,12 +34,8 @@ class Order():
 
 
 @dataclass
-class OrderItem():
-    id: int
-    product_id: int
-    product_quantity: int
-    product_price: float
-    applied_discounts: list[str]
+class OrderItem(Item):
+    applied_discounts: list[int]
     total_price: float
 
 
