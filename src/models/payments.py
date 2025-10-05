@@ -13,6 +13,7 @@ class Payment(DateMixin):
     sender_id: int
     receiver_id: int
     type: str
+    amount: float
 
 
 @dataclass
