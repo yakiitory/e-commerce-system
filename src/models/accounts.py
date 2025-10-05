@@ -15,10 +15,6 @@ class Account(ABC, AuthMixin, DateMixin):
     id: int
     role: str
 
-    @abstractmethod
-    def permissions(self) -> list[str]:
-        """Return list of permissions for this account"""
-        pass
     
 @dataclass
 class User(Account, ContactMixin):
@@ -31,9 +27,6 @@ class User(Account, ContactMixin):
     cart_id: int
     preferences: "Preferences"
     
-    @override
-    def permissions(self) -> list[str]:
-        return ["read"]
 
 @dataclass
 class Merchant(Account):
@@ -42,17 +35,11 @@ class Merchant(Account):
     ratings: float
     vouchers: list[int]
     
-    @override
-    def permissions(self) -> list[str]:
-        return ["read", "write"] 
-
+   
 @dataclass
 class Admin(Account):
     log_ids: list[int]
 
-    @override
-    def permissions(self) -> list[str]:
-        return ["read", "write", "execute"]
 
 @dataclass
 class Preferences():
