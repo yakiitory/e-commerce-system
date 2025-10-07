@@ -13,7 +13,7 @@ class Account(AuthMixin, DateMixin):
     id: int
     role: str
 
-    
+
 @dataclass
 class User(Account, ContactMixin):
     addresses: list[Address]
@@ -24,7 +24,7 @@ class User(Account, ContactMixin):
     voucher_inventory: list[int]
     cart_id: int
     preferences: "Preferences"
-    
+
 
 @dataclass
 class Merchant(Account):
@@ -32,8 +32,8 @@ class Merchant(Account):
     products: list[int]
     ratings: float
     vouchers: list[int]
-    
-   
+
+
 @dataclass
 class Admin(Account):
     log_ids: list[int]
