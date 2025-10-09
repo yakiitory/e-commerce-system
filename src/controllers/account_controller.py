@@ -1,9 +1,8 @@
 from typing import override, TypeVar, Generic
-from controllers.base_controller import ID, BaseController, T
-from abc import ABC, abstractmethod
+from controllers.base_controller import BaseController
 
-from models.accounts import User, Merchant, Admin
-
+from ..models.accounts import User, Merchant, Admin
+from ..models.mixins import T, ID
 
 # TODO: This is all just placeholder.
 # TODO: Implement all of the features here
