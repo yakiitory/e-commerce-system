@@ -27,7 +27,7 @@ class User(Account, ContactMixin):
 
 
 @dataclass
-class Merchant(Account):
+class Merchant(Account, ContactMixin):
     store_name: str
     products: list[int]
     ratings: float

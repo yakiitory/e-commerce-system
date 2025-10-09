@@ -10,10 +10,13 @@ from dataclasses import dataclass
 class Product(DateMixin):
     id: str
     sku_id: str
+    merchant_id: int
     name: str
     description: str
     brand: str
     category_id: int
+    items_sold: int
+    ratings: float
     price: float
 
 

@@ -1,6 +1,7 @@
 from typing import override
-from controllers.base_controller import ID, BaseController
+from controllers.base_controller import BaseController
 from ..models.orders import Order
+from ..models.mixins import ID
 
 class OrderController(BaseController[Order, ID]):
     @override
