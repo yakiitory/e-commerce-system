@@ -1,8 +1,6 @@
 from abc import ABC, abstractmethod
-from typing import Generic, TypeVar
-
-T = TypeVar("T")
-ID = TypeVar("ID", bound=int)
+from typing import Generic
+from ..models.mixins import T, ID
 
 class BaseController(ABC, Generic[T, ID]):
     """Contract for every controller to follow"""

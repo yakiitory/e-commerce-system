@@ -28,7 +28,7 @@ class Order():
     id: int
     orders: list["OrderItem"]
     payment_type: str
-    shipment_id: str
+    shipment_id: int 
     order_status: Status
     order_created: datetime
 
