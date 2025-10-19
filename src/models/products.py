@@ -21,9 +21,8 @@ class Product(DateMixin):
     # Metadata
     description: str
     tags: list[str] = field(default_factory=list)
-    attributes: dict[str, str] = field(default_factory=dict)
+    attributes: dict[str, str] = field(default_factory=dict) # Color: black, kinda stuff
     images: list[str] = field(default_factory=list)
-    video_urls: list[str] = field(default_factory=list)
 
     # Pricing Sales
     price: float = 0.0
@@ -36,7 +35,7 @@ class Product(DateMixin):
     # Behavioural Signals
     view_count: int = 0
     sold_count: int = 0
-    add_to_card_count: int = 0
+    add_to_cart_count: int = 0
     wishlist_count: int = 0
     click_through_rate: float = 0.0
 
@@ -47,8 +46,7 @@ class Product(DateMixin):
 
     # Vendor Logistics
     seller_id: int = 0
-    warehouse_address: Address | None = None 
-    shipping_options: list[str] = field(default_factory=list)
+    warehouse_id: int | None = None
 
     # Personalization
     demographics_fit: dict[str, float] | None = None # This could be like "male": 0.9, "teen": 0.4
@@ -69,7 +67,7 @@ class Inventory(DateMixin):
     product_id: int
     quantity_available: int = 0
     quantity_reserved: int = 0
-    locations: list[Address] = []
+    locations: list[int] = []
 
     
 @dataclass
@@ -79,4 +77,3 @@ class Shipment():
     status: Status
     estimated_date: datetime
     address: list[Address] 
-    carrier_information: dict[str, str]

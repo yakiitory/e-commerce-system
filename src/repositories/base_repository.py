@@ -1,7 +1,9 @@
 from abc import ABC, abstractmethod
+from typing import Generic
 from ..models.mixins import T, ID
 
-class BaseRepository(ABC):
+
+class BaseRepository(ABC, Generic[T, ID]):
     @abstractmethod
     def save(self, data: T) -> T | None: ...
 

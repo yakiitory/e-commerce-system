@@ -1,10 +1,12 @@
 from dataclasses import dataclass
 from datetime import datetime
 
-from models.mixins import AuthMixin, ContactMixin, DateMixin
+from models.mixins import DateMixin
 
 @dataclass
-class VirtualCard(AuthMixin, ContactMixin, DateMixin):
+class VirtualCard():
+    id: int
+    owner_id: int
     balance: float
 
 @dataclass
@@ -19,7 +21,7 @@ class Payment(DateMixin):
 @dataclass
 class Voucher(DateMixin):
     id: int
-    store_id: int
+    merchant_id: int
     type: str
     active_until: datetime
     cashback: float

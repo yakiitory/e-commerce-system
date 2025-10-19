@@ -1,4 +1,4 @@
-from typing import override, TypeVar, Generic
+from typing import override, Generic
 from controllers.base_controller import BaseController
 
 from ..models.accounts import User, Merchant, Admin

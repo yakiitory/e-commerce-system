@@ -17,8 +17,9 @@ class Account(AuthMixin, DateMixin):
 @dataclass
 class User(Account, ContactMixin):
     preferences: "Preferences" 
+    card_id: int
     # basic persistent collections
-    addresses: list[Address] = field(default_factory=list)
+    addresses: list[int] = field(default_factory=list)
     order_history: list[int] = field(default_factory=list)
     view_history: list[int] = field(default_factory=list)
     liked_products: list[int] = field(default_factory=list)
@@ -35,8 +36,6 @@ class User(Account, ContactMixin):
     recency_decay_factor: float = 1.0
 
     # context & demographics
-    location: str | None = None
-    device_type: str | None = None
     age_group: str | None = None
     gender: str | None = None
 
@@ -48,10 +47,13 @@ class User(Account, ContactMixin):
 
 @dataclass
 class Merchant(Account, ContactMixin):
+    card_id: int
     store_name: str
     products: list[int]
     ratings: float
     vouchers: list[int]
+    addresses: list[int]
+    inventories: list[int]
 
 
 @dataclass

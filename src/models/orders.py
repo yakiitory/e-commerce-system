@@ -31,6 +31,7 @@ class Order():
     shipment_id: int 
     order_status: Status
     order_created: datetime
+    invoice_id: int
 
 
 @dataclass

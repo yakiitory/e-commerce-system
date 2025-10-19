@@ -1,19 +1,17 @@
-from abc import ABC, abstractmethod
-from typing import Generic, TypeVar, override
+from typing import Generic, override
 
 from repositories.base_repository import BaseRepository
-from ..models.accounts import Account, User, Merchant, Admin
+from ..models.accounts import User, Merchant, Admin
+from ..models.mixins import T, ID
+
 
 """Any usage of a List[Int] is for indexing in the database."""
 
 
-T = TypeVar("T", bound=Account)
-ID = TypeVar("ID", bound=int)
-
-
-class AccountRepository(BaseRepository, Generic[T, ID]):
+class AccountRepository(BaseRepository[T, ID], Generic[T, ID]):
     @override
-    def save(self, account: T) -> T | None: ...
+    def save(self, data: T) -> T | None:
+        return
 
     @override
     def find_by_id(self, id: ID) -> T | None: ...
@@ -24,7 +22,7 @@ class AccountRepository(BaseRepository, Generic[T, ID]):
 
 class UserRepository(AccountRepository[User, ID]):
     @override
-    def save(self, account: User) -> User | None:
+    def save(self, data: User) -> User | None:
     #TODO: DB Logic for UserRepository
         return
 
@@ -44,7 +42,7 @@ class UserRepository(AccountRepository[User, ID]):
 
 class MerchantRepository(AccountRepository[Merchant, ID]):
     @override
-    def save(self, account: Merchant) -> Merchant | None:
+    def save(self, data: Merchant) -> Merchant | None:
         return
 
 
@@ -60,7 +58,7 @@ class MerchantRepository(AccountRepository[Merchant, ID]):
 
 class AdminRepository(AccountRepository[Admin, ID]):
     @override
-    def save(self, account: Admin) -> Admin | None:
+    def save(self, data: Admin) -> Admin | None:
         return
 
 
