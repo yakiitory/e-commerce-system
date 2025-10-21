@@ -17,6 +17,7 @@ class Interaction(History):
 
 @dataclass
 class AdminLog(History):
+    id: int
     target_type: str
     target_id: int
     details: str

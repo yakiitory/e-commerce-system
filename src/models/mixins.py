@@ -1,17 +1,10 @@
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TypeVar
-
-T = TypeVar("T")
-ID = TypeVar("ID", bound=int)
-
 
 @dataclass
 class AuthMixin:
     username: str
     hash: str
-    last_login: datetime
-    is_active: bool 
 
 
 @dataclass
