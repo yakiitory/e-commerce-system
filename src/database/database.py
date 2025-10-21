@@ -1,17 +1,25 @@
 import os
 import sqlparse
 from mysql.connector import pooling, Error
+from dotenv import load_dotenv
 
 
 class Database:
     """
     Handles MariaDB/MySQL database connection pooling and queries.
     Reads credentials from environment variables.
+    Attemps to read an existing file called "schema.sql" in the same directory.
     """
 
     def __init__(self):
+        load_dotenv()
         self._pool = None
         self._create_pool()
+        schema_path = os.path.join(os.path.dirname(__file__), "schema.sql")
+        if os.path.exists(schema_path):
+            self.initialize_schema(schema_path)
+        else:
+            print(f"[DB] Schema file not found at {schema_path}, skipping initialization.")
 
     def initialize_schema(self, sql_file_path: str) -> bool:
         """
@@ -59,11 +67,11 @@ class Database:
         """
         try:
             dbconfig = {
-                "host": os.getenv("DB_HOST", "localhost"),
-                "port": int(os.getenv("DB_PORT", 3306)),
-                "user": os.getenv("DB_USER", "root"),
-                "password": os.getenv("DB_PASSWORD", ""),
-                "database": os.getenv("DB_NAME", "ecommerce"),
+                "host": os.environ["DB_HOST"],
+                "port": int(os.environ["DB_PORT"]),
+                "user": os.environ["DB_USER"],
+                "password": os.environ["DB_PASSWORD"],
+                "database": os.environ["DB_NAME"],
             }
 
             self._pool = pooling.MySQLConnectionPool(
@@ -81,7 +89,8 @@ class Database:
         Retrieve a connection from the pool.
         """
         try:
-            return self._pool.get_connection()
+            if self._pool:
+                return self._pool.get_connection()
         except Error as e:
             print(f"[DB ERROR] Failed to get connection: {e}")
             raise

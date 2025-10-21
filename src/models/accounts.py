@@ -1,5 +1,4 @@
 from __future__ import annotations
-from .addresses import Address
 from .mixins import ContactMixin, AuthMixin, DateMixin
 from dataclasses import dataclass, field
 
@@ -7,6 +6,7 @@ from dataclasses import dataclass, field
 Defines the dataclasses for anything related for user models
 Any list[ints] represent multiple indices of an entity in a database
 """
+
 
 @dataclass
 class Account(AuthMixin, DateMixin):
@@ -16,8 +16,14 @@ class Account(AuthMixin, DateMixin):
 
 @dataclass
 class User(Account, ContactMixin):
-    preferences: "Preferences" 
-    card_id: int
+    gender: str
+    age: int
+
+
+@dataclass
+class UserMetadata:
+    id: int
+    user_id: int
     # basic persistent collections
     addresses: list[int] = field(default_factory=list)
     order_history: list[int] = field(default_factory=list)
@@ -25,8 +31,6 @@ class User(Account, ContactMixin):
     liked_products: list[int] = field(default_factory=list)
     reviews: list[int] = field(default_factory=list)
     voucher_inventory: list[int] = field(default_factory=list)
-    cart_id: int | None = None
-
 
     # recommender / analytic fields
     favorite_categories: list[int] = field(default_factory=list)
@@ -36,7 +40,6 @@ class User(Account, ContactMixin):
     recency_decay_factor: float = 1.0
 
     # context & demographics
-    age_group: str | None = None
     gender: str | None = None
 
     # ML features
@@ -47,8 +50,11 @@ class User(Account, ContactMixin):
 
 @dataclass
 class Merchant(Account, ContactMixin):
-    card_id: int
     store_name: str
+
+
+@dataclass
+class MerchantMetadata:
     products: list[int]
     ratings: float
     vouchers: list[int]
@@ -62,6 +68,6 @@ class Admin(Account):
 
 
 @dataclass
-class Preferences():
+class Preferences:
     # Should have whatever settings soon
     settings: dict[str, bool]

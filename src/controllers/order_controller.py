@@ -1,24 +1,22 @@
 from typing import override
 from controllers.base_controller import BaseController
-from ..models.orders import Order
-from ..models.mixins import ID
 
-class OrderController(BaseController[Order, ID]):
+class OrderController(BaseController):
     @override
-    def create(self, data: Order) -> Order | None:
+    def create(self, data):
         return
 
 
     @override
-    def read(self, identifier: ID) -> Order | None:
+    def read(self, identifier):
         return
 
 
     @override
-    def update(self, identifier: ID, data: Order) -> Order | None:
+    def update(self, identifier, data):
         return
 
 
     @override
-    def delete(self, identifier: ID) -> bool:
+    def delete(self, identifier):
         return True
