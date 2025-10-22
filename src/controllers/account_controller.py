@@ -544,7 +544,7 @@ class AdminController(AccountController):
         # return self._create_account(
         #     data=data,
         #     fields=fields,
-        #     does_exist_func=self.does_admin_exist, # You'd need to implement this
+        #     does_exist_func=self.does_admin_exist,
         #     password_field="hash",
         # )
         raise NotImplementedError("Admin creation logic is not yet implemented.")
@@ -561,7 +561,7 @@ class AdminController(AccountController):
         """
         # TODO: Implement Admin read logic
         # Example:
-        # return self._read_by_id(identifier, self._map_to_admin) # You'd need to implement _map_to_admin
+        # return self._read_by_id(identifier, self._map_to_admin)
         raise NotImplementedError("Admin read logic is not yet implemented.")
 
     @override
