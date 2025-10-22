@@ -8,16 +8,34 @@ from models.accounts import User, Merchant, Admin
 
 class AccountController(BaseController):
     def __init__(self, db: Database, table_name: str):
+        """Initializes the AccountController.
+
+        Args:
+            db (Database): The database instance.
+            table_name (str): The name of the database table this controller manages.
+        """
         self.db = db
         self.table_name = table_name
 
-    @override
-    def create(
-        self, table_name: str, data, fields: list[str], does_exist_func
+    def _create_account(
+        self, data, fields: list[str], does_exist_func, password_field: str = "hash"
     ) -> tuple[bool, str]:
-        """
-        Generic create method for any account-type table.
+        """Generic create method for any account-type table.
+
         Automatically logs using the caller's class name.
+
+        Args:
+            data: An object containing the account data, expected to have attributes
+                corresponding to `fields` and `password_field`.
+            fields (list[str]): A list of field names to insert into the database.
+            does_exist_func (callable): A function to check if an account with the
+                given username already exists.
+            password_field (str, optional): The attribute name in `data` that holds
+                the plain password. Defaults to "hash".
+
+        Returns:
+            tuple[bool, str]: A tuple where the first element is `True` if creation
+                was successful, `False` otherwise. The second element is a message.
         """
         caller_name = self.__class__.__name__
 
@@ -26,30 +44,44 @@ class AccountController(BaseController):
             return (False, f"{caller_name} username already exists!")
 
         # Hash password
-        hashed_pw = self.hash_pw(data.hash)
+        plain_password = getattr(data, password_field)
+        hashed_pw = self.hash_pw(plain_password)
 
         # Build dynamic query
         placeholders = ", ".join(["%s"] * len(fields))
         columns = ", ".join(fields)
-        query = f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})"
+        query = f"INSERT INTO {self.table_name} ({columns}) VALUES ({placeholders})"
+        # Use "hash" as the column name in DB, but get value from `password_field`
         params = [getattr(data, f) if f != "hash" else hashed_pw for f in fields]
 
         try:
             self.db.execute_query(query, tuple(params))
-            print(f"[{caller_name}] {table_name} record created successfully.")
+            print(f"[{caller_name}] {self.table_name} record created successfully.")
             return (True, f"{caller_name} has been created!")
         except Exception as e:
             print(f"[{caller_name} ERROR] Create failed: {e}")
             return (False, f"Failed to create {caller_name.lower()} record.")
 
-    @override
-    def read(self, table_name: str, identifier: int, map_func, id_field: str = "id"):
-        """
-        Generic read method for any table.
+    def _read_by_id(self, identifier: int, map_func, id_field: str = "id"):
+        """Generic read method for any table by its ID.
+
         Automatically logs using the caller's class name.
+
+        Args:
+            identifier (int): The ID of the record to retrieve.
+            map_func (callable): A function to map the database row (dict) to a
+                specific model object (e.g., User, Merchant).
+            id_field (str, optional): The name of the ID column in the table.
+                Defaults to "id".
+
+        Returns:
+            Any | None: The mapped model object if found, otherwise `None`.
+
+        Raises:
+            Exception: If a database error occurs during the read operation.
         """
         caller_name = self.__class__.__name__
-        query = f"SELECT * FROM {table_name} WHERE {id_field} = %s"
+        query = f"SELECT * FROM {self.table_name} WHERE {id_field} = %s"
         params = (identifier,)
 
         try:
@@ -63,13 +95,25 @@ class AccountController(BaseController):
             print(f"[{caller_name} ERROR] Read failed: {e}")
             return None
 
-    @override
-    def update(
-        self, table_name: str, identifier: int, data: dict, allowed_fields: list[str]
+    def _update_by_id(
+        self, identifier: int, data: dict, allowed_fields: list[str]
     ) -> bool:
-        """
-        Generic update method for any account-type table.
+        """Generic update method for any account-type table by its ID.
+
         Dynamically logs the name of the calling controller.
+
+        Args:
+            identifier (int): The ID of the record to update.
+            data (dict): A dictionary containing the fields and their new values.
+                Only fields present in `allowed_fields` will be updated.
+            allowed_fields (list[str]): A list of field names that are permitted
+                to be updated.
+
+        Returns:
+            bool: `True` if the update was successful, `False` otherwise.
+
+        Raises:
+            Exception: If a database error occurs during the update operation.
         """
         caller_name = self.__class__.__name__
 
@@ -84,40 +128,67 @@ class AccountController(BaseController):
         values = list(fields_to_update.values())
         values.append(identifier)
 
-        query = f"UPDATE {table_name} SET {set_clause} WHERE id = %s"
+        query = f"UPDATE {self.table_name} SET {set_clause} WHERE id = %s"
 
         try:
-            self.db.execute(query, tuple(values))
-            print(f"[{caller_name}] {table_name} ID {identifier} updated successfully.")
+            self.db.execute_query(query, tuple(values))
+            print(f"[{caller_name}] {self.table_name} ID {identifier} updated successfully.")
             return True
         except Exception as e:
-            print(f"[{caller_name} ERROR] Failed to update {table_name}: {e}")
+            print(f"[{caller_name} ERROR] Failed to update {self.table_name}: {e}")
             return False
 
-    @override
-    def delete(
-        self, table_name: str, identifier: int, id_field: str = "id"
-    ) -> tuple[bool, str]:
-        """
-        Generic delete method for any table.
+    def _delete_by_id(self, identifier: int, id_field: str = "id") -> tuple[bool, str]:
+        """Generic delete method for any table by its ID.
+
         Automatically logs using the caller's class name.
+
+        Args:
+            identifier (int): The ID of the record to delete.
+            id_field (str, optional): The name of the ID column in the table.
+                Defaults to "id".
+
+        Returns:
+            tuple[bool, str]: A tuple where the first element is `True` if deletion
+                was successful, `False` otherwise. The second element is a message.
+
+        Raises:
+            Exception: If a database error occurs during the delete operation.
         """
         caller_name = self.__class__.__name__
-        query = f"DELETE FROM {table_name} WHERE {id_field} = %s"
+        query = f"DELETE FROM {self.table_name} WHERE {id_field} = %s"
         params = (identifier,)
 
         try:
             self.db.execute_query(query, params)
-            print(f"[{caller_name}] Record deleted from {table_name} (ID={identifier})")
+            print(f"[{caller_name}] Record deleted from {self.table_name} (ID={identifier})")
             return (True, f"{caller_name} record deleted successfully.")
         except Exception as e:
             print(f"[{caller_name} ERROR] Delete failed: {e}")
             return (False, f"Failed to delete {caller_name.lower()} record.")
 
     def hash_pw(self, password: str):
+        """Hashes a plain-text password using bcrypt.
+
+        Args:
+            password (str): The plain-text password to hash.
+
+        Returns:
+            bytes: The hashed password.
+        """
         return bcrypt.hashpw(password.encode(), bcrypt.gensalt())
 
     def does_account_exist(self, query: str, identifier: str, error: str) -> bool:
+        """Checks if an account exists based on a given query and identifier.
+
+        Args:
+            query (str): The SQL query to execute for checking existence.
+            identifier (str): The value to use in the query (e.g., username).
+            error (str): An error message to print if an exception occurs.
+
+        Returns:
+            bool: `True` if an account exists, `False` otherwise.
+        """
         try:
             row = self.db.fetch_one(query, (identifier,))
             if row:
@@ -131,9 +202,23 @@ class AccountController(BaseController):
 
 class UserController(AccountController):
     def __init__(self, db: Database):
+        """Initializes the UserController.
+
+        Args:
+            db (Database): The database instance.
+        """
         super().__init__(db, "users")
 
+    @override
     def create(self, data: User) -> tuple[bool, str]:
+        """Creates a new user account.
+
+        Args:
+            data (User): The User object containing the new user's data.
+
+        Returns:
+            tuple[bool, str]: A tuple indicating success/failure and a message.
+        """
         fields = [
             "username",
             "email",
@@ -144,22 +229,38 @@ class UserController(AccountController):
             "gender",
             "age",
         ]
-        return super().create(
-            table_name=self.table_name,
+        return self._create_account(
             data=data,
             fields=fields,
             does_exist_func=self.does_user_exist,
+            password_field="hash",
         )
 
-    def read(self, identifier: int):
-        return super().read(
-            table_name=self.table_name,
-            identifier=identifier,
-            map_func=self._map_to_user,
-            id_field="id",
+    @override
+    def read(self, identifier: int) -> User | None:
+        """Reads a user record by ID.
+
+        Args:
+            identifier (int): The ID of the user to retrieve.
+
+        Returns:
+            User | None: The User object if found, otherwise `None`.
+        """
+        return self._read_by_id(
+            identifier=identifier, map_func=self._map_to_user, id_field="id"
         )
 
+    @override
     def update(self, identifier: int, data: dict) -> bool:
+        """Updates an existing user record.
+
+        Args:
+            identifier (int): The ID of the user to update.
+            data (dict): A dictionary of fields to update and their new values.
+
+        Returns:
+            bool: `True` if the update was successful, `False` otherwise.
+        """
         allowed_fields = [
             "first_name",
             "last_name",
@@ -168,17 +269,34 @@ class UserController(AccountController):
             "gender",
             "age",
         ]
-        return super().update(
-            table_name=self.table_name,
-            identifier=identifier,
-            data=data,
-            allowed_fields=allowed_fields,
+        return self._update_by_id(
+            identifier=identifier, data=data, allowed_fields=allowed_fields
         )
 
-    def delete(self, identifier: int):
-        return super().delete(self.table_name, identifier, id_field="id")
+    @override
+    def delete(self, identifier: int) -> tuple[bool, str]:
+        """Deletes a user record by ID.
 
+        Args:
+            identifier (int): The ID of the user to delete.
+
+        Returns:
+            tuple[bool, str]: A tuple indicating success/failure and a message.
+        """
+        return self._delete_by_id(identifier, id_field="id")
+    
     def login(self, username: str, password: str) -> tuple[bool, str | User]:
+        """Authenticates a user.
+
+        Args:
+            username (str): The username of the user.
+            password (str): The plain-text password of the user.
+
+        Returns:
+            tuple[bool, str | User]: A tuple where the first element is `True` on
+                successful login and the second is the User object, or `False` and
+                an error message on failure.
+        """
         # Check if user exists
         if not self.does_user_exist(username):
             return (False, "User does not exist!")
@@ -198,20 +316,33 @@ class UserController(AccountController):
         if bcrypt.checkpw(password.encode("utf-8"), stored_hash):
             success_query = "SELECT * FROM users WHERE username = %s"
             row = self.db.fetch_one(success_query, (username,))
-            user = self._map_to_user(row)
-            return (True, user)
+            user = self._map_to_user(row if row else {})
+            return (True, user) if user else (False, "Error mapping user data.")
         else:
             return (False, "Incorrect password!")
 
+    @override
     def does_user_exist(self, username: str) -> bool:
+        """Checks if a user with the given username exists.
+
+        Args:
+            username (str): The username to check.
+
+        Returns:
+            bool: `True` if the user exists, `False` otherwise.
+        """
         query = "SELECT 1 FROM users WHERE username = %s LIMIT 1"
         error = "[UserController ERROR] Failed to find by username"
         return super().does_account_exist(query, username, error)
 
     def _map_to_user(self, row: dict) -> User | None:
-        """
-        Map a database row (dict) to a User dataclass.
-        Returns None if row is None.
+        """Maps a database row (dictionary) to a User dataclass object.
+
+        Args:
+            row (dict): A dictionary representing a row from the 'users' table.
+
+        Returns:
+            User | None: A User object if the row is not empty, otherwise `None`.
         """
         if not row:
             return None
@@ -233,9 +364,23 @@ class UserController(AccountController):
 
 class MerchantController(AccountController):
     def __init__(self, db: Database):
+        """Initializes the MerchantController.
+
+        Args:
+            db (Database): The database instance.
+        """
         super().__init__(db, "merchants")
 
+    @override
     def create(self, data: Merchant) -> tuple[bool, str]:
+        """Creates a new merchant account.
+
+        Args:
+            data (Merchant): The Merchant object containing the new merchant's data.
+
+        Returns:
+            tuple[bool, str]: A tuple indicating success/failure and a message.
+        """
         fields = [
             "username",
             "email",
@@ -245,23 +390,36 @@ class MerchantController(AccountController):
             "phone_number",
             "store_name",
         ]
-        return super().create(
-            table_name=self.table_name,
+        return self._create_account(
             data=data,
             fields=fields,
             does_exist_func=self.does_merchant_exist,
+            password_field="hash",
         )
 
     @override
-    def read(self, identifier: int):
-        query = "SELECT * FROM merchants WHERE id = %s"
-        params = (f"{identifier}",)
-        try:
-            return self.db.fetch_one(query, params)
-        except Exception as e:
-            print(f"[MerchantController ERROR] Read by ID failed : {e}")
+    def read(self, identifier: int) -> Merchant | None:
+        """Reads a merchant record by ID.
 
+        Args:
+            identifier (int): The ID of the merchant to retrieve.
+
+        Returns:
+            Merchant | None: The Merchant object if found, otherwise `None`.
+        """
+        return self._read_by_id(identifier, self._map_to_merchant)
+
+    @override
     def update(self, identifier: int, data: dict) -> bool:
+        """Updates an existing merchant record.
+
+        Args:
+            identifier (int): The ID of the merchant to update.
+            data (dict): A dictionary of fields to update and their new values.
+
+        Returns:
+            bool: `True` if the update was successful, `False` otherwise.
+        """
         allowed_fields = [
             "first_name",
             "last_name",
@@ -269,17 +427,34 @@ class MerchantController(AccountController):
             "email",
             "store_name",
         ]
-        return self.account_controller.update(
-            table_name=self.table_name,
-            identifier=identifier,
-            data=data,
-            allowed_fields=allowed_fields,
+        return self._update_by_id(
+            identifier=identifier, data=data, allowed_fields=allowed_fields
         )
 
-    def delete(self, identifier: int):
-        return super().delete(self.table_name, identifier, id_field="id")
+    @override
+    def delete(self, identifier: int) -> tuple[bool, str]:
+        """Deletes a merchant record by ID.
+
+        Args:
+            identifier (int): The ID of the merchant to delete.
+
+        Returns:
+            tuple[bool, str]: A tuple indicating success/failure and a message.
+        """
+        return self._delete_by_id(identifier, id_field="id")
 
     def login(self, username: str, password: str) -> tuple[bool, str | Merchant]:
+        """Authenticates a merchant.
+
+        Args:
+            username (str): The username of the merchant.
+            password (str): The plain-text password of the merchant.
+
+        Returns:
+            tuple[bool, str | Merchant]: A tuple where the first element is `True` on
+                successful login and the second is the Merchant object, or `False` and
+                an error message on failure.
+        """
         # Check if user exists
         if not self.does_merchant_exist(username):
             return (False, "Merchant does not exist!")
@@ -299,17 +474,34 @@ class MerchantController(AccountController):
         if bcrypt.checkpw(password.encode("utf-8"), stored_hash):
             success_query = "SELECT * FROM merchants WHERE username = %s"
             row = self.db.fetch_one(success_query, (username,))
-            merchant = self._map_to_merchant(row)
-            return (True, merchant)
+            merchant = self._map_to_merchant(row if row else {})
+            return (True, merchant) if merchant else (False, "Error mapping merchant data.")
         else:
             return (False, "Incorrect password!")
 
+    @override
     def does_merchant_exist(self, username: str) -> bool:
+        """Checks if a merchant with the given username exists.
+
+        Args:
+            username (str): The username to check.
+
+        Returns:
+            bool: `True` if the merchant exists, `False` otherwise.
+        """
         query = "SELECT 1 FROM merchants WHERE username = %s LIMIT 1"
         error = "[MerchantController ERROR] Failed to find by username"
         return super().does_account_exist(query, username, error)
 
     def _map_to_merchant(self, row: dict) -> Merchant | None:
+        """Maps a database row (dictionary) to a Merchant dataclass object.
+
+        Args:
+            row (dict): A dictionary representing a row from the 'merchants' table.
+
+        Returns:
+            Merchant | None: A Merchant object if the row is not empty, otherwise `None`.
+        """
         if not row:
             return None
 
@@ -323,22 +515,83 @@ class MerchantController(AccountController):
             phone_number=row["phone_number"],
             email=row["email"],
             store_name=row["store_name"],
+            created_at=row["created_at"],
         )
 
 
 class AdminController(AccountController):
-    @override
-    def create(self, data: Admin):
-        return super().create(data)
+    def __init__(self, db: Database):
+        """Initializes the AdminController.
+
+        Args:
+            db (Database): The database instance.
+        """
+        super().__init__(db, "admins")
 
     @override
-    def read(self, identifier: int):
-        return super().read(identifier)
+    def create(self, data: Admin) -> tuple[bool, str]:
+        """Creates a new admin account.
+
+        Args:
+            data (Admin): The Admin object containing the new admin's data.
+
+        Returns:
+            tuple[bool, str]: A tuple indicating success/failure and a message.
+        """
+        # TODO: Implement Admin creation logic
+        # Example:
+        # fields = ["username", "email", "hash"]
+        # return self._create_account(
+        #     data=data,
+        #     fields=fields,
+        #     does_exist_func=self.does_admin_exist, # You'd need to implement this
+        #     password_field="hash",
+        # )
+        raise NotImplementedError("Admin creation logic is not yet implemented.")
 
     @override
-    def update(self, identifier: int, data: Admin):
-        return super().update(identifier, data)
+    def read(self, identifier: int) -> Admin | None:
+        """Reads an admin record by ID.
+
+        Args:
+            identifier (int): The ID of the admin to retrieve.
+
+        Returns:
+            Admin | None: The Admin object if found, otherwise `None`.
+        """
+        # TODO: Implement Admin read logic
+        # Example:
+        # return self._read_by_id(identifier, self._map_to_admin) # You'd need to implement _map_to_admin
+        raise NotImplementedError("Admin read logic is not yet implemented.")
 
     @override
-    def delete(self, identifier: int):
-        return super().delete(identifier)
+    def update(self, identifier: int, data: dict) -> bool:
+        """Updates an existing admin record.
+
+        Args:
+            identifier (int): The ID of the admin to update.
+            data (dict): A dictionary of fields to update and their new values.
+
+        Returns:
+            bool: `True` if the update was successful, `False` otherwise.
+        """
+        # TODO: Implement Admin update logic
+        # Example:
+        # allowed_fields = ["username", "email"]
+        # return self._update_by_id(identifier, data, allowed_fields)
+        raise NotImplementedError("Admin update logic is not yet implemented.")
+
+    @override
+    def delete(self, identifier: int) -> tuple[bool, str]:
+        """Deletes an admin record by ID.
+
+        Args:
+            identifier (int): The ID of the admin to delete.
+
+        Returns:
+            tuple[bool, str]: A tuple indicating success/failure and a message.
+        """
+        # TODO: Implement Admin delete logic
+        # Example:
+        # return self._delete_by_id(identifier, id_field="id")
+        raise NotImplementedError("Admin delete logic is not yet implemented.")
