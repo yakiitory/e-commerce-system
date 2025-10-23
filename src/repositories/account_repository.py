@@ -1,140 +1,62 @@
 from typing import override, TypeVar, Callable
-from controllers.base_controller import BaseController
+from repositories.base_repository import BaseRepository
 from database.database import Database
-import bcrypt
 
 from models.accounts import User, UserCreate, Merchant, MerchantCreate, Admin, AdminCreate
 
 T_Account = TypeVar("T_Account")
 
-class AccountController(BaseController):
+class AccountRepository(BaseRepository):
     def __init__(self, db: Database, table_name: str):
-        """Initializes the AccountController.
+        """Initializes the AccountRepository.
 
         Args:
             db (Database): The database instance.
-            table_name (str): The name of the database table this controller manages.
+            table_name (str): The name of the database table this repository manages.
         """
         self.db = db
         self.table_name = table_name
 
-    def _create_account(
-        self, data, fields: list[str], does_exist_func, password_field: str = "hash"
-    ) -> tuple[bool, str]:
-        """Generic create method for any account-type table.
-
-        Automatically logs using the caller's class name.
+    def get_by_username(self, username: str, map_func: Callable[[dict], T_Account | None]) -> T_Account | None:
+        """
+        Fetches a single account record from the database by username.
 
         Args:
-            data: An object containing the account data, expected to have attributes
-                corresponding to `fields` and `password_field`.
-            fields (list[str]): A list of field names to insert into the database.
-            does_exist_func (callable): A function to check if an account with the
-                given username already exists.
-            password_field (str, optional): The attribute name in `data` that holds
-                the plain password. Defaults to "hash".
+            username (str): The username of the account to fetch.
+            map_func (Callable): The function to map the database row to a dataclass.
 
         Returns:
-            tuple[bool, str]: A tuple where the first element is `True` if creation
-                was successful, `False` otherwise. The second element is a message.
+            The mapped account object if found, otherwise None.
         """
-        caller_name = self.__class__.__name__
-
-        # Check if username already exists
-        if does_exist_func(data.username):
-            return (False, f"{caller_name} username already exists!")
-
-        # Hash password
-        plain_password = getattr(data, password_field)
-        hashed_pw = self.hash_pw(plain_password)
-
-        # Build dynamic query
-        # Create a temporary object to pass to _create_record with the hashed password
-        temp_data_dict = {f: getattr(data, f) for f in fields if f != "hash"}
-        temp_data_dict["hash"] = hashed_pw # Set the hashed password
-        temp_data_object = type('TempData', (object,), temp_data_dict)()
-
-        new_id, message = self._create_record(temp_data_object, fields, self.table_name, self.db)
-        # Convert the (id | None, str) from _create_record to (bool, str) for _create_account's return
-        return (new_id is not None, message)
-
-    def hash_pw(self, password: str):
-        """Hashes a plain-text password using bcrypt.
+        query = f"SELECT * FROM {self.table_name} WHERE username = %s"
+        row = self.db.fetch_one(query, (username,))
+        return map_func(row) if row else None
+    
+    def does_account_exist(self, username: str) -> bool:
+        """
+        Checks if an account with the given username exists.
 
         Args:
-            password (str): The plain-text password to hash.
-
+            username (str): The username to check.
+        
         Returns:
-            bytes: The hashed password.
+            bool: `True` if the account exists, `False` otherwise.
         """
-        return bcrypt.hashpw(password.encode(), bcrypt.gensalt())
-
-    def does_account_exist(self, query: str, identifier: str, error: str) -> bool:
-        """Checks if an account exists based on a given query and identifier.
-
-        Args:
-            query (str): The SQL query to execute for checking existence.
-            identifier (str): The value to use in the query (e.g., username).
-            error (str): An error message to print if an exception occurs.
-
-        Returns:
-            bool: `True` if an account exists, `False` otherwise.
-        """
+        query = f"SELECT 1 FROM {self.table_name} WHERE username = %s LIMIT 1"
         try:
-            row = self.db.fetch_one(query, (identifier,))
+            row = self.db.fetch_one(query, (username,))
             if row:
                 return True
             else:
                 return False
         except Exception as e:
-            print(f"{error} : {e}")
+            print(f"[AccountRepository ERROR] Failed to find by username: {e}")
             return False
 
-    def _login(self, username: str, password: str, does_exist_func: Callable[[str], bool], map_func: Callable[[dict], T_Account | None]) -> tuple[bool, str | T_Account]:
-        """Generic login method for any account type.
 
-        Args:
-            username (str): The username of the account.
-            password (str): The plain-text password of the account.
-            does_exist_func (Callable[[str], bool]): A function to check if the account exists.
-            map_func (Callable[[dict], T_Account | None]): A function to map the database row to a dataclass.
-
-        Returns:
-            tuple[bool, str | T_Account]: A tuple where the first element is `True` on
-                successful login and the second is the account object, or `False` and
-                an error message on failure.
-        """
-        # Check if account exists
-        if not does_exist_func(username):
-            return (False, f"{self.__class__.__name__.replace('Controller', '')} does not exist!")
-
-        # Fetch hashed password
-        pw_query = f"SELECT hash FROM {self.table_name} WHERE username = %s LIMIT 1"
-        row = self.db.fetch_one(pw_query, (username,))
-
-        if not row or "hash" not in row:
-            return (False, "Error retrieving account data.")
-
-        # Compare passwords (convert both to bytes)
-        stored_hash = row["hash"]
-        if isinstance(stored_hash, str):
-            stored_hash = stored_hash.encode("utf-8")
-
-        if bcrypt.checkpw(password.encode("utf-8"), stored_hash):
-            # On success, fetch the full account object
-            success_query = f"SELECT * FROM {self.table_name} WHERE username = %s"
-            full_row = self.db.fetch_one(success_query, (username,))
-            account_object = map_func(full_row if full_row else {})
-            if account_object:
-                return (True, account_object)
-            return (False, "Error mapping account data after login.")
-        else:
-            return (False, "Incorrect password!")
-
-
-class UserController(AccountController):
+class UserRepository(AccountRepository):
     def __init__(self, db: Database):
-        """Initializes the UserController.
+        """Initializes the UserRepository.
 
         Args:
             db (Database): The database instance.
@@ -143,7 +65,8 @@ class UserController(AccountController):
 
     @override
     def create(self, data: UserCreate) -> tuple[bool, str]:
-        """Creates a new user account.
+        """Creates a new user record in the database.
+        Assumes data is pre-validated and password is pre-hashed.
 
         Args:
             data (UserCreate): The UserCreate object containing the new user's data.
@@ -161,12 +84,8 @@ class UserController(AccountController):
             "gender",
             "age",
         ]
-        return self._create_account(
-            data=data,
-            fields=fields,
-            does_exist_func=self.does_user_exist,
-            password_field="hash",
-        )
+        new_id, message = self._create_record(data, fields, self.table_name, self.db)
+        return (new_id is not None, message)
 
     @override
     def read(self, identifier: int) -> User | None:
@@ -216,39 +135,10 @@ class UserController(AccountController):
             tuple[bool, str]: A tuple indicating success/failure and a message.
         """
         return self._delete_by_id(identifier, table_name=self.table_name, db=self.db, id_field="id")
-    
-    def login(self, username: str, password: str) -> tuple[bool, str | User | None]:
-        """Authenticates a user.
 
-        Args:
-            username (str): The username of the user.
-            password (str): The plain-text password of the user.
+    def get_by_username(self, username: str) -> User | None:
+        return super().get_by_username(username, self._map_to_user)
 
-        Returns:
-            tuple[bool, str | User | None]: A tuple where the first element is `True` on
-                successful login and the second is the User object, or `False` and
-                an error message on failure.
-        """
-        return self._login(
-            username=username,
-            password=password,
-            does_exist_func=self.does_user_exist,
-            map_func=self._map_to_user,
-        )
-
-    def does_user_exist(self, username: str) -> bool:
-        """Checks if a user with the given username exists.
-
-        Args:
-            username (str): The username to check.
-
-        Returns:
-            bool: `True` if the user exists, `False` otherwise.
-        """
-        query = "SELECT 1 FROM users WHERE username = %s LIMIT 1"
-        error = "[UserController ERROR] Failed to find by username"
-        return super().does_account_exist(query, username, error)
-    
     def add_address_by_id(self, user_id: int, address_id: int) -> bool:
         """Adds an address to a user.
 
@@ -264,9 +154,8 @@ class UserController(AccountController):
             self.db.execute_query(query, (user_id, address_id))
             return True
         except Exception as e:
-            print(f"[UserController ERROR] Failed to add address: {e}")
+            print(f"[UserRepository ERROR] Failed to add address: {e}")
             return False
-
 
     def _map_to_user(self, row: dict) -> User | None:
         """Maps a database row (dictionary) to a User dataclass object.
@@ -295,9 +184,9 @@ class UserController(AccountController):
         )
 
 
-class MerchantController(AccountController):
+class MerchantRepository(AccountRepository):
     def __init__(self, db: Database):
-        """Initializes the MerchantController.
+        """Initializes the MerchantRepository.
 
         Args:
             db (Database): The database instance.
@@ -306,8 +195,9 @@ class MerchantController(AccountController):
 
     @override
     def create(self, data: MerchantCreate) -> tuple[bool, str]:
-        """Creates a new merchant account.
-
+        """Creates a new merchant record in the database.
+        Assumes data is pre-validated and password is pre-hashed.
+        
         Args:
             data (MerchantCreate): The Merchant object containing the new merchant's data.
 
@@ -323,12 +213,8 @@ class MerchantController(AccountController):
             "phone_number",
             "store_name",
         ]
-        return self._create_account(
-            data=data,
-            fields=fields,
-            does_exist_func=self.does_merchant_exist,
-            password_field="hash",
-        )
+        new_id, message = self._create_record(data, fields, self.table_name, self.db)
+        return (new_id is not None, message)
 
     @override
     def read(self, identifier: int) -> Merchant | None:
@@ -376,25 +262,9 @@ class MerchantController(AccountController):
         """
         return self._delete_by_id(identifier, table_name=self.table_name, db=self.db, id_field="id")
 
-    def login(self, username: str, password: str) -> tuple[bool, str | Merchant | None]:
-        """Authenticates a merchant.
+    def get_by_username(self, username: str) -> Merchant | None:
+        return super().get_by_username(username, self._map_to_merchant)
 
-        Args:
-            username (str): The username of the merchant.
-            password (str): The plain-text password of the merchant.
-
-        Returns:
-            tuple[bool, str | Merchant | None]: A tuple where the first element is `True` on
-                successful login and the second is the Merchant object, or `False` and
-                an error message on failure.
-        """
-        return self._login(
-            username=username,
-            password=password,
-            does_exist_func=self.does_merchant_exist,
-            map_func=self._map_to_merchant,
-        )
-    
     def add_address_by_id(self, merchant_id: int, address_id: int) -> bool:
         """Adds an address to a merchant.
 
@@ -410,21 +280,8 @@ class MerchantController(AccountController):
             self.db.execute_query(query, (merchant_id, address_id))
             return True
         except Exception as e:
-            print(f"[MerchantController ERROR] Failed to add address: {e}")
+            print(f"[MerchantRepository ERROR] Failed to add address: {e}")
             return False
-
-    def does_merchant_exist(self, username: str) -> bool: # type: ignore
-        """Checks if a merchant with the given username exists.
-
-        Args:
-            username (str): The username to check.
-
-        Returns:
-            bool: `True` if the merchant exists, `False` otherwise.
-        """
-        query = "SELECT 1 FROM merchants WHERE username = %s LIMIT 1"
-        error = "[MerchantController ERROR] Failed to find by username"
-        return super().does_account_exist(query, username, error)
 
     def _map_to_merchant(self, row: dict) -> Merchant | None:
         """Maps a database row (dictionary) to a Merchant dataclass object.
@@ -452,9 +309,9 @@ class MerchantController(AccountController):
         )
 
 
-class AdminController(AccountController):
+class AdminRepository(AccountRepository):
     def __init__(self, db: Database):
-        """Initializes the AdminController.
+        """Initializes the AdminRepository.
 
         Args:
             db (Database): The database instance.
@@ -463,7 +320,8 @@ class AdminController(AccountController):
 
     @override
     def create(self, data: AdminCreate) -> tuple[bool, str]:
-        """Creates a new admin account.
+        """Creates a new admin record in the database.
+        Assumes data is pre-validated and password is pre-hashed.
 
         Args:
             data (AdminCreate): The Admin object containing the new admin's data.
@@ -476,12 +334,8 @@ class AdminController(AccountController):
             "hash",
             "role",
         ]
-        return self._create_account(
-            data=data,
-            fields=fields,
-            does_exist_func=self.does_admin_exist,
-            password_field="hash",
-        )
+        new_id, message = self._create_record(data, fields, self.table_name, self.db)
+        return (new_id is not None, message)
 
     @override
     def read(self, identifier: int) -> Admin | None:
@@ -525,38 +379,9 @@ class AdminController(AccountController):
         """
         return self._delete_by_id(identifier, table_name=self.table_name, db=self.db, id_field="id")
 
-    def login(self, username: str, password: str) -> tuple[bool, str | Admin | None]:
-        """Authenticates an admin.
-
-        Args:
-            username (str): The username of the admin.
-            password (str): The plain-text password of the admin.
-
-        Returns:
-            tuple[bool, str | Admin | None]: A tuple where the first element is `True` on
-                successful login and the second is the Admin object, or `False` and
-                an error message on failure.
-        """
-        return self._login(
-            username=username,
-            password=password,
-            does_exist_func=self.does_admin_exist,
-            map_func=self._map_to_admin,
-        )
-
-    def does_admin_exist(self, username: str) -> bool:
-        """Checks if an admin with the given username exists.
-
-        Args:
-            username (str): The username to check.
-
-        Returns:
-            bool: `True` if the admin exists, `False` otherwise.
-        """
-        query = "SELECT 1 FROM admins WHERE username = %s LIMIT 1"
-        error = "[AdminController ERROR] Failed to find by username"
-        return super().does_account_exist(query, username, error)
-
+    def get_by_username(self, username: str) -> Admin | None:
+        return super().get_by_username(username, self._map_to_admin)
+    
     def _map_to_admin(self, row: dict) -> Admin | None:
         """Maps a database row (dictionary) to an Admin dataclass object.
 
