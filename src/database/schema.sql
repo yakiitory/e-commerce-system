@@ -261,6 +261,9 @@ CREATE TABLE IF NOT EXISTS `inventories` (
   `quantity_available` INT,
   `quantity_reserved` INT,
   PRIMARY KEY (`id`)
+  FOREIGN KEY(`product_id`)  REFERENCES `products`(`id`)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `inventory_addresses` (
