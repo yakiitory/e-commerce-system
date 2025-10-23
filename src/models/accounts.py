@@ -21,21 +21,27 @@ class User(Account, ContactMixin):
 
 
 @dataclass
+class UserCreate(AuthMixin, ContactMixin):
+    gender: str
+    age: int
+
+
+@dataclass
 class UserMetadata:
     id: int
     user_id: int
     # basic persistent collections
-    addresses: list[int] = field(default_factory=list)
-    order_history: list[int] = field(default_factory=list)
-    view_history: list[int] = field(default_factory=list)
-    liked_products: list[int] = field(default_factory=list)
-    reviews: list[int] = field(default_factory=list)
-    voucher_inventory: list[int] = field(default_factory=list)
+    addresses: tuple[int, ...] = field(default_factory=tuple)
+    order_history: tuple[int, ...] = field(default_factory=tuple)
+    view_history: tuple[int, ...] = field(default_factory=tuple)
+    liked_products: tuple[int, ...] = field(default_factory=tuple)
+    reviews: tuple[int, ...] = field(default_factory=tuple)
+    voucher_inventory: tuple[int, ...] = field(default_factory=tuple)
 
     # recommender / analytic fields
-    favorite_categories: list[int] = field(default_factory=list)
-    favorite_brands: list[str] = field(default_factory=list)
-    price_sensitivity: float = 0.5
+    favorite_categories: tuple[int, ...] = field(default_factory=tuple)
+    favorite_brands: tuple[str, ...] = field(default_factory=tuple)
+    price_sensitivity: float = 0.0
     engagement_score: float = 0.0
     recency_decay_factor: float = 1.0
 
@@ -43,7 +49,7 @@ class UserMetadata:
     gender: str | None = None
 
     # ML features
-    interest_vector: list[float] | None = None
+    interest_vector: tuple[float, ...] | None = None
     segment_label: str | None = None
     churn_risk_score: float = 0.0
 
@@ -54,17 +60,27 @@ class Merchant(Account, ContactMixin):
 
 
 @dataclass
+class MerchantCreate(AuthMixin, ContactMixin):
+    store_name: str
+
+
+@dataclass
 class MerchantMetadata:
-    products: list[int]
+    products: tuple[int, ...]
     ratings: float
-    vouchers: list[int]
-    addresses: list[int]
-    inventories: list[int]
+    vouchers: tuple[int, ...]
+    addresses: tuple[int, ...]
+    inventories: tuple[int, ...]
 
 
 @dataclass
 class Admin(Account):
-    log_ids: list[int]
+    pass
+
+
+@dataclass
+class AdminCreate(AuthMixin):
+    role: str
 
 
 @dataclass

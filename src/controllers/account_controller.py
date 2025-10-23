@@ -3,7 +3,7 @@ from controllers.base_controller import BaseController
 from database.database import Database
 import bcrypt
 
-from models.accounts import User, Merchant, Admin
+from models.accounts import User, UserCreate, Merchant, MerchantCreate, Admin, AdminCreate
 
 
 class AccountController(BaseController):
@@ -48,19 +48,14 @@ class AccountController(BaseController):
         hashed_pw = self.hash_pw(plain_password)
 
         # Build dynamic query
-        placeholders = ", ".join(["%s"] * len(fields))
-        columns = ", ".join(fields)
-        query = f"INSERT INTO {self.table_name} ({columns}) VALUES ({placeholders})"
-        # Use "hash" as the column name in DB, but get value from `password_field`
-        params = [getattr(data, f) if f != "hash" else hashed_pw for f in fields]
+        # Create a temporary object to pass to _create_record with the hashed password
+        temp_data_dict = {f: getattr(data, f) for f in fields if f != "hash"}
+        temp_data_dict["hash"] = hashed_pw # Set the hashed password
+        temp_data_object = type('TempData', (object,), temp_data_dict)()
 
-        try:
-            self.db.execute_query(query, tuple(params))
-            print(f"[{caller_name}] {self.table_name} record created successfully.")
-            return (True, f"{caller_name} has been created!")
-        except Exception as e:
-            print(f"[{caller_name} ERROR] Create failed: {e}")
-            return (False, f"Failed to create {caller_name.lower()} record.")
+        new_id, message = self._create_record(temp_data_object, fields, self.table_name, self.db)
+        # Convert the (id | None, str) from _create_record to (bool, str) for _create_account's return
+        return (new_id is not None, message)
 
     def _read_by_id(self, identifier: int, map_func, id_field: str = "id"):
         """Generic read method for any table by its ID.
@@ -210,11 +205,11 @@ class UserController(AccountController):
         super().__init__(db, "users")
 
     @override
-    def create(self, data: User) -> tuple[bool, str]:
+    def create(self, data: UserCreate) -> tuple[bool, str]:
         """Creates a new user account.
 
         Args:
-            data (User): The User object containing the new user's data.
+            data (UserCreate): The UserCreate object containing the new user's data.
 
         Returns:
             tuple[bool, str]: A tuple indicating success/failure and a message.
@@ -320,8 +315,7 @@ class UserController(AccountController):
             return (True, user) if user else (False, "Error mapping user data.")
         else:
             return (False, "Incorrect password!")
-
-    @override
+        
     def does_user_exist(self, username: str) -> bool:
         """Checks if a user with the given username exists.
 
@@ -372,11 +366,11 @@ class MerchantController(AccountController):
         super().__init__(db, "merchants")
 
     @override
-    def create(self, data: Merchant) -> tuple[bool, str]:
+    def create(self, data: MerchantCreate) -> tuple[bool, str]:
         """Creates a new merchant account.
 
         Args:
-            data (Merchant): The Merchant object containing the new merchant's data.
+            data (MerchantCreate): The Merchant object containing the new merchant's data.
 
         Returns:
             tuple[bool, str]: A tuple indicating success/failure and a message.
@@ -479,7 +473,6 @@ class MerchantController(AccountController):
         else:
             return (False, "Incorrect password!")
 
-    @override
     def does_merchant_exist(self, username: str) -> bool:
         """Checks if a merchant with the given username exists.
 
@@ -529,25 +522,26 @@ class AdminController(AccountController):
         super().__init__(db, "admins")
 
     @override
-    def create(self, data: Admin) -> tuple[bool, str]:
+    def create(self, data: AdminCreate) -> tuple[bool, str]:
         """Creates a new admin account.
 
         Args:
-            data (Admin): The Admin object containing the new admin's data.
+            data (AdminCreate): The Admin object containing the new admin's data.
 
         Returns:
             tuple[bool, str]: A tuple indicating success/failure and a message.
         """
-        # TODO: Implement Admin creation logic
-        # Example:
-        # fields = ["username", "email", "hash"]
-        # return self._create_account(
-        #     data=data,
-        #     fields=fields,
-        #     does_exist_func=self.does_admin_exist,
-        #     password_field="hash",
-        # )
-        raise NotImplementedError("Admin creation logic is not yet implemented.")
+        fields = [
+            "username",
+            "hash",
+            "role",
+        ]
+        return self._create_account(
+            data=data,
+            fields=fields,
+            does_exist_func=self.does_admin_exist,
+            password_field="hash",
+        )
 
     @override
     def read(self, identifier: int) -> Admin | None:
@@ -559,10 +553,9 @@ class AdminController(AccountController):
         Returns:
             Admin | None: The Admin object if found, otherwise `None`.
         """
-        # TODO: Implement Admin read logic
-        # Example:
-        # return self._read_by_id(identifier, self._map_to_admin)
-        raise NotImplementedError("Admin read logic is not yet implemented.")
+        return self._read_by_id(
+            identifier=identifier, map_func=self._map_to_admin, id_field="id"
+        )
 
     @override
     def update(self, identifier: int, data: dict) -> bool:
@@ -575,11 +568,8 @@ class AdminController(AccountController):
         Returns:
             bool: `True` if the update was successful, `False` otherwise.
         """
-        # TODO: Implement Admin update logic
-        # Example:
-        # allowed_fields = ["username", "email"]
-        # return self._update_by_id(identifier, data, allowed_fields)
-        raise NotImplementedError("Admin update logic is not yet implemented.")
+        allowed_fields = ["role"]
+        return self._update_by_id(identifier, data, allowed_fields)
 
     @override
     def delete(self, identifier: int) -> tuple[bool, str]:
@@ -591,7 +581,30 @@ class AdminController(AccountController):
         Returns:
             tuple[bool, str]: A tuple indicating success/failure and a message.
         """
-        # TODO: Implement Admin delete logic
-        # Example:
-        # return self._delete_by_id(identifier, id_field="id")
-        raise NotImplementedError("Admin delete logic is not yet implemented.")
+        return self._delete_by_id(identifier, id_field="id")
+
+    def does_admin_exist(self, username: str) -> bool:
+        """Checks if an admin with the given username exists.
+
+        Args:
+            username (str): The username to check.
+
+        Returns:
+            bool: `True` if the admin exists, `False` otherwise.
+        """
+        query = "SELECT 1 FROM admins WHERE username = %s LIMIT 1"
+        error = "[AdminController ERROR] Failed to find by username"
+        return super().does_account_exist(query, username, error)
+
+    def _map_to_admin(self, row: dict) -> Admin | None:
+        """Maps a database row (dictionary) to an Admin dataclass object.
+
+        Args:
+            row (dict): A dictionary representing a row from the 'admins' table.
+
+        Returns:
+            Admin | None: An Admin object if the row is not empty, otherwise `None`.
+        """
+        if not row:
+            return None
+        return Admin(**row)

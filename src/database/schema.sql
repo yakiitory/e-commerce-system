@@ -17,11 +17,11 @@ CREATE TABLE IF NOT EXISTS `users` (
 
 CREATE TABLE IF NOT EXISTS `addresses` (
   `id` INT AUTO_INCREMENT NOT NULL,
-  `house_no` VARCHAR(255) NOT NULL,
-  `street` VARCHAR(255) NOT NULL,
-  `city` VARCHAR(255) NOT NULL,
-  `postal_code` VARCHAR(255) NOT NULL,
-  `additional_notes` VARCHAR(255) NOT NULL,
+  `house_no` VARCHAR(50) NOT NULL,
+  `street` VARCHAR(100) NOT NULL,
+  `city` VARCHAR(100) NOT NULL,
+  `postal_code` VARCHAR(20) NOT NULL,
+  `additional_notes` VARCHAR(255),
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -39,18 +39,18 @@ CREATE TABLE IF NOT EXISTS `user_addresses` (
 
 CREATE TABLE IF NOT EXISTS `merchants` (
   `id` INT AUTO_INCREMENT NOT NULL,
-  `role` VARCHAR(255) NOT NULL,
-  `username` VARCHAR(255) NOT NULL,
+  `role` VARCHAR(20) NOT NULL DEFAULT 'merchant',
+  `username` VARCHAR(50) NOT NULL UNIQUE,
   `hash` VARCHAR(255) NOT NULL,
-  `last_login` DATETIME NOT NULL,
-  `is_active` BOOLEAN NOT NULL,
-  `created_at` DATETIME NOT NULL,
-  `store_name` VARCHAR(255) NOT NULL,
-  `ratings` REAL NOT NULL,
-  `first_name` VARCHAR(255) NOT NULL,
-  `last_name` VARCHAR(255) NOT NULL,
-  `phone_number` VARCHAR(255) NOT NULL,
-  `email` VARCHAR(255) NOT NULL,
+  `last_login` DATETIME,
+  `is_active` BOOLEAN,
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `store_name` VARCHAR(100) NOT NULL,
+  `ratings` REAL DEFAULT 0.0,
+  `first_name` VARCHAR(50) NOT NULL,
+  `last_name` VARCHAR(50) NOT NULL,
+  `phone_number` VARCHAR(20) NOT NULL,
+  `email` VARCHAR(100) NOT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -68,20 +68,20 @@ CREATE TABLE IF NOT EXISTS `merchant_addresses` (
 
 CREATE TABLE IF NOT EXISTS `admins` (
   `id` INT AUTO_INCREMENT NOT NULL,
-  `role` VARCHAR(255) NOT NULL,
-  `username` VARCHAR(255) NOT NULL,
+  `role` VARCHAR(20) NOT NULL,
+  `username` VARCHAR(50) NOT NULL UNIQUE,
   `hash` VARCHAR(255) NOT NULL,
-  `last_login` DATETIME NOT NULL,
-  `created_at` DATETIME NOT NULL,
+  `last_login` DATETIME,
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `logs` (
   `id` INT AUTO_INCREMENT NOT NULL,
-  `target_type` VARCHAR(255) NOT NULL,
+  `target_type` VARCHAR(50) NOT NULL,
   `target_id` INT NOT NULL,
-  `details` VARCHAR(255) NOT NULL,
-  `status` VARCHAR(255) NOT NULL,
+  `details` TEXT,
+  `status` VARCHAR(50) NOT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -99,7 +99,7 @@ CREATE TABLE IF NOT EXISTS `admin_logs` (
 
 CREATE TABLE IF NOT EXISTS `categories` (
   `id` INT AUTO_INCREMENT NOT NULL,
-  `name` VARCHAR(255),
+  `name` VARCHAR(100),
   `parent_id` INT,
   `description` TEXT,
   PRIMARY KEY (`id`)
@@ -107,15 +107,15 @@ CREATE TABLE IF NOT EXISTS `categories` (
 
 CREATE TABLE IF NOT EXISTS `products` (
   `id` INT AUTO_INCREMENT NOT NULL,
-  `name` VARCHAR(255) NOT NULl,
-  `brand` VARCHAR(255) NOT NULL,
+  `name` VARCHAR(150) NOT NULl,
+  `brand` VARCHAR(100) NOT NULL,
   `category_id` INT NOT NULL,
   `description` TEXT NOT NULl,
   `price` DECIMAL(10,2) NOT NULL,
   `original_price` DECIMAL(10,2) NOT NULL,
   `discount_rate` DECIMAL(10,2) NOT NULl,
   `quantity_available` INT NOT NULL,
-  `rating_avg` REAL NOT NULL,
+  `rating_avg` REAL NOT NULL DEFAULT 0.0,
   `rating_count` INT NOT NULL,
   `merchant_id` INT NOT NULL,
   `address_id` INT NOT NULL,
@@ -155,7 +155,7 @@ CREATE TABLE IF NOT EXISTS `carts` (
 
 CREATE TABLE IF NOT EXISTS `cart_items` (
   `cart_id` INT NOT NULL,
-  `item_id` INT AUTO_INCREMENT NOT NULL,
+  `item_id` INT NOT NULL,
   PRIMARY KEY (`cart_id`, `item_id`),
   FOREIGN KEY (`cart_id`) REFERENCES `carts`(`id`)
     ON UPDATE CASCADE
@@ -168,8 +168,8 @@ CREATE TABLE IF NOT EXISTS `cart_items` (
 CREATE TABLE IF NOT EXISTS `invoices` (
   `id` INT AUTO_INCREMENT NOT NULL,
   `address_id` INT,
-  `issue_date` DATETIME,
-  `status` VARCHAR(255),
+  `issue_date` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `status` VARCHAR(50),
   `payment_summary` TEXT,
   FOREIGN KEY (`address_id`) REFERENCES `addresses`(`id`)
     ON UPDATE CASCADE
@@ -178,9 +178,9 @@ CREATE TABLE IF NOT EXISTS `invoices` (
 
 CREATE TABLE IF NOT EXISTS `orders` (
   `id` INT AUTO_INCREMENT NOT NULL,
-  `payment_type` VARCHAR(255) NOT NULL,
-  `order_status` VARCHAR(255) NOT NULL,
-  `order_created` DATETIME NOT NULL,
+  `payment_type` VARCHAR(50) NOT NULL,
+  `order_status` VARCHAR(50) NOT NULL,
+  `order_created` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `invoice_id` INT NOT NULL,
   PRIMARY KEY (`id`),
   FOREIGN KEY (`invoice_id`) REFERENCES `invoices`(`id`)
@@ -191,7 +191,7 @@ CREATE TABLE IF NOT EXISTS `orders` (
 CREATE TABLE IF NOT EXISTS `shipments` (
   `id` INT AUTO_INCREMENT NOT NULL,
   `order_id` INT NOT NULL,
-  `status` VARCHAR(255) NOT NULL,
+  `status` VARCHAR(50) NOT NULL,
   `estimated_date` DATETIME,
   PRIMARY KEY (`id`),
   FOREIGN KEY (`order_id`) REFERENCES `orders`(`id`)
@@ -237,7 +237,7 @@ CREATE TABLE IF NOT EXISTS `payments` (
   `sender_type` ENUM('USER', 'MERCHANT') NOT NULL,
   `receiver_id` INT NOT NULL,
   `receiver_type` ENUM('USER', 'MERCHANT') NOT NULL,
-  `type` VARCHAR(255) NOT NULL,
+  `type` VARCHAR(50) NOT NULL,
   `amount` DECIMAL(18,2) NOT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -277,7 +277,7 @@ CREATE TABLE IF NOT EXISTS `inventory_addresses` (
 
 CREATE TABLE IF NOT EXISTS `images` (
   `id` INT AUTO_INCREMENT NOT NULL,
-  `url` VARCHAR(255),
+  `url` TEXT,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -305,7 +305,6 @@ CREATE TABLE IF NOT EXISTS `product_metadata` (
   `keywords` TEXT,
   `embedding_vector` TEXT,
   `tags` TEXT,
-  `attributes` TEXT,
   `demographics_fit` TEXT,
   `seasonal_relevance` TEXT,
   PRIMARY KEY(`id`),
@@ -391,7 +390,7 @@ CREATE TABLE IF NOT EXISTS `user_metadata` (
 CREATE TABLE IF NOT EXISTS `voucher` (
   `id` INT AUTO_INCREMENT NOT NULL,
   `merchant_id` INT,
-  `type` VARCHAR(255),
+  `type` VARCHAR(50),
   `active_until` DATETIME,
   `cashback` REAL,
   PRIMARY KEY (`id`),
@@ -451,11 +450,10 @@ CREATE TABLE IF NOT EXISTS `merchant_vouchers` (
 CREATE TABLE IF NOT EXISTS `history` (
   `id` INT AUTO_INCREMENT NOT NULL,
   `user_id` INT NOT NULL,
-  `interaction_type` VARCHAR(255),
-  `created_at` DATETIME,
+  `interaction_type` VARCHAR(50),
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   FOREIGN KEY (`user_id`) REFERENCES `users`(`id`)
     ON UPDATE CASCADE
     ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-

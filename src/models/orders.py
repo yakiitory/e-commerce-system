@@ -1,20 +1,25 @@
 from __future__ import annotations
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
-from .addresses import Address
 from .status import Status
 
 @dataclass
-class Item():
-    id: int
+class ItemCreate():
     product_id: int
     product_quantity: int
     product_price: float
 
 @dataclass
-class Cart():
+class Item(ItemCreate):
     id: int
+
+@dataclass
+class CartCreate():
     user_id: int
+
+@dataclass
+class Cart(CartCreate):
+    id: int
     items: list["CartItem"]
    
 
@@ -24,15 +29,16 @@ class CartItem(Item):
 
 
 @dataclass
-class Order():
-    id: int
-    orders: list["OrderItem"]
+class OrderCreate():
+    orders: tuple["OrderItem", ...]
     payment_type: str
-    shipment_id: int 
-    order_status: Status
     order_created: datetime
-    invoice_id: int
 
+@dataclass
+class Order(OrderCreate):
+    id: int
+    status: Status
+    order_created: datetime
 
 @dataclass
 class OrderItem(Item):
@@ -41,11 +47,18 @@ class OrderItem(Item):
 
 
 @dataclass
+class InvoiceCreate():
+    address_id: int
+    issue_date: datetime = field(default_factory=datetime.now)
+    status: Status = Status.PENDING
+    payment_summary: str | None = None
+
+@dataclass
 class Invoice():
-    """TODO: Should probably fix how this can be easily printed and contain all the info needed"""
     id: int
-    order_id: int
-    billing_address: Address
+    address_id: int
     issue_date: datetime
     status: Status
-    payment_summary: dict[str, float]
+    payment_summary: str | None = None
+
+

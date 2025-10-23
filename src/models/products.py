@@ -7,106 +7,81 @@ from dataclasses import dataclass, field
 
 
 @dataclass
-class Product(DateMixin):
-    """
-    This class holds a lot of fields because we want to steal data from users,
-    it could also be known as recommender algorithms :)
-    """
+class ProductCreate:
+    """Data for creating a new product entry."""
 
-    # Core IDs
-    id: int
-    sku_id: int
     name: str
+    merchant_id: int
     brand: str
     category_id: int
-
-    # Metadata
     description: str
-    tags: list[str] = field(default_factory=list)
-    attributes: dict[str, str] = field(
-        default_factory=dict
-    )  # Color: black, kinda stuff
+    address_id: int
+
     images: list[str] = field(default_factory=list)
 
-    # Pricing Sales
     price: float = 0.0
-    original_price: float | None = None
-    discount_rate: float | None = None
-    stock: int = 0
-    rating_avg: float = 0.0
-    rating_count: int = 0
+    original_price: float = 0.0
+    discount_rate: float = 0.0
+    quantity_available: int = 0
 
-    # Behavioural Signals
+@dataclass
+class Product(ProductCreate):
+    id: int = 0
+
+@dataclass
+class ProductMetadata:
     view_count: int = 0
     sold_count: int = 0
     add_to_cart_count: int = 0
     wishlist_count: int = 0
-    click_through_rate: float = 0.0
-
-    # Contextual
-    keywords: list[str] = field(
-        default_factory=list
-    )  # TODO: Implement NLP for Title+description
-    embedding_vector: list[float] | None = None  # TODO: Sentence transformer maybe?
-    popularity_score: float = 0.0  # TODO: Somehow get this
-
-    # Vendor Logistics
-    seller_id: int = 0
-    warehouse_id: int | None = None
-
-    # Personalization
-    demographics_fit: dict[str, float] | None = (
-        None  # This could be like "male": 0.9, "teen": 0.4
-    )
-    seasonal_relevance: list[str] | None = (
-        None  # Something like, ["Halloween", "Easter"]
-    )
-
-
-@dataclass
-class ProductCreate:
-    """Data for creating a new product entry."""
-
-    sku_id: int
-    name: str
-    brand: str
-    category_id: int
-    description: str
-
-    # Optional fields
+    click_through_rate: float = 0
+    rating_avg: float = 0
+    rating_count: int = 0
+    popularity_score: float = 0
+    demographics_fit: dict[str, float] = field(default_factory=dict)
+    seasonal_relevance: list[str] = field(default_factory=list)
+    embedding_vector: list[float] = field(default_factory=list)
+    keywords: list[str] = field(default_factory=list)
     tags: list[str] = field(default_factory=list)
-    attributes: dict[str, str] = field(default_factory=dict)
-    images: list[str] = field(default_factory=list)
-
-    price: float = 0.0
-    original_price: float | None = None
-    stock: int = 0
-
-    seller_id: int = 0
-    warehouse_id: int | None = None
-
 
 @dataclass
-class Category:
-    id: int
+class CategoryCreate:
     name: str
     parent_id: int | None
-    description: str = ""
-
+    description: str
 
 @dataclass
-class Inventory(DateMixin):
+class Category(CategoryCreate):
+    id: int
+
+@dataclass
+class InventoryCreate:
     id: int
     product_id: int
     quantity_available: int = 0
     quantity_reserved: int = 0
     locations: list[int] = []
 
+@dataclass
+class Inventory(InventoryCreate):
+    id: int
 
 @dataclass
 class Shipment:
+    """
+    Represents a shipment record retrieved from the database.
+    The 'addresses' field is populated by joining with the 'addresses' table
+    via the 'shipment_addresses' junction table.
+    """
     id: int
     order_id: int
     status: Status
-    estimated_date: datetime
-    address: list[Address]
+    estimated_date: datetime | None
+    addresses: dict[str, int]
+
+@dataclass
+class ShipmentCreate:
+    order_id: int
+    addresses: dict[str, int]
+    status: Status = Status.SHIPPED
+    estimated_date: datetime | None = None
