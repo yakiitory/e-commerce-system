@@ -101,14 +101,57 @@ class ProductController(BaseController):
         Returns:
             Product | None: The Product object if found, otherwise `None`.
         """
-        # This will eventually use a _read_by_id method from BaseController
-        raise NotImplementedError("Product read logic is not yet implemented.")
+        return self._id_to_dataclass(identifier=identifier, table_name=self.table_name, db=self.db, map_func=self._map_to_product)
 
 
     @override
-    def update(self, identifier, data):
-        return 
+    def update(self, identifier: int, data: ProductCreate) -> bool:
+        """Updates an existing product record.
+
+        Args:
+            identifier (int): The ID of the product to update.
+            data (ProductCreate): (Assuming) A newly created ProductCreate object that will replace the fields of the existing record.
+
+        Returns:
+            bool: `True` if the update was successful, `False` otherwise.
+        """
+        allowed_fields = [
+            "name",
+            "brand",
+            "category_id",
+            "description",
+            "price",
+            "original_price",
+            "discount_rate",
+            "quantity_available",
+            "merchant_id",
+            "address_id",
+        ]
+        return self._update_by_id(
+            identifier=identifier, data=data, table_name=self.table_name, db=self.db, allowed_fields=allowed_fields
+        )
+
+    @override
+    def delete(self, identifier: int) -> tuple[bool, str]:
+        """Deletes an existing product record by ID
+
+        Args:
+            identifier (int): The ID of the product to delete.
+
+        Returns:
+            tuple[bool, str]: A tuple indicating success/failure and a message.
+        """
+        return self._delete_by_id(identifier, table_name=self.table_name, db=self.db, id_field="id")
     
-    @override
-    def delete(self, identifier):
-        raise NotImplementedError("Product delete logic is not yet implemented.")
+    def _map_to_product(self, row: dict) -> Product | None:
+        """Maps a database row (dictionary) to a Product dataclass object.
+
+        Args:
+            row (dict): A dictionary representing a row from the 'products' table.
+
+        Returns:
+            Product | None: A Product object if the row is not empty, otherwise `None`.
+        """
+        if not row:
+            return None
+        return Product(**row)

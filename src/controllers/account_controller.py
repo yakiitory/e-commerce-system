@@ -57,111 +57,6 @@ class AccountController(BaseController):
         # Convert the (id | None, str) from _create_record to (bool, str) for _create_account's return
         return (new_id is not None, message)
 
-    def _read_by_id(self, identifier: int, map_func, id_field: str = "id"):
-        """Generic read method for any table by its ID.
-
-        Automatically logs using the caller's class name.
-
-        Args:
-            identifier (int): The ID of the record to retrieve.
-            map_func (callable): A function to map the database row (dict) to a
-                specific model object (e.g., User, Merchant).
-            id_field (str, optional): The name of the ID column in the table.
-                Defaults to "id".
-
-        Returns:
-            Any | None: The mapped model object if found, otherwise `None`.
-
-        Raises:
-            Exception: If a database error occurs during the read operation.
-        """
-        caller_name = self.__class__.__name__
-        query = f"SELECT * FROM {self.table_name} WHERE {id_field} = %s"
-        params = (identifier,)
-
-        try:
-            result = self.db.fetch_one(query, params)
-            if result:
-                return map_func(result)
-            else:
-                print(f"[{caller_name}] No record found with {id_field} = {identifier}")
-                return None
-        except Exception as e:
-            print(f"[{caller_name} ERROR] Read failed: {e}")
-            return None
-
-    def _update_by_id(
-        self, identifier: int, data: dict, allowed_fields: list[str]
-    ) -> bool:
-        """Generic update method for any account-type table by its ID.
-
-        Dynamically logs the name of the calling controller.
-
-        Args:
-            identifier (int): The ID of the record to update.
-            data (dict): A dictionary containing the fields and their new values.
-                Only fields present in `allowed_fields` will be updated.
-            allowed_fields (list[str]): A list of field names that are permitted
-                to be updated.
-
-        Returns:
-            bool: `True` if the update was successful, `False` otherwise.
-
-        Raises:
-            Exception: If a database error occurs during the update operation.
-        """
-        caller_name = self.__class__.__name__
-
-        # Filter only valid fields
-        fields_to_update = {k: v for k, v in data.items() if k in allowed_fields}
-        if not fields_to_update:
-            print(f"[{caller_name}] No valid fields provided for update.")
-            return False
-
-        # Build SQL dynamically
-        set_clause = ", ".join(f"{key} = %s" for key in fields_to_update.keys())
-        values = list(fields_to_update.values())
-        values.append(identifier)
-
-        query = f"UPDATE {self.table_name} SET {set_clause} WHERE id = %s"
-
-        try:
-            self.db.execute_query(query, tuple(values))
-            print(f"[{caller_name}] {self.table_name} ID {identifier} updated successfully.")
-            return True
-        except Exception as e:
-            print(f"[{caller_name} ERROR] Failed to update {self.table_name}: {e}")
-            return False
-
-    def _delete_by_id(self, identifier: int, id_field: str = "id") -> tuple[bool, str]:
-        """Generic delete method for any table by its ID.
-
-        Automatically logs using the caller's class name.
-
-        Args:
-            identifier (int): The ID of the record to delete.
-            id_field (str, optional): The name of the ID column in the table.
-                Defaults to "id".
-
-        Returns:
-            tuple[bool, str]: A tuple where the first element is `True` if deletion
-                was successful, `False` otherwise. The second element is a message.
-
-        Raises:
-            Exception: If a database error occurs during the delete operation.
-        """
-        caller_name = self.__class__.__name__
-        query = f"DELETE FROM {self.table_name} WHERE {id_field} = %s"
-        params = (identifier,)
-
-        try:
-            self.db.execute_query(query, params)
-            print(f"[{caller_name}] Record deleted from {self.table_name} (ID={identifier})")
-            return (True, f"{caller_name} record deleted successfully.")
-        except Exception as e:
-            print(f"[{caller_name} ERROR] Delete failed: {e}")
-            return (False, f"Failed to delete {caller_name.lower()} record.")
-
     def hash_pw(self, password: str):
         """Hashes a plain-text password using bcrypt.
 
@@ -241,8 +136,8 @@ class UserController(AccountController):
         Returns:
             User | None: The User object if found, otherwise `None`.
         """
-        return self._read_by_id(
-            identifier=identifier, map_func=self._map_to_user, id_field="id"
+        return self._id_to_dataclass(
+            identifier=identifier, table_name=self.table_name, db=self.db, map_func=self._map_to_user, id_field="id"
         )
 
     @override
@@ -265,7 +160,7 @@ class UserController(AccountController):
             "age",
         ]
         return self._update_by_id(
-            identifier=identifier, data=data, allowed_fields=allowed_fields
+            identifier=identifier, data=data, table_name=self.table_name, db=self.db, allowed_fields=allowed_fields
         )
 
     @override
@@ -278,7 +173,7 @@ class UserController(AccountController):
         Returns:
             tuple[bool, str]: A tuple indicating success/failure and a message.
         """
-        return self._delete_by_id(identifier, id_field="id")
+        return self._delete_by_id(identifier, table_name=self.table_name, db=self.db, id_field="id")
     
     def login(self, username: str, password: str) -> tuple[bool, str | User]:
         """Authenticates a user.
@@ -401,7 +296,7 @@ class MerchantController(AccountController):
         Returns:
             Merchant | None: The Merchant object if found, otherwise `None`.
         """
-        return self._read_by_id(identifier, self._map_to_merchant)
+        return self._id_to_dataclass(identifier=identifier, table_name=self.table_name, db=self.db, map_func=self._map_to_merchant)
 
     @override
     def update(self, identifier: int, data: dict) -> bool:
@@ -422,7 +317,7 @@ class MerchantController(AccountController):
             "store_name",
         ]
         return self._update_by_id(
-            identifier=identifier, data=data, allowed_fields=allowed_fields
+            identifier=identifier, data=data, table_name=self.table_name, db=self.db, allowed_fields=allowed_fields
         )
 
     @override
@@ -435,7 +330,7 @@ class MerchantController(AccountController):
         Returns:
             tuple[bool, str]: A tuple indicating success/failure and a message.
         """
-        return self._delete_by_id(identifier, id_field="id")
+        return self._delete_by_id(identifier, table_name=self.table_name, db=self.db, id_field="id")
 
     def login(self, username: str, password: str) -> tuple[bool, str | Merchant]:
         """Authenticates a merchant.
@@ -553,8 +448,8 @@ class AdminController(AccountController):
         Returns:
             Admin | None: The Admin object if found, otherwise `None`.
         """
-        return self._read_by_id(
-            identifier=identifier, map_func=self._map_to_admin, id_field="id"
+        return self._id_to_dataclass(
+            identifier=identifier, table_name=self.table_name, db=self.db, map_func=self._map_to_admin, id_field="id"
         )
 
     @override
@@ -569,7 +464,9 @@ class AdminController(AccountController):
             bool: `True` if the update was successful, `False` otherwise.
         """
         allowed_fields = ["role"]
-        return self._update_by_id(identifier, data, allowed_fields)
+        return self._update_by_id(
+            identifier=identifier, data=data, table_name=self.table_name, db=self.db, allowed_fields=allowed_fields
+        )
 
     @override
     def delete(self, identifier: int) -> tuple[bool, str]:
@@ -581,7 +478,7 @@ class AdminController(AccountController):
         Returns:
             tuple[bool, str]: A tuple indicating success/failure and a message.
         """
-        return self._delete_by_id(identifier, id_field="id")
+        return self._delete_by_id(identifier, table_name=self.table_name, db=self.db, id_field="id")
 
     def does_admin_exist(self, username: str) -> bool:
         """Checks if an admin with the given username exists.

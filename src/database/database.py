@@ -95,17 +95,20 @@ class Database:
             print(f"[DB ERROR] Failed to get connection: {e}")
             raise
 
-    def execute_query(self, query: str, params: tuple | None = None) -> None:
+    def execute_query(self, query: str, params: tuple | None = None) -> int | None:
         """
         Execute an INSERT, UPDATE, or DELETE query.
+        Returns the last inserted row ID for INSERT statements, or None otherwise.
         """
         connection = None
         cursor = None
+        last_id = None
         try:
             connection = self.get_connection()
             cursor = connection.cursor()
             cursor.execute(query, params or ())
             connection.commit()
+            last_id = cursor.lastrowid # Capture the last inserted ID
         except Error as e:
             print(f"[DB ERROR] Query failed: {e}")
             if connection:
@@ -115,6 +118,7 @@ class Database:
                 cursor.close()
             if connection:
                 connection.close()
+        return last_id # Return the captured ID
 
     def fetch_one(self, query: str, params: tuple | None = None):
         """
