@@ -64,7 +64,7 @@ class UserRepository(AccountRepository):
         super().__init__(db, "users")
 
     @override
-    def create(self, data: UserCreate) -> tuple[bool, str]:
+    def create(self, data: UserCreate) -> tuple[int, str]:
         """Creates a new user record in the database.
         Assumes data is pre-validated and password is pre-hashed.
 
@@ -194,7 +194,7 @@ class MerchantRepository(AccountRepository):
         super().__init__(db, "merchants")
 
     @override
-    def create(self, data: MerchantCreate) -> tuple[bool, str]:
+    def create(self, data: MerchantCreate) -> tuple[int, str]:
         """Creates a new merchant record in the database.
         Assumes data is pre-validated and password is pre-hashed.
         
@@ -319,7 +319,7 @@ class AdminRepository(AccountRepository):
         super().__init__(db, "admins")
 
     @override
-    def create(self, data: AdminCreate) -> tuple[bool, str]:
+    def create(self, data: AdminCreate) -> tuple[int, str]:
         """Creates a new admin record in the database.
         Assumes data is pre-validated and password is pre-hashed.
 

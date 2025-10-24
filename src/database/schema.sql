@@ -287,6 +287,7 @@ CREATE TABLE IF NOT EXISTS `images` (
 CREATE TABLE IF NOT EXISTS `product_images` (
   `product_id` INT NOT NULL,
   `image_id` INT NOT NULL,
+  `is_thumbnail` BOOLEAN NOT NULL,
   PRIMARY KEY(`product_id`, `image_id`),
   FOREIGN KEY (`product_id`) REFERENCES `products`(`id`)
     ON UPDATE CASCADE
