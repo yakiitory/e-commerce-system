@@ -60,7 +60,7 @@ class InventoryCreate:
     product_id: int
     quantity_available: int = 0
     quantity_reserved: int = 0
-    locations: list[int] = []
+    locations: list[int] = field(default_factory=list)
 
 @dataclass
 class Inventory(InventoryCreate):
