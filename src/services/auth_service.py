@@ -14,7 +14,7 @@ class AuthService:
     """
 
     # --- User Specific Methods ---
-    def register_user(self, user_repo: UserRepository, data: UserCreate) -> tuple[bool, str]:
+    def register_user(self, user_repo: UserRepository, data: UserCreate) -> tuple[int, str]:
         """
         Registers a new user.
 
@@ -60,7 +60,7 @@ class AuthService:
             return (False, "Incorrect password!")
 
     # --- Merchant Specific Methods ---
-    def register_merchant(self, merchant_repo: MerchantRepository, data: MerchantCreate) -> tuple[bool, str]:
+    def register_merchant(self, merchant_repo: MerchantRepository, data: MerchantCreate) -> tuple[int, str]:
         """
         Registers a new merchant.
 
@@ -112,7 +112,7 @@ class AuthService:
             return (False, "Incorrect password!")
 
     # --- Admin Specific Methods ---
-    def register_admin(self, admin_repo: AdminRepository, data: AdminCreate) -> tuple[bool, str]:
+    def register_admin(self, admin_repo: AdminRepository, data: AdminCreate) -> tuple[int, str]:
         """
         Registers a new admin.
 
