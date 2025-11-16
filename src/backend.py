@@ -41,7 +41,7 @@ mock_users = {
         id=1,
         role="user",
         username="testuser",
-        hash="this_is_a_mock_hash",
+        hash="password",
         first_name="Blanca",
         last_name="Evangelista",
         phone_number="676767676767",
@@ -53,14 +53,14 @@ mock_users = {
 }
 
 def mock_login(username: str, password: str) -> dict: 
-    if username in mock_users:
+    user = mock_users.get(username)
+    if user and user.hash == password:
         return {
             "status": True, 
-            "message": f"Welcome back, {username}!"}
-    else:
-        return {
-            "status": False, 
-            "message": "Invalid username or password."}
+            "message": f"Welcome back, {username}!"}   
+    return {
+        "status": False, 
+        "message": "Invalid username or password."}
 
 def mock_register(form_data: dict) -> dict:
     username = form_data.get('username')
