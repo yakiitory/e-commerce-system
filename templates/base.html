@@ -18,32 +18,78 @@
         <a href="/" class="logo-container">
             <img class="logo-img" src="{{ url_for('static', filename='img/fleamart_logo.png') }}" alt="FleaMart Logo">
         </a>
-        <div class="search-bar">
-            <div class="search-icon-container">
+        <form class="search-bar" action="/search" method="get">
+            <input type="text" name="query" class="search-input" placeholder="Browse FleaMart...">
+            <button type="submit" class="search-icon-container">
                 {% include "svg/search.svg"%}
-            </div>
-        </div>
+            </button>
+        </form>
         <div class="icons-container">
-            {% include "svg/heart.svg" %}
-            {% include "svg/account.svg" %}
-            {% include "svg/shopping_cart.svg" %}
+            <a href="">{% include "svg/heart.svg" %}</a>
+            <a href="{{ url_for('login_page') }}">{% include "svg/account.svg" %}</a>
+            <a href="">{% include "svg/shopping_cart.svg" %}</a>
         </div>
     </nav>
     <nav class="nav-bar">
         <a href="">HOME</a>
         <a href="">BROWSE</a>
     </nav>
-    {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %} 
-    <div class="flash-message">
-        {% for category, message in messages %}
-            <div class="alert alert-{{ category }}">
-                {{ message }}
+    <main class="content-wrapper">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %} 
+        <div class="flash-message">
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endwith %}
+        {% block body %}{% endblock %}
+    </main>
+    <footer class="content-wrapper">
+        {% block footer %}
+        <p class="footer-title">NAVIGATION</p>
+        <div class="footer-content">
+            <div class="footer-column">
+                <p class="footer-column-title">POPULAR CATEGORIES</p>
+                <a href="">Lorem Ipsum</a>
+                <a href="">Lorem Ipsum</a>
+                <a href="">Lorem Ipsum</a>
+                <a href="">Lorem Ipsum</a>  
             </div>
-        {% endfor %}
-    </div>
-    {% endif %}
-    {% endwith %}
-    {% block body %}{% endblock %}
+            <div class="footer-column">
+                <p class="footer-column-title">PRODUCTS</p>
+                <a href="">Lorem Ipsum</a>
+                <a href="">Lorem Ipsum</a>
+                <a href="">Lorem Ipsum</a>
+                <a href="">Lorem Ipsum</a>  
+            </div>
+            <div class="footer-column">
+                <p class="footer-column-title">SERVICES</p>
+                <a href="">Lorem Ipsum</a>
+                <a href="">Lorem Ipsum</a>
+                <a href="">Lorem Ipsum</a>
+                <a href="">Lorem Ipsum</a>  
+            </div>
+            <div class="footer-column">
+                <p class="footer-column-title">CONTACT US</p>
+                <div class="footer-contact-item">
+                    {% include "svg/location.svg" %}
+                    <a href="">Lorem ipsum dolor sit amet consectetur</a>
+                </div>
+                <div class="footer-contact-item">
+                    {% include "svg/call.svg" %}
+                    <a href="">012 345 679</a>
+                </div>
+                <div class="footer-contact-item">
+                    {% include "svg/mail.svg" %}
+                    <a href="">example@gmail.com</a> 
+                </div>
+            </div>
+        </div> 
+        {% endblock %}
+    </footer>
 </body>
 </html>

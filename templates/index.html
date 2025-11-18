@@ -6,31 +6,8 @@
 
 
 {% block body %}
-<div>
-    <a href="{{ url_for('login_page') }}">This is the main content of the home page.</a>
-</div>
-<main>
-    <section class="hero">
-        <div class="container">
-            <h1>Welcome to Our Store!</h1>
-            <p>Discover the best products, just for you.</p>
-            <a href="{{ url_for('products_page') }}" class="btn btn-primary">Shop Now</a>
-        </div>
-    </section>
-
-    <section class="featured-products">
-        <div class="container">
-            <h2>Featured Products</h2>
-            <div class="product-grid">
-                <div class="product-card">
-                    <img src="{{ url_for('static', filename='images/product1.jpg') }}" alt="Product 1">
-                    <h3>Product Name</h3>
-                    <p class="price">$19.99</p>
-                    <button class="btn">Add to Cart</button>
-                </div>
-            </div>
-        </div>
-    </section>
+<div></div>
+<main class="content-wrapper">
  
 </main>
 {% endblock %}

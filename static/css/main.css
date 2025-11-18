@@ -1,8 +1,10 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 body {
-    /* Use Inter as the primary font, with a generic sans-serif as a fallback */
     font-family: 'Inter', sans-serif;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
     margin: 0;
 }
 
@@ -97,17 +99,32 @@ header {
     height: 30px;
     border-radius: 1rem;
     border: 1px solid #000000;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+}
+
+.search-input {
+    flex-grow: 1;
+    border: none;
+    outline: none;
+    padding: 0 1rem;
+    height: 100%;
+    font-size: 1rem;
+    background: transparent;
 }
 
 .search-icon-container {
     height: 100%;
     width: 2.5rem;
-    float: right; 
     border-left: 1px solid #000000;
     cursor: pointer;
     display: flex;
     justify-content: center;
     align-items: center;
+    background: none;
+    border: none;
+    padding: 0;
 }
 
 .search-icon-container svg {
@@ -122,13 +139,19 @@ header {
     align-items: center;
 }
 
+.icons-container a {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
 .icons-container svg {
     width: 1.5rem;
     height: 1.5rem; 
     fill: #777777;
 }
 
-.icons-container svg:first-child {
+.icons-container a:first-child svg {
     fill: #f5c2e7; 
 }
 
@@ -149,7 +172,70 @@ header {
     font-size: 1rem; 
 }
 
-/* Responsive Design for smaller screens */
+footer {
+    border-top-left-radius: 1.5rem;
+    border-top-right-radius: 1.5rem;
+    padding-bottom: 2rem;
+    padding-top: 2rem;
+    margin-top: auto; 
+    background-color: #1E1E2E;
+}
+
+.footer-title { 
+    color: #f5c2e7;
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 0;
+}
+
+.footer-content {
+    display:flex;
+    justify-content: space-between; 
+    gap: 2rem; 
+}
+
+.footer-column {
+    align-items: flex-start;
+    flex-direction: column;
+    display: flex;
+}
+
+.footer-column p {
+    margin-top: .5rem;
+    text-decoration: underline;
+    text-decoration-color: #f5c2e7;
+    text-decoration-thickness: .05rem;
+    text-underline-offset: 0.5rem;
+    color: #ffffff;
+    font-weight: 600;
+    font-size: 1.3rem;
+}
+
+.footer-column a {
+    text-decoration: none;
+    color: #C4C4C4;
+}
+
+.footer-contact-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.footer-contact-item svg {
+    width: 1rem;
+    height: 1rem;
+    fill: #F9E2AF;
+    flex-shrink: 0; /* Prevents the icon from shrinking */
+}
+
+
+/* General Content Wrapper */
+.content-wrapper {
+    padding-left: 5rem;
+    padding-right: 5rem;
+}
+
 @media (max-width: 768px) {
     .header-main {
         padding-left: 1rem;
@@ -163,5 +249,10 @@ header {
 
     .icons-container {
         gap: 1rem;
+    }
+
+    .content-wrapper {
+        padding-left: 1rem;
+        padding-right: 1rem;
     }
 }
