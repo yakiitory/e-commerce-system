@@ -19,7 +19,7 @@ class TransactionService:
         self.virtual_card_repo = virtual_card_repo
         self.payment_repo = payment_repo
 
-    def transfer_funds(self, sender_card_id: int, receiver_card_id: int, amount: float, payment_type: str) -> tuple[bool, str]:
+    def transfer_funds(self, sender_card_id: int, receiver_card_id: int, amount: float, payment_type: str, in_transaction: bool = False) -> tuple[bool, str]:
         """
         Transfers a specified amount from a sender's virtual card to a receiver's.
         This entire operation is performed within a database transaction to ensure atomicity.
@@ -29,6 +29,7 @@ class TransactionService:
             receiver_card_id (int): The ID of the receiver's virtual card.
             amount (float): The amount to transfer. Must be positive.
             payment_type (str): The type of payment (e.g., 'ORDER_PAYMENT', 'REFUND').
+            in_transaction (bool): If True, assumes a transaction is already active and does not manage it.
 
         Returns:
             tuple[bool, str]: A tuple indicating success/failure and a message.
@@ -48,34 +49,37 @@ class TransactionService:
         if not payment_id:
             return (False, "Failed to create initial payment record.")
 
+        transaction_committed = False
         try:
-            # self.db.begin_transaction() # Assuming the DB class has transaction support
+            if not in_transaction:
+                self.db.begin_transaction()
 
             # 1. Debit the sender. The repository method ensures balance >= 0.
             debit_success = self.virtual_card_repo.adjust_balance(sender_card_id, -amount)
             if not debit_success:
-                # This is likely due to insufficient funds.
                 self.payment_repo.update(payment_id, {'status': Status.CANCELLED})
-                # self.db.rollback()
                 return (False, "Transfer failed: Insufficient funds.")
 
             # 2. Credit the receiver.
             credit_success = self.virtual_card_repo.adjust_balance(receiver_card_id, amount)
             if not credit_success:
-                # This is a critical failure. We must roll back the debit.
-                self.virtual_card_repo.adjust_balance(sender_card_id, amount) # Refund sender
                 self.payment_repo.update(payment_id, {'status': Status.CANCELLED})
-                # self.db.rollback()
                 return (False, "Transfer failed: Could not credit receiver. Transaction rolled back.")
 
             # 3. If both succeed, finalize the payment status.
             self.payment_repo.update(payment_id, {'status': Status.PAID})
-            # self.db.commit()
+            if not in_transaction:
+                self.db.commit()
+                transaction_committed = True
             return (True, f"Transfer of {amount} successful. Payment ID: {payment_id}")
 
         except Exception as e:
-            # Catch any other exceptions and attempt to roll back.
             print(f"[TransactionService ERROR] An unexpected error occurred during fund transfer: {e}")
-            # self.db.rollback()
             self.payment_repo.update(payment_id, {'status': Status.CANCELLED})
             return (False, "An unexpected error occurred. The transaction has been cancelled.")
+        finally:
+            # Ensure the transaction is always closed.
+            # If the commit was successful, this does nothing.
+            # If there was an error or early return, this rolls back the transaction.
+            if not in_transaction and not transaction_committed:
+                self.db.rollback()

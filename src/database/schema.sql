@@ -324,11 +324,15 @@ CREATE TABLE IF NOT EXISTS `product_metadata` (
 CREATE TABLE IF NOT EXISTS `reviews` (
   `id` INT AUTO_INCREMENT NOT NULL,
   `user_id` INT,
+  `product_id` INT,
   `ratings` REAL,
   `description` TEXT,
   `likes` INT,
   PRIMARY KEY (`id`),
   FOREIGN KEY (`user_id`) REFERENCES `users`(`id`)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE,
+  FOREIGN KEY (`product_id`) REFERENCES `products`(`id`)
     ON UPDATE CASCADE
     ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

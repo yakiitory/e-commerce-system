@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     from repositories.product_repository import ProductRepository
     from repositories.inventory_repository import InventoryRepository
     from services.transaction_service import TransactionService
+    from database.database import Database
 
 
 class OrderService:
@@ -16,7 +17,8 @@ class OrderService:
     Handles the business logic for creating and managing orders.
     """
 
-    def __init__(self, order_repo: OrderRepository, product_repo: ProductRepository, inventory_repo: InventoryRepository, transaction_service: TransactionService):
+    def __init__(self, db: Database, order_repo: OrderRepository, product_repo: ProductRepository, inventory_repo: InventoryRepository, transaction_service: TransactionService):
+        self.db = db
         self.order_repo = order_repo
         self.product_repo = product_repo
         self.inventory_repo = inventory_repo
@@ -71,45 +73,47 @@ class OrderService:
         if total_amount <= 0:
             return (None, "Total amount must be positive.")
 
-        # --- 2. Process Payment ---
-        payment_success, payment_message = self.transaction_service.transfer_funds(
-            sender_card_id=user_card_id,
-            receiver_card_id=merchant_card_id,
-            amount=total_amount,
-            payment_type="ORDER_PAYMENT"
-        )
+        transaction_committed = False
+        try:
+            self.db.begin_transaction()
 
-        if not payment_success:
-            return (None, f"Order creation failed: {payment_message}")
-
-        # --- 3. Create the Order record ---
-        order_to_create = OrderCreate(
-            user_id=user_id,
-            merchant_id=merchant_id,
-            shipping_address_id=shipping_address_id,
-            billing_address_id=billing_address_id,
-            total_amount=total_amount,
-            items=validated_items,
-            status=Status.PAID  # Set status to PAID since payment was successful
-        )
-
-        new_order_id, order_message = self.order_repo.create(order_to_create)
-
-        if not new_order_id:
-            # This is a critical failure. Payment was made, but order creation failed.
-            # We must attempt to refund the user.
-            self.transaction_service.transfer_funds(
-                sender_card_id=merchant_card_id,
-                receiver_card_id=user_card_id,
+            # --- 2. Process Payment ---
+            payment_success, payment_message = self.transaction_service.transfer_funds(
+                sender_card_id=user_card_id,
+                receiver_card_id=merchant_card_id,
                 amount=total_amount,
-                payment_type="CRITICAL_REFUND"
+                payment_type="ORDER_PAYMENT",
+                in_transaction=True
             )
-            return (None, f"CRITICAL: Payment succeeded but order creation failed. A refund has been issued. Reason: {order_message}")
+            if not payment_success:
+                # transfer_funds already rolled back its own sub-steps, but we return here
+                # and the finally block will ensure the outer transaction is also rolled back.
+                return (None, f"Order creation failed: {payment_message}")
 
-        # --- 4. Update Product Inventory and Metadata ---
-        for item in validated_items:
-            # Atomically decrease inventory and update sold count
-            self.inventory_repo.adjust_quantity(item.product_id, -item.quantity)
-            self.product_repo.metadata_repo.increment_field(item.product_id, 'sold_count', item.quantity)
+            # --- 3. Create the Order record ---
+            order_to_create = OrderCreate(
+                user_id=user_id, merchant_id=merchant_id,
+                shipping_address_id=shipping_address_id, billing_address_id=billing_address_id,
+                total_amount=total_amount, items=validated_items, status=Status.PAID
+            )
+            new_order_id, order_message = self.order_repo.create(order_to_create)
+            if not new_order_id:
+                # This is a critical failure. The transaction will be rolled back.
+                return (None, f"CRITICAL: Payment succeeded but order creation failed. Transaction rolled back. Reason: {order_message}")
 
-        return (new_order_id, f"Order created successfully with ID {new_order_id}.")
+            # --- 4. Update Product Inventory and Metadata ---
+            for item in validated_items:
+                self.inventory_repo.adjust_quantity(item.product_id, -item.quantity)
+                self.product_repo.metadata_repo.increment_field(item.product_id, 'sold_count', item.quantity)
+
+            # --- 5. Commit Transaction ---
+            self.db.commit()
+            transaction_committed = True
+            return (new_order_id, f"Order created successfully with ID {new_order_id}.")
+
+        except Exception as e:
+            print(f"[OrderService ERROR] An unexpected error occurred during order creation: {e}")
+            return (None, "An unexpected error occurred during order creation. The transaction has been rolled back.")
+        finally:
+            if not transaction_committed:
+                self.db.rollback()
