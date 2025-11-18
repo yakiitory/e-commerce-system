@@ -1,14 +1,14 @@
 from datetime import datetime
 from dataclasses import asdict
 
-from .models.accounts import User, UserCreate
-from .models.products import (Product, ProductCreate, Category, CategoryCreate, 
+from models.accounts import User, UserCreate
+from models.products import (Product, ProductCreate, Category, CategoryCreate, 
                               Inventory, InventoryCreate)
-from .models.orders import (Cart, CartItem, Order, OrderItem, Invoice, Status)
-from .models.addresses import Address, AddressCreate
-from .models.payments import VirtualCard, Payment, Voucher
-from .models.reviews import Review
-from .models.logs import Interaction, AdminLog
+from models.orders import (Cart, CartItem, Order, OrderItem, Invoice, Status)
+from models.addresses import Address, AddressCreate
+from models.payments import VirtualCard, Payment, Voucher
+from models.reviews import Review
+from models.logs import Interaction, AdminLog
 
 mock_products = [
     Product(

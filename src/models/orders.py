@@ -37,6 +37,7 @@ class OrderCreate():
 @dataclass
 class Order(OrderCreate):
     id: int
+    user_id: int
     status: Status
     order_created: datetime
 
@@ -48,6 +49,7 @@ class OrderItem(Item):
 
 @dataclass
 class InvoiceCreate():
+    order_id: int
     address_id: int
     issue_date: datetime = field(default_factory=datetime.now)
     status: Status = Status.PENDING
@@ -56,9 +58,8 @@ class InvoiceCreate():
 @dataclass
 class Invoice():
     id: int
+    order_id: int
     address_id: int
     issue_date: datetime
     status: Status
     payment_summary: str | None = None
-
-
