@@ -1,14 +1,15 @@
-from typing import override
+from typing import override, Any
 from types import SimpleNamespace
 from models.products import ProductCreate, Product, ProductMetadata, ProductEntry
 from repositories.base_repository import BaseRepository
+from repositories.metadata_repository import ProductMetadataRepository
 from database.database import Database
 
 class ProductRepository(BaseRepository):
     def __init__(self, db: Database):
         self.db = db
         self.table_name = "products"
-        self.metadata_table_name = "product_metadata"
+        self.metadata_repo = ProductMetadataRepository(db)
 
     @override
     def create(self, data: ProductCreate, metadata: ProductMetadata) -> tuple[int, str]:
@@ -34,20 +35,6 @@ class ProductRepository(BaseRepository):
             "merchant_id",
             "address_id",
         ]
-        metadata_fields = [
-            "view_count",
-            "sold_count",
-            "add_to_cart_count",
-            "wishlist_count",
-            "click_through_rate",
-            "rating_avg",
-            "rating_count",
-            "popularity_score",
-            "demographics_fit",
-            "seasonal_relevance",
-            "embedding_vector",
-            "keywords",
-        ]
 
         # Create the product record
         new_product_id, message = self._create_record(
@@ -58,7 +45,7 @@ class ProductRepository(BaseRepository):
         )
 
         if not new_product_id:
-            return (False, message) # Return failure message from _create_record
+            return (0, message) # Return failure message from _create_record
         
         # Handle image record creation and its junction table
         if data.images:
@@ -72,7 +59,7 @@ class ProductRepository(BaseRepository):
                     db=self.db
                 )
                 if not image_id:
-                    return (False, f"Product created, but failed to save image: {img_msg}")
+                    return (0, f"Product created, but failed to save image: {img_msg}")
                 
                 # Checks if thumbnail or not
                 if is_first_image:
@@ -88,20 +75,18 @@ class ProductRepository(BaseRepository):
                 )
                 link_id, link_msg = self._create_record(link_data, ['product_id', 'image_id', 'is_thumbnail'], 'product_images', self.db)
                 if not link_id:
-                    return (False, f"Product and image created, but failed to link them: {link_msg}")
+                    return (0, f"Product and image created, but failed to link them: {link_msg}")
                 
         if metadata:
-            new_metadata_id, metadata_msg = self._create_record(
-                data=metadata,
-                fields=metadata_fields,
-                table_name='product_metadata',
-                db=self.db
-            )
+            # Use the metadata repository to create the metadata record
+            setattr(metadata, 'product_id', new_product_id) # Set the foreign key
+            new_metadata_id, metadata_msg = self.metadata_repo.create(metadata)
             if not new_metadata_id:
-                return (False, f"Product created, but failed to save metadata: {metadata_msg}")
+                # Rollback: Delete the product that was just created
+                self._delete_by_id(new_product_id, self.table_name, self.db)
+                return (0, f"Product created, but failed to save metadata: {metadata_msg}")
 
-        # Return success message
-        return (True, f"Product '{data.name}' created successfully with ID {new_product_id}.")
+        return (new_product_id, f"Product '{data.name}' created successfully with ID {new_product_id}.")
 
     @override
     def read(self, identifier: int) -> Product | None:
@@ -117,21 +102,20 @@ class ProductRepository(BaseRepository):
         return self._id_to_dataclass(identifier=identifier, table_name=self.table_name, db=self.db, map_func=self._map_to_product)
     
     @override
-    def update(self, identifier: int, data: ProductCreate, metadata: ProductMetadata) -> bool:
+    def update(self, identifier: int, data: dict[str, Any] | None = None, metadata: dict[str, Any] | None = None) -> bool:
         """
-        Updates an existing product record.
-        
+        Updates an existing product and/or its metadata.
+        Accepts dictionaries for partial updates.
+
         Args:
             identifier (int): The ID of the product to update.
-            data (ProductCreate): (Assuming) A newly created ProductCreate object
-                that will replace the fields of the existing record.
-            metadata (ProductMetadata): (Assuming) Edited tags of the product 
-                that will replace the existing tags of the existing record.
+            data (dict | None): A dictionary of product fields to update.
+            metadata (dict | None): A dictionary of metadata fields to update.
 
         Returns:
             bool: `True` if the update was successful, `False` otherwise.
         """
-        product_fields = [
+        allowed_product_fields = [
             "name",
             "brand",
             "category_id",
@@ -144,37 +128,25 @@ class ProductRepository(BaseRepository):
             "address_id",
         ]
 
-        metadata_fields = [
-            "view_count",
-            "sold_count",
-            "add_to_cart_count",
-            "wishlist_count",
-            "click_through_rate",
-            "rating_avg",
-            "rating_count",
-            "popularity_score",
-            "demographics_fit",
-            "seasonal_relevance",
-            "embedding_vector",
-            "keywords",
-        ]       
+        product_updated = True
+        metadata_updated = True
 
-        # Update the product record
-        product_id = self._update_by_id(
-            identifier=identifier, data=data, table_name=self.table_name, db=self.db, allowed_fields=product_fields
-        )
-        if not product_id:
-            return False 
-        
-        # Update the product metadata
-        metadata_id = self._update_by_id(
-            identifier=identifier, data=metadata, table_name=self.metadata_table_name, db=self.db, allowed_fields=metadata_fields
-        )
-        if not metadata_id:
-            return False
+        # Update the product record if data is provided
+        if data:
+            product_updated = self._update_by_id(
+                identifier=identifier,
+                data=data,
+                table_name=self.table_name,
+                db=self.db,
+                allowed_fields=allowed_product_fields
+            )
 
-        # Finally, 
-        return True
+        # Update the product metadata if metadata is provided
+        if metadata:
+            # Use the metadata repository to perform the update
+            metadata_updated = self.metadata_repo.update(identifier, metadata)
+
+        return product_updated and metadata_updated
 
     @override
     def delete(self, identifier: int) -> tuple[bool, str]:
@@ -187,7 +159,11 @@ class ProductRepository(BaseRepository):
         Returns:
             tuple[bool, str]: A tuple indicating success/failure and a message.
         """
-        return self._delete_by_id(identifier, table_name=self.table_name, db=self.db, id_field="id")
+        # Deleting a product should also delete its metadata to avoid orphaned records.
+        metadata_deleted, _ = self.metadata_repo.delete(identifier)
+        if not metadata_deleted:
+            return (False, f"Failed to delete product metadata for product ID {identifier}. Product not deleted.")
+        return self._delete_by_id(identifier, self.table_name, self.db, id_field="id")
     
     def _map_to_product(self, row: dict) -> Product | None:
         """
@@ -278,4 +254,3 @@ class ProductRepository(BaseRepository):
 
 
         
-

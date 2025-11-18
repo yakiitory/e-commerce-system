@@ -80,7 +80,7 @@ class BaseRepository(ABC):
             print(f"[{caller_name} ERROR] Read failed: {e}")
             return None 
 
-    def _update_by_id(self, identifier: int, data, table_name: str, db: Database, allowed_fields: list[str]) -> bool:
+    def _update_by_id(self, identifier: int, data, table_name: str, db: Database, allowed_fields: list[str], id_field: str = "id") -> bool:
         """Generic update method for any table by its ID.
 
         Args:
@@ -89,6 +89,8 @@ class BaseRepository(ABC):
                 corresponding to `fields`.
             allowed_fields (list[str]): A list of field names that are permitted
                 to be updated.
+            id_field (str, optional): The name of the ID column in the table.
+                Defaults to "id".
 
         Returns:
             bool: `True` if the update was successful, `False` otherwise.
@@ -108,7 +110,7 @@ class BaseRepository(ABC):
         values = list(fields_to_update.values())
         values.append(identifier)
 
-        query = f"UPDATE {table_name} SET {set_clause} WHERE id = %s"
+        query = f"UPDATE {table_name} SET {set_clause} WHERE {id_field} = %s"
 
         try:
             db.execute_query(query, tuple(values))
