@@ -36,8 +36,6 @@ class UserMetadata:
     view_history: tuple[int, ...] = field(default_factory=tuple)
     liked_products: tuple[int, ...] = field(default_factory=tuple)
     reviews: tuple[int, ...] = field(default_factory=tuple)
-    voucher_inventory: tuple[int, ...] = field(default_factory=tuple)
-
     # recommender / analytic fields
     favorite_categories: tuple[int, ...] = field(default_factory=tuple)
     favorite_brands: tuple[str, ...] = field(default_factory=tuple)
@@ -68,7 +66,6 @@ class MerchantCreate(AuthMixin, ContactMixin):
 class MerchantMetadata:
     products: tuple[int, ...]
     ratings: float
-    vouchers: tuple[int, ...]
     addresses: tuple[int, ...]
     inventories: tuple[int, ...]
 

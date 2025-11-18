@@ -29,6 +29,24 @@ class Product(ProductCreate):
     id: int = 0
 
 @dataclass
+class ProductEntry:
+    """
+    For usage with the front end, such as a for you page entry.
+    Does not exist as a database entry.
+    """
+    product_id: int
+    merchant_id: int
+    category_id: int
+    name: str
+    brand: str
+    price: float
+    original_price: float
+    ratings: float
+    warehouse: str
+    thumbnail: str
+    sold_count: int
+
+@dataclass
 class ProductMetadata:
     view_count: int = 0
     sold_count: int = 0
@@ -60,7 +78,7 @@ class InventoryCreate:
     product_id: int
     quantity_available: int = 0
     quantity_reserved: int = 0
-    locations: list[int] = []
+    locations: list[int] = field(default_factory=list)
 
 @dataclass
 class Inventory(InventoryCreate):
