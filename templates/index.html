@@ -1,13 +1,213 @@
 {% extends "base.html" %}
 
 {% block head %}
-<title>E-Commerce Home</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
+<title>FleaMart Home</title>
 {% endblock %}
 
 
-{% block body %}
-<div></div>
+
 <main class="content-wrapper">
- 
-</main>
+{% block body %}
+    <div class="hero-img-container"></div>
+
+    <div class="main-container"> 
+        <aside class="sidebar">
+            <section class="sidebar-section category-card">
+            <h3>CATEGORY</h3>
+                <ul class="category-list">
+                    <li>Clothing <span>+</span></li>
+                    <li>Grocery<span>+</span></li>
+                    <li>Books<span>+</span></li>
+                    <li>Home and Kitchen<span>+</span></li>
+                    <li>Electronics<span>+</span></li>
+                </ul>
+            </section>
+
+            <section class="sidebar-section best-sellers">
+                <h3>BEST SELLERS</h3>
+                <div class="best-seller-item">
+                    <div class="small-img"></div>
+                    <div class="best-seller-details">
+                        <p>Brand - Product Name</p>
+                        <div class="star-ratings">
+                            {% include "svg/star-filled.svg" %}
+                            {% include "svg/star-filled.svg" %}
+                            {% include "svg/star-filled.svg" %}
+                            {% include "svg/star-half.svg" %}
+                            {% include "svg/star-nofill.svg" %}
+                        </div>
+                        <div class="best-seller-price">
+                            <span>₱450.00</span>
+                            <span>₱350.00</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="best-seller-item">
+                    <div class="small-img"></div>
+                    <div class="best-seller-details">
+                        <p>Brand - Product Name</p>
+                        <div class="star-ratings">
+                            {% include "svg/star-filled.svg" %}
+                            {% include "svg/star-filled.svg" %}
+                            {% include "svg/star-filled.svg" %}
+                            {% include "svg/star-half.svg" %}
+                            {% include "svg/star-nofill.svg" %}
+                        </div>
+                        <div class="best-seller-price">
+                            <span>₱450.00</span>
+                            <span>₱350.00</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="best-seller-item">
+                    <div class="small-img"></div>
+                    <div class="best-seller-details">
+                        <p>Brand - Product Name</p>
+                        <div class="star-ratings">
+                            {% include "svg/star-filled.svg" %}
+                            {% include "svg/star-filled.svg" %}
+                            {% include "svg/star-filled.svg" %}
+                            {% include "svg/star-half.svg" %}
+                            {% include "svg/star-nofill.svg" %}
+                        </div>
+                        <div class="best-seller-price">
+                            <span>₱450.00</span>
+                            <span>₱350.00</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="best-seller-item">
+                    <div class="small-img"></div>
+                    <div class="best-seller-details">
+                        <p>Brand - Product Name</p>
+                        <div class="star-ratings">
+                            {% include "svg/star-filled.svg" %}
+                            {% include "svg/star-filled.svg" %}
+                            {% include "svg/star-filled.svg" %}
+                            {% include "svg/star-half.svg" %}
+                            {% include "svg/star-nofill.svg" %}
+                        </div>
+                        <div class="best-seller-price">
+                            <span>₱450.00</span>
+                            <span>₱350.00</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="sidebar-section testimonials">
+                <h3>Testimonials</h3>
+                <div class="testimonial-card">
+                    <div class="testimonial-img"></div>
+                    <div class="testimonial-details">
+                        <p>STEVEN EBREO</p>
+                        <p>Backend Developer</p>
+                    </div>
+                </div>
+                <div class="testimonial-card">
+                    <div class="testimonial-img"></div>
+                    <div class="testimonial-details">
+                        <p>FAYE PETEROS</p>
+                        <p>Frontend Developer</p>
+                    </div>
+                </div>
+            </section>
+        </aside>
+
+        <div class="content-area">
+
+            <section class="product-minimal">
+                <div class="product-grid">
+                    <h3 class="main-title">Trending</h3>
+                    <div class="small-img"></div>
+                    <p>Brand - Product Name</p>
+                    <p>Category</p>
+                    <div class="product-minimal-price">
+                        <span>₱450.00</span>
+                        <span>₱350.00</span>
+                    </div>
+                </div>
+                <div class="product-grid">
+                    <h3 class="main-title">Arrivals</h3>
+                    <div class="small-img"></div>
+                    <p>Brand - Product Name</p>
+                    <p>Category</p>
+                    <div class="product-minimal-price">
+                        <span>₱450.00</span>
+                        <span>₱350.00</span>
+                    </div>
+                </div>
+                <div class="product-grid">
+                    <h3 class="main-title">Top Rated</h3>
+                    <div class="small-img"></div>
+                    <p>Brand - Product Name</p>
+                    <p>Category</p>
+                    <div class="product-minimal-price">
+                        <span>₱350.00</span>
+                        <span>₱450.00</span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="deal-of-the-day">
+                <h3 class="main-title">Deal of the Day</h3>
+                <div class="deal-container">
+                    <div class="deal-img-container">
+                        <div class="deal-img"></div>
+                    </div>
+                    <div class="deal-details">
+                        <div class="star-ratings"></div>
+                        <h4>BRAND - PRODUCT NAME</h4>
+                        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
+                        <div class="deal-price">
+                            <span>₱350.00</span>
+                            <span>₱450.00</span>
+                        </div>
+                        <button class="add-to-cart-btn">ADD TO CART</button>
+
+                        <div class="progress-bar-container">
+                            <div class="progress-labels">
+                               <span>ALREADY SOLD: <b>25</b> </span>
+                               <span>AVAILABLE: <b>40</b></span> 
+                            </div>
+                            <div class="progress-bar-bg">
+                                <div class="progress-bar-fill"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <p>HURRY UP! OFFER ENDS IN:</p> 
+                            <div class="timer-boxes">
+                                <div class="time-box">360<br>days</div><div class="time-box">24<br>hours</div>
+                                <div class="time-box">59<br>min</div><div class="time-box">0<br>sec</div> 
+                            </div>                       
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="main-product">
+                <h3 class="main-title">Popular Lately</h3>
+                <div class="main-product-card">
+                    <div class="main-product-img"></div>
+                    <div class="main-product-details">
+                        <p>Category</p>
+                        <p>Brand - Product Name</p>
+                        <div class="star-ratings"></div>
+                        <div class="main-product-price">
+                            <span>₱450.00</span>
+                            <span>₱350.00</span>
+                        </div>
+                        <div class="city-container">
+                            <div class="city-icon"></div>
+                            <p>City</p>
+                        </div>
+                    </div>
+                </div>
+
+            </section>
+
+        </div>
+    </div>                       
 {% endblock %}
+</main>

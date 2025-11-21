@@ -1,0 +1,168 @@
+.hero-img-container {
+    margin: 1.5rem 0;
+    height: 60vh;
+    background-image: url('../img/hero.jpg');
+    background-size: cover;
+    background-position: center;
+    border-radius: 1rem;
+    border: .2rem solid #f9e2af;
+}
+
+/* Main Layout Grid */
+.main-container {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 1rem;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 1rem;
+}
+
+/* Sidebar */
+.sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 1.75rem;
+}
+
+.sidebar-section {
+    border: 1px solid #EBEBEB;
+    border-radius: 1rem;
+    padding: 0 1.5rem;
+}
+
+.sidebar-section h3 {
+    color: #777777;
+}
+
+/* Category Menu */
+.category-list {
+    list-style: none;
+    padding: 0;
+}
+
+.category-list li {
+    margin: 0;
+    padding: .5rem 0;
+    border-bottom: .25rem solid #B4BEFE;
+    display: flex;
+    justify-content: space-between;
+}
+
+.category-list li span {
+    color: #f9e2af;
+}
+
+/* Best Seller */
+.best-sellers {
+    border: none;
+    padding: 0;
+}
+
+.best-seller-item {
+    margin-bottom: 1rem;
+    display: flex;
+    gap: 1rem;
+}
+
+.best-seller-item:last-child {
+    margin-bottom: 0;
+}
+
+.best-seller-item p {
+    color: #777777;
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    font-style: bold;
+}
+
+.small-img {
+    border: 1px solid #EBEBEB;
+    border-radius: .5rem;
+    width: 60px;
+    height: 60px;
+}
+
+.best-seller-details {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.star-ratings {
+    display: flex;
+    gap: .1rem;
+    margin: .25rem 0;
+}
+
+.star-ratings svg {
+    width: .75rem;
+    height: .75rem;
+    fill: #F5C2E7;
+    flex-shrink: 0;
+}
+
+.best-seller-price {
+    display: flex;
+    gap: .5rem;
+}
+
+.best-seller-price span {
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.best-seller-price span:first-child {
+    text-decoration: line-through;
+    color: #C4C4C4;
+}
+
+/* Testimonials */
+.testimonials {
+    border: none;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+}
+
+.testimonials h3 {
+    border-bottom: #EBEBEB 1px solid;
+    color: #777777;
+    margin-bottom: 2rem;
+}
+
+.testimonial-card {
+    padding: 1rem;
+    border: 1px solid #EBEBEB;
+    border-radius: 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.testimonial-img {
+    border: 1px solid #EBEBEB;
+    border-radius: 50%;
+    width: 160px;
+    height: 160px;
+}
+
+.testimonial-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    text-align: center;
+}
+
+.testimonial-details p {
+    margin: 5px 0;
+}
+
+.testimonial-details p:first-child {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #777777;
+}
