@@ -259,29 +259,6 @@ CREATE TABLE IF NOT EXISTS `shipment_addresses` (
     ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE IF NOT EXISTS `inventories` (
-  `id` INT AUTO_INCREMENT NOT NULL,
-  `product_id` INT,
-  `quantity_available` INT,
-  `quantity_reserved` INT,
-  PRIMARY KEY (`id`)
-  FOREIGN KEY(`product_id`)  REFERENCES `products`(`id`)
-    ON UPDATE CASCADE
-    ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-CREATE TABLE IF NOT EXISTS `inventory_addresses` (
-  `inventory_id` INT NOT NULL, 
-  `address_id` INT NOT NULL,
-  PRIMARY KEY (`inventory_id`, `address_id`),
-  FOREIGN KEY (`inventory_id`) REFERENCES `inventories`(`id`)
-    ON UPDATE CASCADE
-    ON DELETE CASCADE,
-  FOREIGN KEY (`address_id`) REFERENCES `addresses`(`id`)
-    ON UPDATE CASCADE
-    ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
 CREATE TABLE IF NOT EXISTS `images` (
   `id` INT AUTO_INCREMENT NOT NULL,
   `url` TEXT,
@@ -399,19 +376,6 @@ CREATE TABLE IF NOT EXISTS `user_metadata` (
     ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-
-
-CREATE TABLE IF NOT EXISTS `merchant_inventories` (
-  `merchant_id` INT NOT NULL,
-  `inventory_id` INT NOT NULL,
-  PRIMARY KEY(`merchant_id`, `inventory_id`),
-  FOREIGN KEY (`merchant_id`) REFERENCES `merchants`(`id`)
-    ON UPDATE CASCADE
-    ON DELETE CASCADE,
-  FOREIGN KEY (`inventory_id`) REFERENCES `inventories`(`id`)
-    ON UPDATE CASCADE
-    ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `merchant_products` (
   `merchant_id` INT NOT NULL,

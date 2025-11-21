@@ -19,6 +19,45 @@ class TransactionService:
         self.virtual_card_repo = virtual_card_repo
         self.payment_repo = payment_repo
 
+    def cash_in(self, user_card_id: int, amount: float) -> tuple[bool, str]:
+        """
+        Adds funds to a user's virtual card, simulating a "cash in" from an external source.
+
+        Args:
+            user_card_id (int): The ID of the user's virtual card to fund.
+            amount (float): The amount to add. Must be positive.
+
+        Returns:
+            tuple[bool, str]: A tuple indicating success/failure and a message.
+        """
+        if amount <= 0:
+            return (False, "Cash-in amount must be positive.")
+
+        # Create a payment record to log the cash-in.
+        # id of 0 should represent the system, instead of a user or an external body
+        payment_create = PaymentCreate(
+            sender_id=0,
+            receiver_id=user_card_id,
+            type="CASH_IN",
+            amount=amount,
+        )
+
+        transaction_committed = False
+        try:
+            self.db.begin_transaction()
+            payment_id, _ = self.payment_repo.create(payment_create)
+            if not payment_id:
+                return (False, "Failed to create payment record for cash-in.")
+
+            self.virtual_card_repo.adjust_balance(user_card_id, amount)
+            self.payment_repo.update(payment_id, {'status': Status.PAID})
+            self.db.commit()
+            transaction_committed = True
+            return (True, f"Successfully cashed in {amount} to card {user_card_id}.")
+        finally:
+            if not transaction_committed:
+                self.db.rollback()
+
     def transfer_funds(self, sender_card_id: int, receiver_card_id: int, amount: float, payment_type: str, in_transaction: bool = False) -> tuple[bool, str]:
         """
         Transfers a specified amount from a sender's virtual card to a receiver's.

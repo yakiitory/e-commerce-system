@@ -3,7 +3,6 @@ from typing import TYPE_CHECKING
 import bcrypt
 
 if TYPE_CHECKING:
-    from models.mixins import AuthMixin
     from models.accounts import User, UserCreate, Merchant, MerchantCreate, Admin, AdminCreate
     from repositories.account_repository import UserRepository, MerchantRepository, AdminRepository
 

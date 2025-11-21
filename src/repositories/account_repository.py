@@ -157,6 +157,50 @@ class UserRepository(AccountRepository):
             print(f"[UserRepository ERROR] Failed to add address: {e}")
             return False
 
+    def get_wishlist(self, user_id: int) -> list[int]:
+        """
+        Retrieves a list of product IDs from the user's wishlist.
+
+        Args:
+            user_id (int): The ID of the user.
+
+        Returns:
+            list[int]: A list of product IDs in the user's wishlist.
+        """
+        query = "SELECT product_id FROM user_likedproducts WHERE user_id = %s"
+        rows = self.db.fetch_all(query, (user_id,))
+        return [row['product_id'] for row in rows] if rows else []
+
+    def add_to_wishlist(self, user_id: int, product_id: int) -> bool:
+        """
+        Adds a product to a user's wishlist.
+
+        Args:
+            user_id (int): The ID of the user.
+            product_id (int): The ID of the product to add.
+
+        Returns:
+            bool: True if successful, False otherwise.
+        """
+        query = "INSERT INTO user_likedproducts (user_id, product_id) VALUES (%s, %s)"
+        new_id = self.db.execute_query(query, (user_id, product_id))
+        return new_id is not None
+
+    def remove_from_wishlist(self, user_id: int, product_id: int) -> bool:
+        """
+        Removes a product from a user's wishlist.
+
+        Args:
+            user_id (int): The ID of the user.
+            product_id (int): The ID of the product to remove.
+
+        Returns:
+            bool: True if successful, False otherwise.
+        """
+        query = "DELETE FROM user_likedproducts WHERE user_id = %s AND product_id = %s"
+        self.db.execute_query(query, (user_id, product_id))
+        return True
+
     def _map_to_user(self, row: dict) -> User | None:
         """Maps a database row (dictionary) to a User dataclass object.
 

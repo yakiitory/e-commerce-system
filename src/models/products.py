@@ -73,18 +73,6 @@ class Category(CategoryCreate):
     id: int
 
 @dataclass
-class InventoryCreate:
-    id: int
-    product_id: int
-    quantity_available: int = 0
-    quantity_reserved: int = 0
-    locations: list[int] = field(default_factory=list)
-
-@dataclass
-class Inventory(InventoryCreate):
-    id: int
-
-@dataclass
 class Shipment:
     """
     Represents a shipment record retrieved from the database.

@@ -1,5 +1,6 @@
 from typing import override, Any
 from models.orders import Order, OrderCreate, OrderItem, OrderItemCreate
+from models.payments import VirtualCard
 from repositories.base_repository import BaseRepository
 from database.database import Database
 from models.status import Status
@@ -141,6 +142,26 @@ class OrderRepository(BaseRepository):
         """
         return self._delete_by_id(identifier, table_name=self.table_name, db=self.db)
 
+    def has_user_purchased_product(self, user_id: int, product_id: int) -> bool:
+        """
+        Checks if a user has a completed order containing a specific product.
+
+        Args:
+            user_id (int): The ID of the user.
+            product_id (int): The ID of the product.
+
+        Returns:
+            bool: True if a completed purchase exists, False otherwise.
+        """
+        query = """
+            SELECT 1 FROM orders o
+            JOIN order_items oi ON o.id = oi.order_id
+            WHERE o.user_id = %s AND oi.product_id = %s AND o.status = %s
+            LIMIT 1
+        """
+        result = self.db.fetch_one(query, (user_id, product_id, Status.DELIVERED.value))
+        return result is not None
+
     def _map_to_order(self, row: dict, items: list[OrderItem]) -> Order | None:
         """
         Maps a database row and a list of items to an Order dataclass object.
@@ -165,3 +186,121 @@ class OrderRepository(BaseRepository):
         order_data['items'] = items
         
         return Order(**order_data)
+
+    def update_status(self, order_id: int, status: Status) -> tuple[bool, str]:
+        """
+        Updates the status of a specific order.
+
+        Args:
+            order_id (int): The ID of the order to update.
+            status (Status): The new status for the order.
+
+        Returns:
+            tuple[bool, str]: A tuple indicating success and a message.
+        """
+        success = self.update(order_id, {'status': status})
+        if success:
+            return (True, f"Order {order_id} status updated to {status.name}.")
+        return (False, f"Failed to update status for order {order_id}.")
+
+    def get_user_card_for_order(self, order_id: int) -> VirtualCard | None:
+        """
+        Retrieves the user's virtual card used for a specific order payment.
+
+        Args:
+            order_id (int): The ID of the order.
+
+        Returns:
+            VirtualCard | None: The user's VirtualCard object if found, otherwise None.
+        """
+        query = """
+            SELECT vc.* FROM virtual_cards vc
+            JOIN payments p ON vc.id = p.sender_id
+            WHERE p.order_id = %s AND p.type = 'ORDER_PAYMENT'
+        """
+        card_row = self.db.fetch_one(query, (order_id,))
+        if not card_row:
+            print(f"[OrderRepository WARN] Could not find user card for order {order_id}")
+            return None
+        return VirtualCard(**card_row)
+
+    def get_merchant_card_for_order(self, order_id: int) -> VirtualCard | None:
+        """
+        Retrieves the merchant's virtual card that received payment for a specific order.
+
+        Args:
+            order_id (int): The ID of the order.
+
+        Returns:
+            VirtualCard | None: The merchant's VirtualCard object if found, otherwise None.
+        """
+        query = """
+            SELECT vc.* FROM virtual_cards vc
+            JOIN payments p ON vc.id = p.receiver_id
+            WHERE p.order_id = %s AND p.type = 'ORDER_PAYMENT'
+        """
+        card_row = self.db.fetch_one(query, (order_id,))
+        if not card_row:
+            print(f"[OrderRepository WARN] Could not find merchant card for order {order_id}")
+            return None
+        return VirtualCard(**card_row)
+
+    def read_all_by_user_id(self, user_id: int) -> list[Order]:
+        """
+        Reads all orders and their items for a specific user.
+
+        Args:
+            user_id (int): The ID of the user whose orders to retrieve.
+
+        Returns:
+            list[Order]: A list of Order objects with their items, ordered by most recent.
+        """
+        # Fetch all orders for the user
+        orders_query = f"SELECT * FROM {self.table_name} WHERE user_id = %s ORDER BY order_date DESC"
+        order_rows = self.db.fetch_all(orders_query, (user_id,))
+
+        if not order_rows:
+            return []
+
+        orders = []
+        for order_row in order_rows:
+            order_id = order_row['id']
+            # Fetch associated order items for each order
+            items_query = f"SELECT * FROM {self.order_items_table_name} WHERE order_id = %s"
+            item_rows = self.db.fetch_all(items_query, (order_id,))
+            
+            order_items = [OrderItem(**item_row) for item_row in item_rows] if item_rows else []
+            order = self._map_to_order(order_row, order_items)
+            if order:
+                orders.append(order)
+        return orders
+
+    def read_all_by_merchant_id(self, merchant_id: int) -> list[Order]:
+        """
+        Reads all orders and their items for a specific merchant.
+
+        Args:
+            merchant_id (int): The ID of the merchant whose orders to retrieve.
+
+        Returns:
+            list[Order]: A list of Order objects with their items, ordered by most recent.
+        """
+        # Fetch all orders for the merchant
+        orders_query = f"SELECT * FROM {self.table_name} WHERE merchant_id = %s ORDER BY order_date DESC"
+        order_rows = self.db.fetch_all(orders_query, (merchant_id,))
+
+        if not order_rows:
+            return []
+
+        orders = []
+        for order_row in order_rows:
+            order_id = order_row['id']
+            # Fetch associated order items for each order
+            items_query = f"SELECT * FROM {self.order_items_table_name} WHERE order_id = %s"
+            item_rows = self.db.fetch_all(items_query, (order_id,))
+            
+            order_items = [OrderItem(**item_row) for item_row in item_rows] if item_rows else []
+            order = self._map_to_order(order_row, order_items)
+            if order:
+                orders.append(order)
+        return orders
