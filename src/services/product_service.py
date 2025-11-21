@@ -109,3 +109,21 @@ class ProductService:
             return (False, f"Product with ID {product_id} not found.")
 
         return self.product_repo.delete(product_id)
+
+    def search_products(self, search_term: str) -> tuple[bool, str | list[ProductEntry]]:
+        """
+        Searches for products based on a search term.
+
+        Args:
+            search_term (str): The term to search for in product names and descriptions.
+
+        Returns:
+            tuple[bool, str | list[ProductEntry]]: A tuple indicating success, and either a
+                                              list of products or an error message.
+        """
+        try:
+            products = self.product_repo.search(search_term)
+            return (True, products)
+        except Exception as e:
+            print(f"[ProductService ERROR] An unexpected error occurred during product search: {e}")
+            return (False, "An unexpected error occurred during product search.")

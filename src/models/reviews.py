@@ -4,7 +4,7 @@ from dataclasses import dataclass
 class ReviewCreate():
     user_id: int
     product_id: int
-    rating: float
+    ratings: float
     description: str
     attached: list[str]
 

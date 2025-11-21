@@ -35,7 +35,7 @@ class ReviewRepository(BaseRepository):
         review_data_for_db = SimpleNamespace(
             user_id=data.user_id,
             product_id=data.product_id,
-            ratings=data.rating,
+            ratings=data.ratings,
             description=data.description
         )
 
@@ -79,3 +79,38 @@ class ReviewRepository(BaseRepository):
     def delete(self, identifier: int) -> tuple[bool, str]:
         """Deletes a review by its ID."""
         return self._delete_by_id(identifier, self.table_name, self.db)
+
+    def read_all_by_product_id(self, product_id: int) -> list[Review]:
+        """
+        Reads all reviews for a specific product.
+
+        Args:
+            product_id (int): The ID of the product.
+
+        Returns:
+            list[Review]: A list of Review objects.
+        """
+        reviews_query = f"SELECT * FROM {self.table_name} WHERE product_id = %s ORDER BY created_at DESC"
+        review_rows = self.db.fetch_all(reviews_query, (product_id,))
+        if not review_rows:
+            return []
+        
+        reviews = []
+        for row in review_rows:
+            review_id = row['id']
+            
+            # Fetch attached image URLs for the current review
+            images_query = """
+                SELECT i.url FROM images i
+                JOIN review_images ri ON i.id = ri.image_id
+                WHERE ri.review_id = %s
+            """
+            image_rows = self.db.fetch_all(images_query, (review_id,))
+            attached_images = [img_row['url'] for img_row in image_rows] if image_rows else []
+            
+            row['ratings'] = row.pop('ratings')
+            row['attached'] = attached_images
+            
+            reviews.append(Review(**row))
+            
+        return reviews

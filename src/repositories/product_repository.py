@@ -252,5 +252,44 @@ class ProductRepository(BaseRepository):
             sold_count=metadata_dict["sold_count"]
         )
 
+    def search(self, search_term: str, limit: int = 20) -> list[ProductEntry]:
+        """
+        Searches for products by name or description and returns them as ProductEntry objects.
+
+        Args:
+            search_term (str): The term to search for.
+            limit (int): The maximum number of results to return.
+
+        Returns:
+            list[ProductEntry]: A list of matching product entry objects.
+        """
+        query = """
+            SELECT
+                p.id AS product_id,
+                p.merchant_id,
+                p.category_id,
+                p.name,
+                p.brand,
+                p.price,
+                p.original_price,
+                pm.rating_avg AS ratings,
+                a.city AS warehouse,
+                i.url AS thumbnail,
+                pm.sold_count
+            FROM
+                products p
+            JOIN product_metadata pm ON p.id = pm.product_id
+            JOIN addresses a ON p.address_id = a.id
+            LEFT JOIN product_images pi ON p.id = pi.product_id AND pi.is_thumbnail = TRUE
+            LEFT JOIN images i ON pi.image_id = i.id
+            WHERE
+                p.name LIKE %s OR p.description LIKE %s
+            LIMIT %s
+        """
+        # Add wildcards for a 'contains' search
+        term = f"%{search_term}%"
+        rows = self.db.fetch_all(query, (term, term, limit))
+
+        return [ProductEntry(**row) for row in rows] if rows else []
 
         
