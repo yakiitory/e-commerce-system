@@ -42,16 +42,51 @@
     padding: 0;
 }
 
-.category-list li {
+.category-list > li {
     margin: 0;
     padding: .5rem 0;
     border-bottom: .25rem solid #B4BEFE;
-    display: flex;
-    justify-content: space-between;
 }
 
-.category-list li span {
+.category-item {
+    display: flex;
+    justify-content: space-between;
+    cursor: pointer;
+}
+
+.category-item .toggle-icon {
     color: #f9e2af;
+    transition: transform 0.2s ease-in-out;
+}
+
+.category-list > li.open .toggle-icon {
+    transform: rotate(45deg);
+}
+
+.submenu {
+    list-style: none;
+    padding-left: 1rem;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease-out;
+}
+
+.category-list > li.open .submenu {
+    max-height: 200px;
+}
+
+.submenu a {
+    text-decoration: none;
+    color: #777777;
+}
+
+.submenu li {
+    margin: .3rem 0;
+}
+
+.submenu a:hover {
+    text-decoration: underline;
+    text-decoration-color: #777777;
 }
 
 /* Best Seller */

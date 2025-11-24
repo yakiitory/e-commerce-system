@@ -91,5 +91,17 @@
         </div> 
         {% endblock %}
     </footer>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const categoryItems = document.querySelectorAll('.category-list .has-submenu');
+
+            categoryItems.forEach(item => {
+                const header = item.querySelector('.category-item');
+                header.addEventListener('click', () => {
+                    item.classList.toggle('open');
+                });
+            });
+        });
+    </script>
 </body>
 </html>
