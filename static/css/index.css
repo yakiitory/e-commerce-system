@@ -103,7 +103,7 @@
 .best-seller-item {
     display: flex;
     gap: 1rem;
-    border: 1px solid transparent; /* Add transparent border for smooth transition */
+    border: 1px solid transparent; 
     padding: .5rem;
     border-radius: .5rem;
     transition: border-color 0.2s ease-in-out;
@@ -532,7 +532,7 @@
 .product-link {
     text-decoration: none;
     color: inherit;
-    border-radius: .5rem; /* Match child border-radius */
+    border-radius: .5rem; 
 }
 
 .product-link:hover .main-product-item,
