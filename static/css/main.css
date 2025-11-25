@@ -54,20 +54,20 @@ header {
     box-sizing: border-box;
 }
 
+.alert {
+    padding: 10px;
+    border-radius: 1rem;
+    margin: 15px auto;
+}
+
 .alert-success {
     background-color: #d4edda;
     color: #155724;
-    padding: 10px;
-    border-radius: 1rem;
-    margin-bottom: 15px;
 }
 
 .alert-error {
     background-color: #f8d7da;
     color: #721c24;
-    padding: 10px;
-    border-radius: 1rem;
-    margin-bottom: 15px;
 }
 
 /* Main Header*/

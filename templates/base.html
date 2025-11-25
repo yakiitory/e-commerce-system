@@ -102,29 +102,6 @@
                 });
             });
         });
-
-        document.addEventListener('DOMContentLoaded', function() {
-        // Select the elements
-        const dropdownContainer = document.querySelector('.price-dropdown-container');
-        const dropdownTrigger = document.querySelector('.price-dropdown-trigger');
-
-        // 1. Toggle menu on trigger click
-        dropdownTrigger.addEventListener('click', function(event) {
-            // Prevents the click from immediately bubbling up to the window and closing it
-            event.stopPropagation();
-            // Toggle the 'active' class on the container
-            dropdownContainer.classList.toggle('active');
-        });
-
-        // 2. Close menu when clicking outside
-        window.addEventListener('click', function(event) {
-            // If the menu is open AND the click target is NOT inside the dropdown container
-            if (dropdownContainer.classList.contains('active') && !dropdownContainer.contains(event.target)) {
-                // Remove the active class to hide the menu
-                dropdownContainer.classList.remove('active');
-            } 
-      });
-        });
     </script>
 </body>
 </html>
