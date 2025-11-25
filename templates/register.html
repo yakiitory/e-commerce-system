@@ -1,22 +1,26 @@
 {% extends "base.html" %}
 
 {% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/register.css') }}">
 <title>Register</title>
 {% endblock %}
 
+<main class="content-wrapper">
 {% block body %}
-<div class="register-container">
-    <h2>Register</h2>
-    <form action="{{ url_for('register_page') }}" method="post">
-        <label for="username">Username:</label>
-        <input type="text" id="username" name="username" required>
-
-        <label for="password">Password:</label>
-        <input type="password" id="password" name="password" required>
-
-        <button type="submit">Register</button>
-    </form>
-    <a href="{{ url_for('login_page') }}">Login</a>
-
-</div>
+    <div class="register-container">
+        <h3>Sign Up</h3>
+        <div class="register-options">
+            <div class="register-card">
+                <h3>USER</h3>
+                <p>Lorem ipsum dolor sit amet consectetur adipiscing elit Ut et massa mi. Aliquam in hendrerit urna. Pellentesque sit amet sapien.</p>
+                <button class="create-btn">CREATE</button>
+            </div>
+            <div class="register-card">
+                <h3>MERCHANT</h3>
+                <p>Lorem ipsum dolor sit amet consectetur adipiscing elit Ut et massa mi. Aliquam in hendrerit urna. Pellentesque sit amet sapien.</p>
+                <button class="create-btn">CREATE</button>
+            </div>
+        </div>
+    </div>
 {% endblock %}
+</main>
