@@ -41,7 +41,7 @@ h3 {
     margin: 0;
 }
 
-form > input, .password-container > input {
+.register-container form > input, .password-container > input {
     overflow: hidden;
     width: 100%;
     padding: 10px .75rem;
@@ -108,8 +108,7 @@ form > input, .password-container > input {
     text-decoration: none;
 }
 
-form > svg {
+.register-container form svg {
     transform: rotate(180deg);
-
     fill: #FFFFFF;
 }
