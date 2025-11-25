@@ -2,7 +2,6 @@
 
 {% block head %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/register-user.css') }}">
-<script src="{{ url_for('static', filename='js/register-user.js') }}" defer></script>
 <title>Register</title>
 {% endblock %}
 
@@ -10,7 +9,7 @@
 {% block body %}
 <div class="form-container">
     <div class="form-section left-section">
-        <h3>Personal Details</h3>
+        <h3>Personal and Store Details</h3>
 
         <form>
             <div class="input-row">
@@ -19,23 +18,7 @@
             </div>
             <input type="email" placeholder="user@example.com" class="light-input full-width">
             <input type="tel" placeholder="Phone Number" class="light-input full-width">
-
-            <div class="input-row">
-                <div class="select-container light-style" id="genderSelect">
-                    <div class="select-trigger">
-                        <span class="trigger-text">Gender</span>
-                        {% include "svg/arrow-right.svg" %}
-                    </div>
-                    <ul class="select-options">
-                        <li data-value="Male">Male</li>
-                        <li data-value="Female">Female</li>
-                        <li data-value="Other">Other</li>
-                    </ul>
-                    <input type="hidden" name="gender" id="genderHiddenInput">
-                </div>
-                <input type="number" placeholder="Age" class="light-input">
-            </div>
-
+            <input type="text" placeholder="Store Name" class="light-input full-width">
             <div class="btn-container-left">
                 <a href="{{ url_for('register_page') }}">
                     <button type="button" class="btn-back">
@@ -58,7 +41,7 @@
                 <input type="text" placeholder="Postal" class="dark-input">
             </div>
             <input type="text" placeholder="Additional Notes" class="dark-input full-width">
-            
+
             <div class="btn-container-right">
                 <a href="{{ url_for('register_auth_page')}}">
                     <button type="button">

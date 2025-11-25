@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/register-auth.css') }}">
+<title>Authentication</title>
+{% endblock %}
+
+<main class="content-wrapper">
+{% block body %}
+    <div class="register-container">
+        <h3>Create Account</h3>
+        <form>
+            <input type="text" placeholder="Username">
+            <div class="password-container">
+                <input type="text" placeholder="Password">
+                <p>Password must be atleast 6 letters</p>
+            </div>
+            <input type="text" placeholder="Re-enter Password">
+            <div class="btn-container">
+                <a href="">
+                    <button type="button">
+                       {% include "svg/arrow.svg" %}
+                    </button>
+                </a>
+                <a href="">
+                    <button class="button">
+                        Register
+                    </button>
+                </a>
+            </div>
+        </form>
+    </div>
+{% endblock %}
+</main>

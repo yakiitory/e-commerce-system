@@ -9,9 +9,9 @@
 
 /* --- Main Container --- */
 .form-container {
-    margin: 1.5rem auto;
+    margin: 3rem auto;
     display: flex;
-    box-shadow: 0 15px 40px rgba(0,0,0,0.15);
+    box-shadow: 0 15px 40px rgba(2,2,0,0.15);
     max-width: 95%;
     min-width: 550px;
     width: 900px;
@@ -22,7 +22,7 @@
 /* Section */
 .form-section {
     flex: 1;
-    padding: 50px;
+    padding: 40px;
     display: flex;
     flex-direction: column;
 }
@@ -43,7 +43,7 @@
 }
 
 /* Inputs */
-form {
+.form-container form {
     display: flex;
     flex-direction: column;
     gap: 30px;
@@ -56,7 +56,7 @@ form {
     align-items: flex-start;
 }
 
-.input-row > input {
+.input-row input {
     flex: 1;
 }
 
@@ -64,7 +64,7 @@ form {
     width: 100%;
 }
 
-input {
+.form-section input {
     width: 100%;
     padding: 10px 0;
     border: none;
@@ -74,31 +74,31 @@ input {
     letter-spacing: 3%;
 }
 
-.light-input {
+.form-section .light-input {
     border-bottom: 2px solid var(--light-underline);
     color: var(--light-text);
 }
 
-.light-input::placeholder {
+.form-section .light-input::placeholder {
     color: var(--light-text);
     font-weight: 500;
 }
 
-.light-input:focus {
+.form-section .light-input:focus {
     border-bottom-color: #818181;
 }
 
-.dark-input {
+.form-section .dark-input {
     border-bottom: 2px solid var(--dark-white);
     color: var(--dark-white);
 }
 
-.dark-input::placeholder {
+.form-section .dark-input::placeholder {
     font-weight: 500;
     opacity: .9;
 }
 
-.dark-input:focus {
+.form-section .dark-input:focus {
     border-bottom-color: #fff;
 }
 
@@ -146,20 +146,21 @@ input {
     background: var(--white);
     border-radius: .5rem;
     list-style: none;
-    padding: 5px 0;
+    padding: 0;
     margin: 5px 0 0 0;
     z-index: 10;
     max-height: 0;
     overflow: hidden;
-    transition: max-height 0.3s ease-out;
+    transition: max-height 0.3s ease-out, padding 0.3s ease-out;
 }
 
 .select-container.active .select-options {
     max-height: 200px;
+    padding: 5px 0;
 }
 
 .select-options li {
-    padding: 12px 15px;
+    padding: 8px 15px;
     font-size: .95rem;
     color: var(--black);
     transition: background 0.2s;
@@ -170,7 +171,8 @@ input {
 }
 
 /* Buttons */
-button {
+
+.form-section form button {
     display: flex;
     align-items: center;
     border-radius: 22px;
@@ -184,7 +186,11 @@ button {
     cursor: pointer;
 }
 
-button:hover {
+.form-section > form a {
+    text-decoration: none;
+}
+
+.form-section > form button:hover {
     transform: translateY(-2px);
 }
 
@@ -199,7 +205,7 @@ button:hover {
     justify-content: flex-end;
 }
 
-.btn-container-right button {
+.form-container .btn-container-right button {
     background-color: var(--white);
     color: var(--black);
 }

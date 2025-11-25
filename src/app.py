@@ -51,6 +51,14 @@ def register_page():
 def register_user_page():
     return render_template('register-user.html')
 
+@app.route('/register-merchant-page')
+def register_merchant_page():
+    return render_template('register-merchant.html')
+
+@app.route('/register-auth-page')
+def register_auth_page():
+    return render_template('register-auth.html')
+
 @app.route('/products-page')
 def products_page(): 
     products = backend.mock_get_all_products()
