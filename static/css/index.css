@@ -11,7 +11,7 @@
 /* Main Layout Grid */
 .main-container {
     display: grid;
-    grid-template-columns: 280px 1fr;
+    grid-template-columns: 310px 1fr;
     gap: 1rem;
     max-width: 1748px;
     width: 100%;
@@ -44,19 +44,23 @@
 
 .category-list > li {
     margin: 0;
-    padding: .5rem 0;
+    padding: .2rem 0;
     border-bottom: .25rem solid #B4BEFE;
 }
 
 .category-item {
+    align-items: center;
     display: flex;
     justify-content: space-between;
     cursor: pointer;
 }
 
 .category-item .toggle-icon {
-    color: #f9e2af;
     transition: transform 0.2s ease-in-out;
+}
+
+.toggle-icon svg {
+    fill: #f9e2af;
 }
 
 .category-list > li.open .toggle-icon {
@@ -517,7 +521,7 @@
     font-size: 14px;
 }
 
-.city-container p {
+.main-product-details .city-container p {
     margin: 0;
     color: #777777;
 }

@@ -51,6 +51,7 @@ def register_page():
 def products_page(): 
     products = backend.mock_get_all_products()
     return render_template('products.html', products=products)
+    # return render_template('products.html')
 
 @app.route('/product-page/<int:product_id>')
 def product_page(product_id: int):
