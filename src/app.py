@@ -23,7 +23,7 @@ def login_page():
         result = backend.mock_login(username, password)
 
         if result["status"]:
-            session['username'] = username # Set the user in the session
+            session['username'] = username
             flash(result["message"], "success")
             return redirect(url_for('index'))
         else:
@@ -33,16 +33,16 @@ def login_page():
 
 @app.route('/logout')
 def logout():
-    session.pop('username', None) # Clear the user from the session
+    session.pop('username', None) 
     flash("You have been logged out.", "success")
     return redirect(url_for('login_page'))
 
 @app.route('/register-page', methods=['GET', 'POST'])
 def register_page():
     if request.method == 'POST':
-        
-        result = backend.mock_register(request.form)
-        flash(result["message"], "success")
+        result = backend.mock_register(request.form.to_dict())
+            
+        flash(result["message"], "success" if result["status"] else "error")
         return redirect(url_for('login_page'))
 
     return render_template('register.html')
@@ -66,15 +66,34 @@ def register_auth_page():
 @app.route('/products-page')
 def products_page(): 
     products = backend.mock_get_all_products()
+    for product in products:
+        category = backend.mock_get_category_by_id(product.category_id)
+        address = backend.mock_get_address_by_id(product.address_id)
+        
+        product.category_name = category.name if category else "Uncategorized"
+        product.city = address.city if address else "N/A"
+
     return render_template('products.html', products=products)
 
 @app.route('/product-page/<int:product_id>')
 def product_page(product_id: int):
     product = backend.mock_get_product_by_id(product_id)
     reviews = backend.mock_get_reviews_by_product_id(product_id)
+    merchant = None
+
+    if product:
+        merchant = next((user for user in backend.mock_users.values() if user.id == product.merchant_id), None)
+        if merchant and hasattr(merchant, 'store_name'):
+            product.store_name = merchant.store_name
+        else:
+            product.store_name = "Unknown Store"
+
+    for review in reviews:
+        review.user = next((user for user in backend.mock_users.values() if user.id == review.user_id), None)
+
     if product is None:
         abort(404)
-    return render_template('product_detail.html', product=product, reviews=reviews)
+    return render_template('product_detail.html', product=product, reviews=reviews, merchant=merchant)
 
 @app.route('/add-to-cart', methods=['POST'])
 def add_to_cart():

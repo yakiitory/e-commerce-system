@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/product-detail.css') }}">
+<title>{{ product.name }}</title>
+{% endblock %}
+
+<main class="content-wrapper">
+{% block body %}
+<div class="product-detail-container">
+    <section class="product-header">
+        <div class="product-images">
+            <div class="main-image">
+                <img src="{{ product.images[0] if product.images else url_for('static', filename='img/placeholder.jpg') }}" alt="{{ product.name }}">
+            </div>
+            {% if product.images|length > 1 %}
+            <div class="thumbnail-images">
+                {% for image in product.images %}
+                <img src="{{ image }}" alt="Thumbnail of {{ product.name }}">
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="product-main-info">
+            <h2>{{ product.brand }} - {{ product.name }}</h2>
+            <div class="info-row">
+                <div class="product-rating">
+                    {% include "svg/star-filled.svg" %}
+                    {% include "svg/star-filled.svg" %}
+                    {% include "svg/star-filled.svg" %}
+                    {% include "svg/star-half.svg" %}
+                    {% include "svg/star-nofill.svg" %}
+                </div>
+                <span>|
+                </span>
+                <span class="review-count">{{ reviews|length }} reviews</span>
+            </div>
+            <p class="product-price">
+                ${{ "%.2f"|format(product.price) }}
+                {% if product.original_price and product.original_price > product.price %}
+                    <span>${{ "%.2f"|format(product.original_price) }}</span>
+                {% endif %}
+            </p>
+            <p class="short-description">{{ product.description|truncate(150) }}</p>
+
+            <form action="{{ url_for('add_to_cart') }}" method="post" class="cart-form">
+                <input type="hidden" name="product_id" value="{{ product.id }}">
+                <div class="quantity-selector">
+                    <label for="quantity">Quantity:</label>
+                    <input type="number" id="quantity" name="quantity" value="1" min="1">
+                </div>
+                <button type="submit" class="add-to-cart-btn">Add to Cart</button>
+            </form>
+        </div>
+    </section>
+
+    <section class="product-description">
+        <h3>Product Description</h3>
+        <p>{{ product.description }}</p>
+    </section>
+
+    <section class="product-description">
+        <h3>About The Store</h3>
+        <p>This product is sold by {{ merchant.store_name if merchant and merchant.store_name else 'an unknown seller' }}.</p>
+    </section>
+
+    <section class="product-reviews">
+        <h3>Customer Reviews</h3>
+        <div class="reviews-list">
+            {% for review in reviews %}
+            <div class="review-card">
+                <div class="review-header">
+                    <span class="review-author">{{ review.user.username }}</span>
+                </div>
+                <div class="review-rating">
+                </div>
+                <p class="review-body">{{ review.description }}</p>
+            </div>
+            {% else %}
+            <p>No reviews for this product yet.</p>
+            {% endfor %}
+        </div>
+
+        <div class="add-review-section">
+            <h4>Write a Review</h4>
+            <form action="{{ url_for('add_review', product_id=product.id) }}" method="post">
+                <div class="form-group">
+                    <label for="rating">Rating:</label>
+                    <input type="number" name="rating" min="1" max="5" required>
+                </div>
+                <div class="form-group">
+                    <label for="description">Review:</label>
+                    <textarea name="description" rows="4" required></textarea>
+                </div>
+                <button type="submit" class="submit-review-btn">Submit Review</button>
+            </form>
+        </div>
+    </section>
+</div>
+{% endblock %}
+</main>

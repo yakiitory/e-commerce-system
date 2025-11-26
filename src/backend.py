@@ -1,7 +1,7 @@
 from datetime import datetime
 from dataclasses import asdict
 
-from models.accounts import User, UserCreate
+from models.accounts import User, UserCreate, Merchant, MerchantCreate
 from models.products import (Product, ProductCreate, Category, CategoryCreate, 
                               Inventory, InventoryCreate)
 from models.orders import (Cart, CartItem, Order, OrderItem, Invoice, Status)
@@ -17,9 +17,9 @@ mock_products = [
         merchant_id=1,
         brand="Lenovo",
         category_id=1,
-        description="",
+        description="Operating System: Windows 11 Home Chinese Edition Display: 14.5 16:10 3K (3072x1920) IPS 120Hz 100% DCI-P3 500nits Anti-glare Storage: 1TB M.2 2242 PCIe Gen4 SSD Right: 1x RJ45, USB 3.2 Gen1, SD Card reader (SD/SDHC/SDXC), USB 2.0 (Hidden) Left: USB 3.2 Gen2 (10Gb/s), USB 3.2 Gen1, HDMI 2.1 TMDS, USB-C 4 (Thunderbolt 4, 100W) Features: MIL-STD 810H certified Keyboard and Touchpad: Full-size backlit keyboard, 1.5mm key travel, precision touchpad Audio & Mic: Stereo speakers, 2W x2, Dual microphone array",
         address_id=1,
-        images=["/static/images/product1.jpg"],
+        images=["/static/img/product1.jpg", "/static/img/product1-no1.jpg"],
         price=65000.00,
         original_price=70000.00,
         discount_rate=0.07,
@@ -31,9 +31,9 @@ mock_products = [
         merchant_id=1,
         brand="Lenovo",
         category_id=1,
-        description="",
+        description="AMD Ryzen 7 7435HS (8C / 16T, 3.1 / 4.5GHz, 4MB L2 / 16MB L3)2x 12GB SODIMM DDR5-4800 1TB SSD M.2 2242 PCIe 4.0x4 NVMe NVIDIA GeForce RTX 4070 8GB GDDR6, Boost Clock 2175MHz, TGP 115W Windows 11 Home, Portuguese / English 3-year, Courier or Carry-in",
         address_id=1,
-        images=["/static/images/product1.jpg"],
+        images=["/static/img/product2.jpg"],
         price=80000.00,
         original_price=80000.00,
         discount_rate=0.0,
@@ -42,17 +42,29 @@ mock_products = [
 ]
 
 mock_users = {
-    "testuser": User(
+    "testmerchant": Merchant(
         id=1,
+        role="merchant",
+        username="testmerchant",
+        hash="password",
+        first_name="Steven",
+        last_name="Universe",
+        phone_number="1234567890",
+        email="contact@lenovo.com",
+        store_name="Lenovo Official",
+        created_at=datetime.now()
+    ),
+    "testuser": User(
+        id=2,
         role="user",
         username="testuser",
         hash="password",
-        first_name="Blanca",
-        last_name="Evangelista",
-        phone_number="676767676767",
-        email="blancaevangelista@gmail.com",
-        gender="Female",
-        age=30,
+        first_name="Juan",
+        last_name="Dela Cruz",
+        phone_number="09123456789",
+        email="juan@example.com",
+        gender="Male",
+        age=25,
         created_at=datetime.now()
     )
 }
@@ -132,15 +144,26 @@ def mock_register(form_data: dict) -> dict:
         return {"status": False, "message": f"Username '{username}' already exists."}
 
     try:
-        user_create_data = UserCreate(**form_data)
         new_id = max(u.id for u in mock_users.values()) + 1 if mock_users else 1
-        new_user = User(
-            id=new_id,
-            role="user",
-            created_at=datetime.now(),
-            **asdict(user_create_data)
-        )
-        mock_users[username] = new_user
+
+        if 'store_name' in form_data:
+            merchant_create_data = MerchantCreate(**form_data)
+            new_account = Merchant(
+                id=new_id,
+                role="merchant",
+                created_at=datetime.now(),
+                **asdict(merchant_create_data)
+            )
+        else:
+            user_create_data = UserCreate(**form_data)
+            new_account = User(
+                id=new_id,
+                role="user",
+                created_at=datetime.now(),
+                **asdict(user_create_data)
+            )
+        
+        mock_users[username] = new_account
         return {"status": True, "message": "Registration successful! Please log in."}
     except TypeError as e:
         return {"status": False, "message": f"Invalid registration data: {e}"}

@@ -355,13 +355,21 @@
     border-radius: .5rem;
     padding: .5rem;
     transition: border-color 0.2s ease-in-out;
+    display: flex;
+    flex-direction: column;
 }
 
 .main-product-img {
     width: 100%;
     aspect-ratio: 1/1;
-    object-fit: cover;
     border: 1px solid #EBEBEB;
+    overflow: hidden;
+}
+
+.main-product-img img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
 .main-product-details {
