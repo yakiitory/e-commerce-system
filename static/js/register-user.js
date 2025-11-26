@@ -38,4 +38,19 @@ document.addEventListener('DOMContentLoaded', function() {
         document.addEventListener('click', () => {
             closeAllSelects();
         });
-    });
+
+        const registrationForm = document.getElementById('registrationForm');
+        if (registrationForm) {
+            registrationForm.addEventListener('submit', function(event) {
+                const requiredInputs = document.querySelectorAll('form#registrationForm [required], [form="registrationForm"][required]');
+                let allValid = true;
+                requiredInputs.forEach(input => {
+                    if (!input.value) {
+                        allValid = false;
+                    }
+                });
+
+                if (!allValid) { event.preventDefault(); alert('Please fill out all required fields.'); }
+            });
+        }
+});

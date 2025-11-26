@@ -55,15 +55,18 @@ def register_user_page():
 def register_merchant_page():
     return render_template('register-merchant.html')
 
-@app.route('/register-auth-page')
+@app.route('/register-auth-page', methods=['GET', 'POST'])
 def register_auth_page():
+    if request.method == 'POST':
+        first_name = request.form.get('first_name')
+        email = request.form.get('email')
+        print(f"Received registration for: {first_name} ({email})")
     return render_template('register-auth.html')
 
 @app.route('/products-page')
 def products_page(): 
     products = backend.mock_get_all_products()
     return render_template('products.html', products=products)
-    # return render_template('products.html')
 
 @app.route('/product-page/<int:product_id>')
 def product_page(product_id: int):
