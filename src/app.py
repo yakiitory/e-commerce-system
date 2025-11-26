@@ -11,6 +11,14 @@ app.secret_key = 'yo_mama_gay'
 
 @app.context_processor
 def inject_user():
+    """Injects user information into the template context.
+
+    If a 'username' is present in the session, it fetches the user object
+    and makes it available to all templates as 'current_user'.
+
+    Returns:
+        dict: A dictionary containing the current_user, or None if not logged in.
+    """
     current_user = None
     if 'username' in session:
         current_user = backend.mock_get_user_by_username(session['username'])
@@ -18,11 +26,25 @@ def inject_user():
 
 @app.route('/')
 def index():
+    """Renders the home page.
+
+    Returns:
+        str: The rendered HTML of the index page.
+    """
     return render_template('index.html')
 
 
 @app.route('/login-page', methods=['GET', 'POST'])
 def login_page():
+    """Handles user login.
+
+    On GET, it displays the login page. On POST, it processes login
+    credentials, sets the user session on success, and flashes messages.
+
+    Returns:
+        response or str: A redirect to the index page on
+        successful login, otherwise the rendered login page HTML.
+    """
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
@@ -40,12 +62,24 @@ def login_page():
 
 @app.route('/logout')
 def logout():
+    """Logs the current user out.
+
+    Removes the 'username' from the session and redirects to the home page.
+
+    Returns:
+        A redirect to the index page.
+    """
     session.pop('username', None) 
     flash("You have been logged out.", "success")
     return redirect(url_for('index'))
 
 @app.route('/register-page', methods=['GET', 'POST'])
 def register_page():
+    """Handles user registration from a single page.
+
+    Returns:
+        str: The rendered HTML of the registration page.
+    """
     if request.method == 'POST':
         full_form_data = session.get('registration_data', {})
         full_form_data.update(request.form.to_dict())
@@ -59,6 +93,15 @@ def register_page():
 
 @app.route('/register-user-page', methods=['GET', 'POST'])
 def register_user_page():
+    """Handles the first step of user registration (user details).
+
+    On POST, it stores the user details from the form into the session and
+    redirects to the authentication details registration page.
+
+    Returns: 
+        response or str: A redirect on POST, or the rendered
+        HTML for the user registration page on GET.
+    """
     if request.method == 'POST':
         session['registration_data'] = request.form.to.dict()
         return redirect(url_for('register_auth_page'))
@@ -66,6 +109,15 @@ def register_user_page():
 
 @app.route('/register-merchant-page')
 def register_merchant_page():
+    """Handles the first step of merchant registration (merchant details).
+
+    On POST, it stores the merchant details from the form into the session and
+    redirects to the authentication details registration page.
+
+    Returns: 
+        response or str: A redirect on POST, or the rendered
+        HTML for the merchant registration page on GET.
+    """
     if request.method == 'POST':
         session['registration_data'] = request.form.to.dict()
         return redirect(url_for('register_auth_page'))
@@ -73,6 +125,15 @@ def register_merchant_page():
 
 @app.route('/register-auth-page', methods=['GET', 'POST'])
 def register_auth_page():
+    """Handles the second step of registration (authentication details).
+
+    On POST, it combines session data with the current form data to register
+    the user or merchant.
+
+    Returns:
+        response or str: A redirect to the login page on
+        successful registration, otherwise the rendered registration auth page.
+    """
     if request.method == 'POST':
         full_form_data = session.get('registration_data', {}).copy() 
         full_form_data.update(request.form.to_dict())
@@ -89,6 +150,12 @@ def register_auth_page():
 
 @app.route('/products-page')
 def products_page(): 
+    """Renders the page that displays all products.
+
+    Returns:
+        str: The rendered HTML of the products page with a list of all
+        products.
+    """
     products = backend.mock_get_all_products()
     for product in products:
         category = backend.mock_get_category_by_id(product.category_id)
@@ -101,6 +168,17 @@ def products_page():
 
 @app.route('/product-page/<int:product_id>')
 def product_page(product_id: int):
+    """Renders the detail page for a specific product.
+
+    Fetches product details, reviews, and merchant information. It also
+    determines if the currently logged-in user is allowed to review the product.
+
+    Args:
+        product_id (int): The ID of the product to display.
+
+    Returns:
+        str: The rendered HTML of the product detail page.
+    """
     product = backend.mock_get_product_by_id(product_id)
     reviews = backend.mock_get_reviews_by_product_id(product_id)
     merchant = None
@@ -133,6 +211,14 @@ def product_page(product_id: int):
 
 @app.route('/add-to-cart', methods=['POST'])
 def add_to_cart():
+    """Adds a product to the current user's cart.
+
+    Requires the user to be logged in. Handles form submission for adding
+    a specified quantity of a product to the cart.
+
+    Returns:
+        A redirect to the product page.
+    """
     if 'username' not in session:
         flash("Please log in to add items to your cart.", "error")
         return redirect(url_for('login_page'))
@@ -148,6 +234,17 @@ def add_to_cart():
 
 @app.route('/add-review/<int:product_id>', methods=['POST'])
 def add_review(product_id: int):
+    """Handles the submission of a product review.
+
+    Requires the user to be logged in. Creates a new review for the given
+    product based on the submitted form data.
+
+    Args:
+        product_id (int): The ID of the product.
+
+    Returns:
+        A redirect to the product page.
+    """
     if 'username' not in session:
         flash("Please log in to submit a review.", "error")
         return redirect(url_for('login_page'))

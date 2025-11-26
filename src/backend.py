@@ -130,6 +130,15 @@ mock_admin_logs = [
 # Account Management
 
 def mock_login(username: str, password: str) -> dict: 
+    """Authenticates a user based on username and password.
+
+    Args:
+        username (str): The user's username.
+        password (str): The user's password.
+
+    Returns:
+        dict: A dictionary with a 'status' boolean and a 'message' string.
+    """
     user = mock_users.get(username)
     if user and user.hash == password:
         return {
@@ -140,6 +149,17 @@ def mock_login(username: str, password: str) -> dict:
         "message": "Invalid username or password."}
 
 def mock_register(form_data: dict) -> dict:
+    """Registers a new user or merchant.
+
+    The function determines whether to create a user or a merchant based on
+    the presence of a 'store_name' in the form data.
+
+    Args:
+        form_data (dict): A dictionary containing user or merchant registration details.
+
+    Returns:
+        dict: A dictionary with a 'status' boolean and a 'message' string.
+    """
     username = form_data.get("username")
     if not username:
         return {"status": False, "message": "Username is required."}
@@ -189,9 +209,26 @@ def mock_register(form_data: dict) -> dict:
         return {"status": False, "message": f"Invalid registration data: {e}"}
 
 def mock_get_user_by_username(username: str) -> User | None:
+    """Retrieves a user object by their username.
+
+    Args:
+        username (str): The username of the user to retrieve.
+
+    Returns:
+        User | None: The User object if found, otherwise None.
+    """
     return mock_users.get(username)
 
 def mock_update_user(username: str, form_data: dict) -> dict:
+    """Updates a user's information.
+
+    Args:
+        username (str): The username of the user to update.
+        form_data (dict): A dictionary with the fields to update.
+
+    Returns:
+        dict: A dictionary with a 'status' boolean and a 'message' string.
+    """
     user_to_update = mock_users.get(username)
     if not user_to_update:
         return {"status": False, "message": "User not found."}
@@ -205,6 +242,14 @@ def mock_update_user(username: str, form_data: dict) -> dict:
     return {"status": True, "message": f"User '{username}' updated successfully."}
 
 def mock_delete_user(username: str) -> dict: 
+    """Deletes a user from the mock database.
+
+    Args:
+        username (str): The username of the user to delete.
+
+    Returns:
+        dict: A dictionary with a 'status' boolean and a 'message' string.
+    """
     if username in mock_users:
         del mock_users[username]
         return {"status": True, "message": f"User '{username}' deleted successfully."}
@@ -213,13 +258,34 @@ def mock_delete_user(username: str) -> dict:
 # Product Management
 
 def mock_get_all_products() -> list[Product]:
+    """Retrieves all products from the mock database.
+
+    Returns:
+        list[Product]: A list of all Product objects.
+    """
     return mock_products
 
 def mock_get_product_by_id(product_id: int) -> Product | None:
+    """Retrieves a single product by its ID.
+
+    Args:
+        product_id (int): The ID of the product to retrieve.
+
+    Returns:
+        Product | None: The Product object if found, otherwise None.
+    """
     product = next((p for p in mock_products if p.id == product_id), None)
     return product
 
 def mock_create_product(form_data: dict) -> dict: 
+    """Creates a new product.
+
+    Args:
+        form_data (dict): A dictionary containing the product details.
+
+    Returns:
+        dict: A dictionary with status, message, and the new product's ID.
+    """
     try:
         new_id = max(p.id for p in mock_products) + 1 if mock_products else 1
         product_create = ProductCreate(**form_data)
@@ -230,6 +296,15 @@ def mock_create_product(form_data: dict) -> dict:
         return {"status": False, "message": f"Invalid product data: {e}"}
 
 def mock_update_product(product_id: int, form_data: dict) -> dict:
+    """Updates a product's information.
+
+    Args:
+        product_id (int): The ID of the product to update.
+        form_data (dict): A dictionary with the fields to update.
+
+    Returns:
+        dict: A dictionary with a 'status' boolean and a 'message' string.
+    """
     product_to_update = next((p for p in mock_products if p.id == product_id), None)
     if not product_to_update:
         return {"status": False, "message": "Product not found."}
@@ -243,6 +318,14 @@ def mock_update_product(product_id: int, form_data: dict) -> dict:
     return {"status": True, "message": f"Product {product_id} updated successfully."}
 
 def mock_delete_product(product_id: int) -> dict:
+    """Deletes a product from the mock database.
+
+    Args:
+        product_id (int): The ID of the product to delete.
+
+    Returns:
+        dict: A dictionary with a 'status' boolean and a 'message' string.
+    """
     global mock_products
     initial_len = len(mock_products)
     mock_products = [p for p in mock_products if p.id != product_id]
@@ -255,12 +338,33 @@ def mock_delete_product(product_id: int) -> dict:
 # Category Management
 
 def mock_get_all_categories() -> list[Category]:
+    """Retrieves all categories.
+
+    Returns:
+        list[Category]: A list of all Category objects.
+    """
     return mock_categories
 
 def mock_get_category_by_id(category_id: int) -> Category | None:
+    """Retrieves a single category by its ID.
+
+    Args:
+        category_id (int): The ID of the category to retrieve.
+
+    Returns:
+        Category | None: The Category object if found, otherwise None.
+    """
     return next((c for c in mock_categories if c.id == category_id), None)
 
 def mock_create_category(form_data: dict) -> dict:
+    """Creates a new category.
+
+    Args:
+        form_data (dict): A dictionary containing the category details.
+
+    Returns:
+        dict: A dictionary with status, message, and the new category's ID.
+    """
     try:
         new_id = max(c.id for c in mock_categories) + 1 if mock_categories else 1
         category_create = CategoryCreate(**form_data)
@@ -271,6 +375,15 @@ def mock_create_category(form_data: dict) -> dict:
         return {"status": False, "message": f"Invalid category data: {e}"}
 
 def mock_update_category(category_id: int, form_data: dict) -> dict:
+    """Updates a category's information.
+
+    Args:
+        category_id (int): The ID of the category to update.
+        form_data (dict): A dictionary with the fields to update.
+
+    Returns:
+        dict: A dictionary with a 'status' boolean and a 'message' string.
+    """
     category_to_update = next((c for c in mock_categories if c.id == category_id), None)
     if not category_to_update:
         return {"status": False, "message": "Category not found."}
@@ -284,6 +397,14 @@ def mock_update_category(category_id: int, form_data: dict) -> dict:
     return {"status": True, "message": f"Category {category_id} updated successfully."}
 
 def mock_delete_category(category_id: int) -> dict:
+    """Deletes a category from the mock database.
+
+    Args:
+        category_id (int): The ID of the category to delete.
+
+    Returns:
+        dict: A dictionary with a 'status' boolean and a 'message' string.
+    """
     global mock_categories
     initial_len = len(mock_categories)
     mock_categories = [c for c in mock_categories if c.id != category_id]
@@ -296,9 +417,26 @@ def mock_delete_category(category_id: int) -> dict:
 # Inventory Management
 
 def mock_get_inventory_by_product_id(product_id: int) -> Inventory | None:
+    """Retrieves the inventory for a specific product.
+
+    Args:
+        product_id (int): The ID of the product.
+
+    Returns:
+        Inventory | None: The Inventory object if found, otherwise None.
+    """
     return next((i for i in mock_inventories if i.product_id == product_id), None)
 
 def mock_update_inventory(inventory_id: int, form_data: dict) -> dict:
+    """Updates an inventory's information.
+
+    Args:
+        inventory_id (int): The ID of the inventory to update.
+        form_data (dict): A dictionary with the fields to update.
+
+    Returns:
+        dict: A dictionary with a 'status' boolean and a 'message' string.
+    """
     inventory_to_update = next((i for i in mock_inventories if i.id == inventory_id), None)
     if not inventory_to_update:
         return {"status": False, "message": "Inventory not found."}
@@ -312,6 +450,14 @@ def mock_update_inventory(inventory_id: int, form_data: dict) -> dict:
     return {"status": True, "message": f"Inventory {inventory_id} updated successfully."}
 
 def mock_create_inventory(form_data: dict) -> dict:
+    """Creates a new inventory record.
+
+    Args:
+        form_data (dict): A dictionary containing inventory details.
+
+    Returns:
+        dict: A dictionary with status, message, and the new inventory's ID.
+    """
     try:
         new_id = max(i.id for i in mock_inventories) + 1 if mock_inventories else 1
         inventory_create = InventoryCreate(**form_data)
@@ -322,6 +468,14 @@ def mock_create_inventory(form_data: dict) -> dict:
         return {"status": False, "message": f"Invalid inventory data: {e}"}
 
 def mock_delete_inventory(inventory_id: int) -> dict:
+    """Deletes an inventory record.
+
+    Args:
+        inventory_id (int): The ID of the inventory to delete.
+
+    Returns:
+        dict: A dictionary with a 'status' boolean and a 'message' string.
+    """
     global mock_inventories
     initial_len = len(mock_inventories)
     mock_inventories = [i for i in mock_inventories if i.id != inventory_id]
@@ -332,6 +486,14 @@ def mock_delete_inventory(inventory_id: int) -> dict:
 # Cart & Order Management
 
 def mock_get_cart_by_user_id(user_id: int) -> Cart | None: 
+    """Retrieves a user's cart, creating one if it doesn't exist.
+
+    Args:
+        user_id (int): The ID of the user.
+
+    Returns:
+        Cart | None: The user's Cart object.
+    """
     cart = next((c for c in mock_carts if c.user_id == user_id), None)
     if not cart:
         new_id = max(c.id for c in mock_carts) + 1 if mock_carts else 1
@@ -340,6 +502,17 @@ def mock_get_cart_by_user_id(user_id: int) -> Cart | None:
     return cart
 
 def mock_add_item_to_cart(cart_id: int, form_data: dict) -> dict:
+    """Adds an item to a specified cart.
+
+    If the item already exists in the cart, its quantity is updated.
+
+    Args:
+        cart_id (int): The ID of the cart.
+        form_data (dict): Dictionary with 'product_id' and 'product_quantity'.
+
+    Returns:
+        dict: A dictionary with a 'status' boolean and a 'message' string.
+    """
     cart = next((c for c in mock_carts if c.id == cart_id), None)
     if not cart:
         return {"status": False, "message": "Cart not found."}
@@ -366,6 +539,15 @@ def mock_add_item_to_cart(cart_id: int, form_data: dict) -> dict:
     return {"status": True, "message": "Item added to cart."}
 
 def mock_remove_item_from_cart(cart_id: int, item_id: int) -> dict:
+    """Removes an item from a cart.
+
+    Args:
+        cart_id (int): The ID of the cart.
+        item_id (int): The ID of the cart item to remove.
+
+    Returns:
+        dict: A dictionary with a 'status' boolean and a 'message' string.
+    """
     cart = next((c for c in mock_carts if c.id == cart_id), None)
     if not cart:
         return {"status": False, "message": "Cart not found."}
@@ -378,6 +560,15 @@ def mock_remove_item_from_cart(cart_id: int, item_id: int) -> dict:
     return {"status": False, "message": "Item not found in cart."}
 
 def mock_create_order_from_cart(cart_id: int, form_data: dict) -> dict:
+    """Creates an order from all items in a cart and then empties the cart.
+
+    Args:
+        cart_id (int): The ID of the cart to convert into an order.
+        form_data (dict): Dictionary containing order details like 'payment_type'.
+
+    Returns:
+        dict: A dictionary with status, message, and the new order's ID.
+    """
     cart = next((c for c in mock_carts if c.id == cart_id), None)
     if not cart or not cart.items:
         return {"status": False, "message": "Cart not found or is empty."}
@@ -408,14 +599,38 @@ def mock_create_order_from_cart(cart_id: int, form_data: dict) -> dict:
     return {"status": True, "message": "Order created successfully.", "order_id": new_order_id}
 
 def mock_get_orders_by_user_id(user_id: int) -> list[Order]:
+    """Retrieves all orders for a specific user.
+
+    Args:
+        user_id (int): The ID of the user.
+
+    Returns:
+        list[Order]: A list of Order objects belonging to the user.
+    """
     return [o for o in mock_orders if o.user_id == user_id]
 
 # Address Management
 
 def mock_get_address_by_id(address_id: int) -> Address | None:
+    """Retrieves a single address by its ID.
+
+    Args:
+        address_id (int): The ID of the address to retrieve.
+
+    Returns:
+        Address | None: The Address object if found, otherwise None.
+    """
     return next((a for a in mock_addresses if a.id == address_id), None)
 
 def mock_create_address(form_data: dict) -> dict:
+    """Creates a new address.
+
+    Args:
+        form_data (dict): A dictionary containing address details.
+
+    Returns:
+        dict: A dictionary with status, message, and the new address's ID.
+    """
     try:
         new_id = max(a.id for a in mock_addresses) + 1 if mock_addresses else 1
         address_create = AddressCreate(**form_data)
@@ -426,6 +641,15 @@ def mock_create_address(form_data: dict) -> dict:
         return {"status": False, "message": f"Invalid address data: {e}"}
 
 def mock_update_address(address_id: int, form_data: dict) -> dict:
+    """Updates an address's information.
+
+    Args:
+        address_id (int): The ID of the address to update.
+        form_data (dict): A dictionary with the fields to update.
+
+    Returns:
+        dict: A dictionary with a 'status' boolean and a 'message' string.
+    """
     address_to_update = next((a for a in mock_addresses if a.id == address_id), None)
     if not address_to_update:
         return {"status": False, "message": "Address not found."}
@@ -439,6 +663,14 @@ def mock_update_address(address_id: int, form_data: dict) -> dict:
     return {"status": True, "message": f"Address {address_id} updated successfully."}
 
 def mock_delete_address(address_id: int) -> dict:
+    """Deletes an address from the mock database.
+
+    Args:
+        address_id (int): The ID of the address to delete.
+
+    Returns:
+        dict: A dictionary with a 'status' boolean and a 'message' string.
+    """
     global mock_addresses
     initial_len = len(mock_addresses)
     mock_addresses = [a for a in mock_addresses if a.id != address_id]
@@ -451,9 +683,25 @@ def mock_delete_address(address_id: int) -> dict:
 # Payment & Voucher Management
 
 def mock_get_virtual_card_by_owner_id(owner_id: int) -> VirtualCard | None:
+    """Retrieves a virtual card by the owner's ID.
+
+    Args:
+        owner_id (int): The ID of the card owner.
+
+    Returns:
+        VirtualCard | None: The VirtualCard object if found, otherwise None.
+    """
     return next((vc for vc in mock_virtual_cards if vc.owner_id == owner_id), None)
 
 def mock_process_payment(form_data: dict) -> dict:
+    """Processes a payment from a sender's virtual card.
+
+    Args:
+        form_data (dict): Dictionary with 'sender_id' and 'amount'.
+
+    Returns:
+        dict: A dictionary with status, message, and the new payment's ID.
+    """
     sender_id = form_data.get("sender_id")
     amount = form_data.get("amount")
 
@@ -477,9 +725,25 @@ def mock_process_payment(form_data: dict) -> dict:
         return {"status": False, "message": f"Invalid payment data: {e}"}
 
 def mock_get_user_payments(user_id: int) -> list[Payment]:
+    """Retrieves all payments where the user was the sender or receiver.
+
+    Args:
+        user_id (int): The ID of the user.
+
+    Returns:
+        list[Payment]: A list of Payment objects.
+    """
     return [p for p in mock_payments if p.sender_id == user_id or p.receiver_id == user_id]
 
 def mock_create_voucher(form_data: dict) -> dict:
+    """Creates a new voucher.
+
+    Args:
+        form_data (dict): A dictionary containing voucher details.
+
+    Returns:
+        dict: A dictionary with status, message, and the new voucher's ID.
+    """
     try:
         new_id = max(v.id for v in mock_vouchers) + 1 if mock_vouchers else 1
         if isinstance(form_data.get("active_until"), str):
@@ -492,12 +756,29 @@ def mock_create_voucher(form_data: dict) -> dict:
         return {"status": False, "message": f"Invalid voucher data: {e}"}
 
 def mock_get_vouchers_by_merchant(merchant_id: int) -> list[Voucher]:
+    """Retrieves all active vouchers for a specific merchant.
+
+    Args:
+        merchant_id (int): The ID of the merchant.
+
+    Returns:
+        list[Voucher]: A list of active Voucher objects.
+    """
     now = datetime.now()
     return [v for v in mock_vouchers if v.merchant_id == merchant_id and v.active_until > now]
 
 # --- Reviews & Logging ---
 
 def mock_create_review(form_data: dict) -> dict:
+    """Creates a new product review.
+
+    Args:
+        form_data (dict): A dictionary containing review details like
+                          'user_id', 'product_id', 'rating', etc.
+
+    Returns:
+        dict: A dictionary with status, message, and the new review's ID.
+    """
     try:
         new_id = max(r.id for r in mock_reviews) + 1 if mock_reviews else 1
         new_review = Review(id=new_id, **form_data)
@@ -507,9 +788,25 @@ def mock_create_review(form_data: dict) -> dict:
         return {"status": False, "message": f"Invalid review data: {e}"}
 
 def mock_get_reviews_by_product_id(product_id: int) -> list[Review]:
+    """Retrieves all reviews for a specific product.
+
+    Args:
+        product_id (int): The ID of the product.
+
+    Returns:
+        list[Review]: A list of Review objects for the product.
+    """
     return [r for r in mock_reviews if r.product_id == product_id]
 
 def mock_like_review(review_id: int) -> dict:
+    """Increments the 'likes' count of a review.
+
+    Args:
+        review_id (int): The ID of the review to like.
+
+    Returns:
+        dict: A dictionary with a 'status' boolean and a 'message' string.
+    """
     review = next((r for r in mock_reviews if r.id == review_id), None)
     if not review:
         return {"status": False, "message": "Review not found."}
@@ -517,6 +814,14 @@ def mock_like_review(review_id: int) -> dict:
     return {"status": True, "message": "Review liked!"}
 
 def mock_delete_review(review_id: int) -> dict:
+    """Deletes a review from the mock database.
+
+    Args:
+        review_id (int): The ID of the review to delete.
+
+    Returns:
+        dict: A dictionary with a 'status' boolean and a 'message' string.
+    """
     global mock_reviews
     initial_len = len(mock_reviews)
     mock_reviews = [r for r in mock_reviews if r.id != review_id]
@@ -525,6 +830,15 @@ def mock_delete_review(review_id: int) -> dict:
     return {"status": False, "message": "Review not found."}
 
 def mock_log_user_interaction(form_data: dict) -> dict:   
+    """Logs a user interaction, such as a product view.
+
+    Args:
+        form_data (dict): Dictionary with interaction details like 'user_id',
+                          'interaction_type', and 'product_id'.
+
+    Returns:
+        dict: A dictionary with a 'status' boolean and a 'message' string.
+    """
     try:
         new_id = max(i.id for i in mock_interactions) + 1 if mock_interactions else 1
         new_interaction = Interaction(id=new_id, created_at=datetime.now(), **form_data)
@@ -534,9 +848,27 @@ def mock_log_user_interaction(form_data: dict) -> dict:
         return {"status": False, "message": f"Invalid interaction data: {e}"}
 
 def mock_get_user_interactions(user_id: int) -> list[Interaction]:
+    """Retrieves all interactions for a specific user.
+
+    Args:
+        user_id (int): The ID of the user.
+
+    Returns:
+        list[Interaction]: A list of Interaction objects.
+    """
     return [i for i in mock_interactions if i.user_id == user_id]
 
 def mock_log_admin_action(form_data: dict) -> dict:
+    """Logs an action performed by an administrator.
+
+    Args:
+        form_data (dict): Dictionary with log details like 'user_id',
+                          'interaction_type', 'target_type', 'target_id',
+                          'details', and 'status'.
+
+    Returns:
+        dict: A dictionary with a 'status' boolean and a 'message' string.
+    """
     try:
         new_id = max(log.id for log in mock_admin_logs) + 1 if mock_admin_logs else 1
         new_log = AdminLog(id=new_id, created_at=datetime.now(), **form_data)
@@ -546,4 +878,9 @@ def mock_log_admin_action(form_data: dict) -> dict:
         return {"status": False, "message": f"Invalid log data: {e}"}
 
 def mock_get_all_admin_logs() -> list[AdminLog]:
+    """Retrieves all admin logs.
+
+    Returns:
+        list[AdminLog]: A list of all AdminLog objects.
+    """
     return mock_admin_logs
