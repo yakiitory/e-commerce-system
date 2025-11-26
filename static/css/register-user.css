@@ -219,3 +219,30 @@
     transform: rotate(180deg);
     padding-left: .5rem;
 }
+
+/* --- Responsive --- */
+
+@media (max-width: 900px) {
+    .form-container {
+        flex-direction: column;
+        width: 95%;
+        max-width: 600px;
+        min-width: 0;
+        margin: 2rem auto;
+    }
+}
+
+@media (max-width: 480px) {
+    .form-section {
+        padding: 25px;
+    }
+
+    .form-section h3 {
+        font-size: 24px;
+    }
+
+    .input-row {
+        flex-direction: column;
+        gap: 30px;
+    }
+}
