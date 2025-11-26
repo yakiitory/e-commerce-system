@@ -1,0 +1,66 @@
+from __future__ import annotations
+import os
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+from PIL import Image
+
+if TYPE_CHECKING:
+    from fastapi import UploadFile
+
+
+class MediaService:
+    """
+    Handles business logic for saving and processing media files, like images.
+    """
+
+    def __init__(self, media_root: str | Path = "media"):
+        """
+        Initializes the MediaService.
+
+        Args:
+            media_root (str | Path): The root directory for storing media files.
+                                     Defaults to 'media' relative to the project root.
+        """
+        # Resolving the path to ensure it's absolute and exists.
+        # This assumes the service is run from the project root context.
+        self.media_dir = Path(media_root).resolve()
+        self.media_dir.mkdir(parents=True, exist_ok=True)
+
+    def save_image(self, image: UploadFile, image_id: int) -> tuple[bool, str]:
+        """
+        Saves an uploaded image, compresses it, and converts it to JPEG.
+
+        The image is saved with a filename corresponding to the given integer ID.
+        For example, an image_id of 123 will be saved as '123.jpg'.
+
+        Args:
+            image (UploadFile): The uploaded image file from a web framework like FastAPI.
+            image_id (int): The integer to use as the base filename.
+
+        Returns:
+            A tuple containing a boolean for success and the relative path to the
+            saved image or an error message.
+        """
+        if not image.content_type.startswith("image/"):
+            return (False, "File is not a valid image type.")
+
+        try:
+            # Define the output path
+            file_name = f"{image_id}.jpg"
+            output_path = self.media_dir / file_name
+
+            # Open the uploaded image using Pillow
+            pil_image = Image.open(image.file)
+
+            # Convert to RGB if it has an alpha channel (like PNGs)
+            if pil_image.mode in ("RGBA", "P"):
+                pil_image = pil_image.convert("RGB")
+
+            # Save the image as a compressed JPEG
+            pil_image.save(output_path, "jpeg", quality=85, optimize=True)
+
+            return (True, str(Path(self.media_dir.name) / file_name))
+        except Exception as e:
+            print(f"[MediaService ERROR] Failed to save image {image_id}: {e}")
+            return (False, "An unexpected error occurred while saving the image.")
