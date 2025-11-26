@@ -26,7 +26,11 @@
         </form>
         <div class="icons-container">
             <a href="">{% include "svg/heart.svg" %}</a>
-            <a href="{{ url_for('login_page') }}">{% include "svg/account.svg" %}</a>
+            {% if current_user %}
+            <a href="{{ url_for('logout') }}" title="Logout">{% include "svg/account.svg" %}</a>
+            {% else %}
+            <a href="{{ url_for('login_page') }}" title="Login">{% include "svg/account.svg" %}</a>
+            {% endif %}
             <a href="">{% include "svg/shopping_cart.svg" %}</a>
         </div>
     </nav>

@@ -40,6 +40,7 @@
 .product-images .main-image {
     display: flex;
     justify-content: center;
+    width: 100%;
 }
 
 .product-images .main-image img {
@@ -78,7 +79,7 @@
 }
 
 .product-main-info h2 {
-    font-size: 2.5rem;
+    font-size: 1.5rem;
     margin: 0;
 }
 
@@ -108,7 +109,7 @@
     padding: .5rem 1rem;
     border-radius: 12px;
     background-color: var(--lightest-gray);
-    font-size: 2rem;
+    font-size: 1.5rem;
     font-weight: 700;
     color: var(--purple);
     margin: 1rem 0;
@@ -168,7 +169,9 @@
 }
 
 .product-description h3, .product-reviews h3 {
-    font-size: 1.5rem;
+    color: var(--dark-blue);
+    font-weight: 600;
+    font-size: 1rem;
     margin-bottom: 1rem;
 }
 
@@ -190,13 +193,30 @@
 }
 
 .review-header {
+    gap: .5rem;
     display: flex;
-    justify-content: space-between;
-    margin-bottom: .5rem;
+    align-items: center;
+    margin-bottom: .2rem;
 }
 
-.review-author {
+.review-username {
     font-weight: 600;
+}
+
+.review-name {
+    font-weight: 400;
+}
+
+.review-rating .stars {
+    display: flex;
+    gap: .1rem;
+}
+
+.stars svg {
+    width: 1rem;
+    height: 1rem;
+    fill: #F5C2E7;
+    flex-shrink: 0;
 }
 
 .review-date {
@@ -205,7 +225,22 @@
 }
 
 .review-body {
+    padding: .5rem;
+    height: max-content;
+    border-radius: 6px;
+    background-color: var(--lightest-gray);
     color: var(--gray);
+    margin-bottom: 0;
+}
+
+.add-review-section {
+    display: flex;
+    flex-direction: column;
+}
+
+.add-review-section h4 {
+    color: var(--dark-blue);
+    font-weight: 600;
 }
 
 /* --- Responsive --- */

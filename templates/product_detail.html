@@ -71,17 +71,25 @@
             {% for review in reviews %}
             <div class="review-card">
                 <div class="review-header">
-                    <span class="review-author">{{ review.user.username }}</span>
+                    <span class="review-name">{{ review.user.first_name }} {{ review.user.last_name }}</span>
+                    <span class="review-username">({{ review.user.username }})</span>
                 </div>
                 <div class="review-rating">
+                    <div class="stars">
+                        {% include "svg/star-filled.svg" %}
+                        {% include "svg/star-filled.svg" %}
+                        {% include "svg/star-filled.svg" %}
+                        {% include "svg/star-half.svg" %}
+                        {% include "svg/star-nofill.svg" %} 
+                    </div>
+                    <p class="review-body">{{ review.description }}</p>
                 </div>
-                <p class="review-body">{{ review.description }}</p>
-            </div>
             {% else %}
             <p>No reviews for this product yet.</p>
             {% endfor %}
         </div>
 
+        {% if can_review %}
         <div class="add-review-section">
             <h4>Write a Review</h4>
             <form action="{{ url_for('add_review', product_id=product.id) }}" method="post">
@@ -96,6 +104,7 @@
                 <button type="submit" class="submit-review-btn">Submit Review</button>
             </form>
         </div>
+        {% endif %}
     </section>
 </div>
 {% endblock %}

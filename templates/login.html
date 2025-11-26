@@ -11,10 +11,9 @@
     <form action="{{ url_for('login_page') }}" method="post">
         <input type="text" id="username" name="username" required placeholder="Username">
             <div class="password-container">
-                <input type="text" id="password" name="password" required placeholder="Password">
+                <input type="password" id="password" name="password" required placeholder="Password">
                 <p>Password must be atleast 6 letters</p>
             </div>
-        <input type="text" name="re-password" id="re-password" placeholder="Re-enter Password">
         <div class="btn-container">
             <button type="submit">Login</button>
             <p>Don't have an account? <a href="{{ url_for('register_page') }}">Register Here</a></p>

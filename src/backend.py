@@ -33,7 +33,7 @@ mock_products = [
         category_id=1,
         description="AMD Ryzen 7 7435HS (8C / 16T, 3.1 / 4.5GHz, 4MB L2 / 16MB L3)2x 12GB SODIMM DDR5-4800 1TB SSD M.2 2242 PCIe 4.0x4 NVMe NVIDIA GeForce RTX 4070 8GB GDDR6, Boost Clock 2175MHz, TGP 115W Windows 11 Home, Portuguese / English 3-year, Courier or Carry-in",
         address_id=1,
-        images=["/static/img/product2.jpg"],
+        images=["/static/img/product2.jpg", "/static/img/product2-no1.jpg"],
         price=80000.00,
         original_price=80000.00,
         discount_rate=0.0,
@@ -86,9 +86,12 @@ mock_carts = [
 ]
 
 mock_orders = [
-    Order(id=1, user_id=1, status=Status.DELIVERED, order_created=datetime.now(), payment_type="COD", orders=(
+    Order(id=1, user_id=2, status=Status.DELIVERED, order_created=datetime.now(), payment_type="COD", orders=(
         OrderItem(id=1, product_id=1, product_quantity=1, product_price=65000.00, applied_discounts=[], total_price=65000.00),
     ))
+    # Order(id=2, user_id=2, status=Status.DELIVERED, order_created=datetime.now(), payment_type="COD", orders=(
+    #     OrderItem(id=2, product_id=2, product_quantity=1, product_price=80000.00, applied_discounts=[], total_price=80000.00),
+    # ))
 ]
 
 mock_invoices = [
@@ -112,7 +115,7 @@ mock_vouchers = [
 ]
 
 mock_reviews = [
-    Review(id=1, user_id=1, product_id=1, rating=5.0, description="Excellent laptop!", attached=[], likes=10)
+    Review(id=1, user_id=2, product_id=1, rating=5.0, description="Excellent laptop!", attached=[], likes=10)
 ]
 
 mock_interactions = [
@@ -147,7 +150,13 @@ def mock_register(form_data: dict) -> dict:
         new_id = max(u.id for u in mock_users.values()) + 1 if mock_users else 1
 
         if 'store_name' in form_data:
+            # Merchant Registration
+            if 'password' in form_data:
+                form_data['hash'] = form_data.pop('password')
+                form_data.pop('re_password', None)
+
             merchant_create_data = MerchantCreate(**form_data)
+            
             new_account = Merchant(
                 id=new_id,
                 role="merchant",
@@ -155,17 +164,28 @@ def mock_register(form_data: dict) -> dict:
                 **asdict(merchant_create_data)
             )
         else:
-            user_create_data = UserCreate(**form_data)
+            # User Registration
+            if 'password' in form_data:
+                form_data['hash'] = form_data.pop('password')
+                form_data.pop('re_password', None)
+
+            user_create_fields = [
+                'username', 'hash', 'first_name', 'last_name', 
+                'phone_number', 'email', 'gender', 'age'
+            ]
+            user_create_dict = {key: form_data[key] for key in user_create_fields if key in form_data}
+            user_create_data = UserCreate(**user_create_dict)
+            
             new_account = User(
                 id=new_id,
                 role="user",
                 created_at=datetime.now(),
                 **asdict(user_create_data)
             )
-        
+
         mock_users[username] = new_account
         return {"status": True, "message": "Registration successful! Please log in."}
-    except TypeError as e:
+    except (TypeError, KeyError) as e:
         return {"status": False, "message": f"Invalid registration data: {e}"}
 
 def mock_get_user_by_username(username: str) -> User | None:

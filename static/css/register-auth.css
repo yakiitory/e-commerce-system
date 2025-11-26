@@ -79,9 +79,8 @@
 
 .btn-container {
     display: flex;
-    justify-content: space-between;
     margin-top: 5rem;
-    align-items: center;
+    justify-content: center;
 }
 
 .btn-container button {
@@ -104,11 +103,11 @@
     transform: translateY(-3px);
 }
 
-.register-container a {
+/* .register-container a {
     text-decoration: none;
 }
 
 .register-container form svg {
     transform: rotate(180deg);
     fill: #FFFFFF;
-}
+} */
