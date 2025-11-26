@@ -7,7 +7,7 @@ import backend
 
 app = Flask(__name__, template_folder='../templates', static_folder='../static')
 
-app.secret_key = 'yo_mama_gay'
+app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'yo_mama_gay')
 
 @app.context_processor
 def inject_user():
