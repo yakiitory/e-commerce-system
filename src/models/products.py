@@ -48,6 +48,7 @@ class ProductEntry:
 
 @dataclass
 class ProductMetadata:
+    product_id: int
     view_count: int = 0
     sold_count: int = 0
     add_to_cart_count: int = 0

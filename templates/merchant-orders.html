@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/orders.css') }}">
+<title>Manage Orders</title>
+{% endblock %}
+
+<main class="content-wrapper">
+{% block body %}
+    <div class="orders-container">
+        <h3>Manage Customer Orders</h3>
+        <div class="orders-list">
+            {% if orders %}
+                {% for order in orders %}
+                <div class="order-card">
+                    <div class="order-header">
+                        <div class="header-group"><span>ORDER PLACED</span><p>{{ order.order_created.strftime('%B %d, %Y') }}</p></div>
+                        <div class="header-group"><span>CUSTOMER</span><p>{{ order.customer_name }}</p></div>
+                        <div class="header-group"><span>TOTAL</span><p>₱{{ "{:,.2f}".format(order.total_price) }}</p></div>
+                        <div class="header-group"><span>STATUS</span><p><span class="status-badge status-{{ order.status.name | lower }}">{{ order.status.name }}</span></p></div>
+                        <div class="header-group"><span>ORDER #{{ order.id }}</span></div>
+                    </div>
+                    <div class="order-body">
+                        {% for item in order.orders %}
+                        <div class="order-item">
+                            <img src="{{ item.product.images[0] if item.product and item.product.images else url_for('static', filename='img/placeholder.jpg') }}" alt="{{ item.product.name if item.product else 'Product Image' }}">
+                            <div class="item-details">
+                                <h4>{{ item.product.brand if item.product else 'N/A' }} - {{ item.product.name if item.product else 'N/A' }}</h4>
+                                <p>Qty: {{ item.product_quantity }}</p>
+                                <p>Price: ₱{{ "{:,.2f}".format(item.product_price) }}</p>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        <div class="order-actions">
+                            {% if order.status == Status.PENDING %}
+                                <form action="{{ url_for('merchant_cancel_order', order_id=order.id) }}" method="post" onsubmit="return confirm('Are you sure you want to cancel this customer order? This may trigger a refund.');">
+                                    <button type="submit" class="action-btn cancel-btn">Cancel Order</button>
+                                </form>
+                                <form action="{{ url_for('merchant_ship_order', order_id=order.id) }}" method="post">
+                                    <button type="submit" class="action-btn delivered-btn">Ship Order</button>
+                                </form>
+                            {% elif order.status == Status.SHIPPED %}
+                                <button class="action-btn" disabled>Awaiting Delivery Confirmation</button>
+                            {% elif order.status == Status.DELIVERED %}
+                                <button class="action-btn" disabled>Completed</button>
+                            {% elif order.status == Status.CANCELLED %}
+                                <button class="action-btn" disabled>Cancelled</button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p>You have no customer orders.</p>
+            {% endif %}
+        </div>
+    </div>
+{% endblock %}
+</main>

@@ -1,0 +1,140 @@
+:root {
+    --light-blue: #CDD6F4;
+    --purple: #B4BEFE;
+    --star-pink: #F5C2E7;
+    --yellow: #F9E2AF;
+    --text-dark: #000000;
+    --gray: #777777;
+    --light-gray: #C4C4C4;
+    --lightest-gray: #EBEBEB;
+    --dark-blue: #1E1E2E;
+    --white: #FFFFFF;
+    --success-green: #4CAF50;
+}
+
+.invoice-container {
+    max-width: 800px;
+    margin: 2rem auto;
+    padding: 3rem;
+    background-color: var(--white);
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+}
+
+.invoice-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 3rem;
+    border-bottom: 2px solid var(--lightest-gray);
+    padding-bottom: 1.5rem;
+}
+
+.invoice-title h1 {
+    margin: 0;
+    font-size: 2.5rem;
+    color: var(--dark-blue);
+}
+
+.invoice-title p {
+    margin: 0.25rem 0 0 0;
+    color: var(--gray);
+}
+
+.invoice-meta {
+    text-align: right;
+}
+
+.invoice-meta p {
+    margin: 0.25rem 0;
+    font-size: 0.9rem;
+}
+
+.status-paid {
+    color: var(--success-green);
+    font-weight: 700;
+}
+
+.status-badge {
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: capitalize;
+}
+
+.status-pending { background-color: var(--yellow); color: var(--text-dark); }
+.status-shipped { background-color: var(--light-blue); color: var(--dark-blue); }
+.status-delivered { background-color: var(--success-green); color: var(--white); }
+.status-cancelled { background-color: #d9534f; color: var(--white); }
+
+
+.party-details {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 3rem;
+}
+
+.party-details h4 {
+    margin-top: 0;
+    margin-bottom: 0.75rem;
+    border-bottom: 1px solid var(--lightest-gray);
+    padding-bottom: 0.5rem;
+}
+
+.party-details p {
+    margin: 0.25rem 0;
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
+.items-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 2rem;
+}
+
+.items-table thead {
+    background-color: #f9fafb;
+}
+
+.items-table th, .items-table td {
+    padding: 0.8rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--lightest-gray);
+}
+
+.items-table th {
+    font-weight: 600;
+    color: var(--gray);
+}
+
+.items-table td:nth-child(2), .items-table td:nth-child(3), .items-table td:nth-child(4) {
+    text-align: right;
+}
+
+.invoice-summary {
+    width: 40%;
+    margin-left: auto;
+    margin-bottom: 2rem;
+}
+
+.summary-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+}
+
+.summary-row.total {
+    font-weight: 700;
+    font-size: 1.2rem;
+    border-top: 2px solid var(--dark-blue);
+    padding-top: 0.75rem;
+    margin-top: 0.5rem;
+}
+
+.payment-summary {
+    border-top: 1px solid var(--lightest-gray);
+    padding-top: 1.5rem;
+    margin-top: 2rem;
+}

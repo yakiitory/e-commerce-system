@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block head %}
+<title>Login</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+{% endblock %}
+
+{% block body %}
+<div class="login-container">
+    <h3>Login</h3>
+    <form action="{{ url_for('login_page') }}" method="post">
+        <input type="text" id="username" name="username" required placeholder="Username">
+            <div class="password-container">
+                <input type="password" id="password" name="password" required placeholder="Password">
+                <p>Password must be atleast 6 letters</p>
+            </div>
+        <div class="btn-container">
+            <button type="submit">Login</button>
+            <p>Don't have an account? <a href="{{ url_for('register_page') }}">Register Here</a></p>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/checkout.css') }}">
+<title>Checkout</title>
+{% endblock %}
+
+<main class="content-wrapper">
+{% block body %}
+    <div class="checkout-container">
+        <h3>Checkout</h3>
+        <form action="{{ url_for('checkout_page') }}" method="post">
+            <div class="checkout-grid">
+                <div class="checkout-details">
+                    <h4>Shipping Address</h4>
+                    <div class="address-selection">
+                        {% if addresses %}
+                            {% for address in addresses %}
+                            <div class="address-option">
+                                <input type="radio" name="address_id" value="{{ address.id }}" id="address-{{ address.id }}" required>
+                                <label for="address-{{ address.id }}">
+                                    <strong>Address {{ loop.index }}</strong>
+                                    <p>{{ address.house_no }} {{ address.street }}, {{ address.city }}, {{ address.postal_code }}</p>
+                                </label>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <p>You have no saved addresses. <a href="{{ url_for('user_addresses_page') }}">Please add one</a> before proceeding.</p>
+                        {% endif %}
+                    </div>
+
+                    <h4 class="payment-method-title">Payment Method</h4>
+                    <div class="payment-selection">
+                        <div class="payment-option">
+                            <input type="radio" name="payment_method" value="virtual_card" id="virtual_card" checked required>
+                            <label for="virtual_card">
+                                <strong>Virtual Card</strong>
+                                <p>Pay securely with your FleaMart virtual card balance.</p>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="order-summary">
+                    <h4>Order Summary</h4>
+                    <div class="summary-items">
+                        {% for item in cart_items %}
+                        <div class="summary-item">
+                            <img src="{{ item.product.images[0] if item.product.images else url_for('static', filename='img/placeholder.jpg') }}" alt="{{ item.product.name }}">
+                            <div class="item-info">
+                                <p>{{ item.product.brand }} - {{ item.product.name }}</p>
+                                <p>Qty: {{ item.product_quantity }}</p>
+                            </div>
+                            <span class="item-price">₱{{ "{:,.2f}".format(item.product_price * item.product_quantity) }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="summary-total">
+                        <div class="summary-row">
+                            <span>Subtotal</span>
+                            <span>₱{{ "{:,.2f}".format(total_price) }}</span>
+                        </div>
+                        <div class="summary-row total">
+                            <span>Total</span>
+                            <span>₱{{ "{:,.2f}".format(total_price) }}</span>
+                        </div>
+                    </div>
+                    {% if virtual_card %}
+                        <button type="submit" class="place-order-btn" {% if not addresses %}disabled{% endif %}>Place Your Order</button>
+                    {% else %}
+                        <div class="activation-prompt">
+                            <p>You must activate your virtual card before placing an order.</p>
+                            <a href="{{ url_for('payments_page') }}" class="activate-link-btn">Activate Card</a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </form>
+    </div>
+{% endblock %}
+</main>

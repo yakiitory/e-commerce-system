@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/account-details.css') }}">
+<!-- <script src="{{ url_for('static', filename='js/register-user.js') }}" defer></script> -->
+<title>Account</title>
+{% endblock %}
+
+<main class="content-wrapper">
+{% block body %}
+    <div class="user-settings-container">
+        <h3>Your Account</h3>
+        <div class="account-cards-container">
+            {% if current_user.role == 'merchant' %}
+                {# Merchant-specific account cards #}
+                <a href="{{ url_for('login_security_page') }}" class="account-card user-login-security">
+                    <div class="icon-placeholder"></div>
+                    <div class="card-text">
+                        <h4>Login & Security</h4>
+                        <p>Edit login, name, and mobile number.</p>
+                    </div>
+                </a>
+                <a href="{{ url_for('user_addresses_page') }}" class="account-card user-addresses">
+                    <div class="icon-placeholder"></div>
+                    <div class="card-text">
+                        <h4>Your Addresses</h4>
+                        <p>Edit, remove, or set default store addresses.</p>
+                    </div>
+                </a>
+                <a href="#" class="account-card user-notifications">
+                    <div class="icon-placeholder"></div>
+                    <div class="card-text">
+                        <h4>Notifications</h4>
+                        <p>Manage your notification preferences.</p>
+                    </div>
+                </a>
+                <a href="{{ url_for('payments_page') }}" class="account-card user-payment">
+                    <div class="icon-placeholder"></div>
+                    <div class="card-text">
+                        <h4>Your Payments</h4>
+                        <p>View payment history and manage settings.</p>
+                    </div>
+                </a>
+            {% else %}
+                {# Default user account cards #}
+                <a href="{{ url_for('orders_page') }}" class="account-card user-orders">
+                    <div class="icon-placeholder"></div>
+                    <div class="card-text">
+                        <h4>Your Orders</h4>
+                        <p>Track, return, or buy things again.</p>
+                    </div>
+                </a>
+                <a href="{{ url_for('login_security_page') }}" class="account-card user-login-security">
+                    <div class="icon-placeholder"></div>
+                    <div class="card-text">
+                        <h4>Login & Security</h4>
+                        <p>Edit login, name, and mobile number.</p>
+                    </div>
+                </a>
+                <a href="{{ url_for('user_addresses_page') }}" class="account-card user-addresses">
+                    <div class="icon-placeholder"></div>
+                    <div class="card-text">
+                        <h4>Your Addresses</h4>
+                        <p>Edit addresses for orders and gifts.</p>
+                    </div>
+                </a>
+                <a href="{{ url_for('payments_page') }}" class="account-card user-payment">
+                    <div class="icon-placeholder"></div>
+                    <div class="card-text">
+                        <h4>Your Payments</h4>
+                        <p>Manage payment methods and view balance.</p>
+                    </div>
+                </a>
+                <a href="{{ url_for('liked_products_page') }}" class="account-card user-likes">
+                    <div class="icon-placeholder"></div>
+                    <div class="card-text">
+                        <h4>Your Likes</h4>
+                        <p>View products you have saved.</p>
+                    </div>
+                </a>
+            {% endif %}
+        </div>
+    </div>
+{% endblock %}
+</main>

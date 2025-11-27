@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <header>
+        <div class="socials-container">
+            <svg class="ig-icon" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"><path d="M20.445 5h-8.891A6.559 6.559 0 0 0 5 11.554v8.891A6.559 6.559 0 0 0 11.554 27h8.891a6.56 6.56 0 0 0 6.554-6.555v-8.891A6.557 6.557 0 0 0 20.445 5zm4.342 15.445a4.343 4.343 0 0 1-4.342 4.342h-8.891a4.341 4.341 0 0 1-4.341-4.342v-8.891a4.34 4.34 0 0 1 4.341-4.341h8.891a4.342 4.342 0 0 1 4.341 4.341l.001 8.891z"></path><path d="M16 10.312c-3.138 0-5.688 2.551-5.688 5.688s2.551 5.688 5.688 5.688 5.688-2.551 5.688-5.688-2.55-5.688-5.688-5.688zm0 9.163a3.475 3.475 0 1 1-.001-6.95 3.475 3.475 0 0 1 .001 6.95zM21.7 8.991a1.363 1.363 0 1 1-1.364 1.364c0-.752.51-1.364 1.364-1.364z"></path></g></svg>
+            <svg class="x-logo" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932ZM17.61 20.644h2.039L6.486 3.24H4.298Z"></path></svg>
+            <svg class="fb-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/00/svg"><path d="M22.675 0h-21.35C.59 0 0 .59 0 1.325v21.35C0 23.41.59 24 1.325 24H12.82v-9.29h-3.128v-3.622h3.128V8.413c0-3.1 1.893-4.788 4.659-4.788 1.325 0 2.463.099 2.795.143v3.24l-1.918.001c-1.504 0-1.795.715-1.795 1.763v2.313h3.587l-.467 3.622h-3.12V24h6.116c.735 0 1.325-.59 1.325-1.325V1.325C24 .59 23.41 0 22.675 0z"/></svg>
+        </div>
+    </header>
+    <nav class="header-main">
+        <a href="/" class="logo-container">
+            <img class="logo-img" src="{{ url_for('static', filename='img/fleamart_logo.png') }}" alt="FleaMart Logo">
+        </a>
+        <form class="search-bar" action="{{ url_for('products_page') }}" method="get">
+            <input type="text" name="query" class="search-input" placeholder="Browse FleaMart...">
+            <button type="submit" class="search-icon-container">
+                {% include "svg/search.svg"%}
+            </button>
+        </form>
+        <div class="icons-container">
+            {% if current_user %}
+            <a href="{{ url_for('account_details_page') }}" title="Account">{% include "svg/account.svg" %}</a>
+            {% else %}
+            <a href="{{ url_for('login_page') }}" title="Login">{% include "svg/account.svg" %}</a>
+            {% endif %}
+            {% if current_user %}
+                {% if current_user.role == 'merchant' %}
+                    <a href="{{ url_for('merchant_dashboard_page') }}" title="Dashboard">{% include "svg/shopping_cart.svg" %}</a>
+                {% else %}
+                    <a href="{{ url_for('cart_page') }}" title="Shopping Cart">{% include "svg/shopping_cart.svg" %}</a>
+                {% endif %}
+            {% else %}
+                <a href="{{ url_for('cart_page') }}" title="Login to view cart">{% include "svg/shopping_cart.svg" %}</a>
+            {% endif %}
+        </div>
+    </nav>
+    {% if not current_user or current_user.role != 'merchant' %}
+    <nav class="nav-bar">
+        <a href="{{ url_for('index') }}">HOME</a>
+        <a href="{{ url_for('products_page') }}">BROWSE</a>
+    </nav>
+    {% endif %}
+    <main class="content-wrapper">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %} 
+        <div class="flash-message">
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endwith %}
+        {% block body %}{% endblock %}
+    </main>
+    <footer class="content-wrapper">
+        {% block footer %}
+        <p class="footer-title">NAVIGATION</p>
+        <div class="footer-content">
+            <div class="footer-column">
+                <p class="footer-column-title">POPULAR CATEGORIES</p>
+                <a href="">Lorem Ipsum</a>
+                <a href="">Lorem Ipsum</a>
+                <a href="">Lorem Ipsum</a>
+                <a href="">Lorem Ipsum</a>  
+            </div>
+            <div class="footer-column">
+                <p class="footer-column-title">PRODUCTS</p>
+                <a href="">Lorem Ipsum</a>
+                <a href="">Lorem Ipsum</a>
+                <a href="">Lorem Ipsum</a>
+                <a href="">Lorem Ipsum</a>  
+            </div>
+            <div class="footer-column">
+                <p class="footer-column-title">SERVICES</p>
+                <a href="">Lorem Ipsum</a>
+                <a href="">Lorem Ipsum</a>
+                <a href="">Lorem Ipsum</a>
+                <a href="">Lorem Ipsum</a>  
+            </div>
+            <div class="footer-column">
+                <p class="footer-column-title">CONTACT US</p>
+                <div class="footer-contact-item">
+                    {% include "svg/location.svg" %}
+                    <a href="">Lorem ipsum dolor sit amet consectetur</a>
+                </div>
+                <div class="footer-contact-item">
+                    {% include "svg/call.svg" %}
+                    <a href="">012 345 679</a>
+                </div>
+                <div class="footer-contact-item">
+                    {% include "svg/mail.svg" %}
+                    <a href="">example@gmail.com</a> 
+                </div>
+            </div>
+        </div> 
+        {% endblock %}
+    </footer>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const categoryItems = document.querySelectorAll('.category-list .has-submenu');
+
+            categoryItems.forEach(item => {
+                const header = item.querySelector('.category-item');
+                header.addEventListener('click', () => {
+                    item.classList.toggle('open');
+                });
+            });
+        });
+    </script>
+</body>
+</html>
