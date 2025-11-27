@@ -28,28 +28,15 @@ class UserCreate(AuthMixin, ContactMixin):
 
 @dataclass
 class UserMetadata:
-    id: int
+    """
+    Represents a user's metadata, primarily for analytics and machine learning features.
+    This directly maps to the `user_metadata` table in the database.
+    """
     user_id: int
-    # basic persistent collections
-    addresses: tuple[int, ...] = field(default_factory=tuple)
-    order_history: tuple[int, ...] = field(default_factory=tuple)
-    view_history: tuple[int, ...] = field(default_factory=tuple)
-    liked_products: tuple[int, ...] = field(default_factory=tuple)
-    reviews: tuple[int, ...] = field(default_factory=tuple)
-    voucher_inventory: tuple[int, ...] = field(default_factory=tuple)
-
-    # recommender / analytic fields
-    favorite_categories: tuple[int, ...] = field(default_factory=tuple)
-    favorite_brands: tuple[str, ...] = field(default_factory=tuple)
     price_sensitivity: float = 0.0
     engagement_score: float = 0.0
     recency_decay_factor: float = 1.0
-
-    # context & demographics
-    gender: str | None = None
-
-    # ML features
-    interest_vector: tuple[float, ...] | None = None
+    interest_vector: str | None = None  
     segment_label: str | None = None
     churn_risk_score: float = 0.0
 
@@ -68,7 +55,6 @@ class MerchantCreate(AuthMixin, ContactMixin):
 class MerchantMetadata:
     products: tuple[int, ...]
     ratings: float
-    vouchers: tuple[int, ...]
     addresses: tuple[int, ...]
     inventories: tuple[int, ...]
 

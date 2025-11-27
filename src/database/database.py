@@ -14,6 +14,7 @@ class Database:
     def __init__(self):
         load_dotenv()
         self._pool = None
+        self._transaction_connection = None 
         self._create_pool()
         schema_path = os.path.join(os.path.dirname(__file__), "schema.sql")
         if os.path.exists(schema_path):
@@ -95,6 +96,50 @@ class Database:
             print(f"[DB ERROR] Failed to get connection: {e}")
             raise
 
+    def begin_transaction(self):
+        """
+        Starts a new database transaction by getting a connection and holding it.
+        """
+        if self._transaction_connection:
+            print("[DB WARN] Transaction already in progress.")
+            return
+        try:
+            self._transaction_connection = self.get_connection()
+            self._transaction_connection.start_transaction()
+            print("[DB] Transaction started.")
+        except Error as e:
+            print(f"[DB ERROR] Failed to start transaction: {e}")
+            self._transaction_connection = None # Ensure cleanup on failure
+            raise
+
+    def commit(self):
+        """
+        Commits the current transaction and releases the connection.
+        """
+        if not self._transaction_connection:
+            print("[DB WARN] Commit called but no transaction is active.")
+            return
+        try:
+            self._transaction_connection.commit()
+            print("[DB] Transaction committed.")
+        finally:
+            self._transaction_connection.close()
+            self._transaction_connection = None
+
+    def rollback(self):
+        """
+        Rolls back the current transaction and releases the connection.
+        """
+        if not self._transaction_connection:
+            print("[DB WARN] Rollback called but no transaction is active.")
+            return
+        try:
+            self._transaction_connection.rollback()
+            print("[DB] Transaction rolled back.")
+        finally:
+            self._transaction_connection.close()
+            self._transaction_connection = None
+
     def execute_query(self, query: str, params: tuple | None = None) -> int | None:
         """
         Execute an INSERT, UPDATE, or DELETE query.
@@ -104,21 +149,26 @@ class Database:
         cursor = None
         last_id = None
         try:
-            connection = self.get_connection()
+            # Use the transaction connection if available, otherwise get a new one.
+            connection = self._transaction_connection or self.get_connection()
             cursor = connection.cursor()
             cursor.execute(query, params or ())
-            connection.commit()
+            # Only commit if not in a transaction. The final commit() call will handle it.
+            if not self._transaction_connection:
+                connection.commit()
             last_id = cursor.lastrowid # Capture the last inserted ID
         except Error as e:
             print(f"[DB ERROR] Query failed: {e}")
-            if connection:
+            # Only rollback if not in a transaction. The final rollback() call will handle it.
+            if connection and not self._transaction_connection:
                 connection.rollback()
         finally:
             if cursor:
                 cursor.close()
-            if connection:
+            # Only close the connection if it's not part of a transaction.
+            if connection and not self._transaction_connection:
                 connection.close()
-        return last_id # Return the captured ID
+        return last_id
 
     def fetch_one(self, query: str, params: tuple | None = None):
         """
@@ -127,7 +177,8 @@ class Database:
         connection = None
         cursor = None
         try:
-            connection = self.get_connection()
+            # Use the transaction connection if available, otherwise get a new one.
+            connection = self._transaction_connection or self.get_connection()
             cursor = connection.cursor(dictionary=True)
             cursor.execute(query, params or ())
             return cursor.fetchone()
@@ -137,7 +188,8 @@ class Database:
         finally:
             if cursor:
                 cursor.close()
-            if connection:
+            # Only close the connection if it's not part of a transaction.
+            if connection and not self._transaction_connection:
                 connection.close()
 
     def fetch_all(self, query: str, params: tuple | None = None):
@@ -147,7 +199,8 @@ class Database:
         connection = None
         cursor = None
         try:
-            connection = self.get_connection()
+            # Use the transaction connection if available, otherwise get a new one.
+            connection = self._transaction_connection or self.get_connection()
             cursor = connection.cursor(dictionary=True)
             cursor.execute(query, params or ())
             return cursor.fetchall()
@@ -157,5 +210,6 @@ class Database:
         finally:
             if cursor:
                 cursor.close()
-            if connection:
+            # Only close the connection if it's not part of a transaction.
+            if connection and not self._transaction_connection:
                 connection.close()
