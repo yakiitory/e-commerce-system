@@ -18,14 +18,13 @@
         <a href="/" class="logo-container">
             <img class="logo-img" src="{{ url_for('static', filename='img/fleamart_logo.png') }}" alt="FleaMart Logo">
         </a>
-        <form class="search-bar" action="/search" method="get">
+        <form class="search-bar" action="{{ url_for('products_page') }}" method="get">
             <input type="text" name="query" class="search-input" placeholder="Browse FleaMart...">
             <button type="submit" class="search-icon-container">
                 {% include "svg/search.svg"%}
             </button>
         </form>
         <div class="icons-container">
-            <!-- <a href="">{% include "svg/heart.svg" %}</a> -->
             {% if current_user %}
             <a href="{{ url_for('account_details_page') }}" title="Account">{% include "svg/account.svg" %}</a>
             {% else %}

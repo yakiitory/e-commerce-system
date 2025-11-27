@@ -376,6 +376,18 @@
     flex-shrink: 0;
 }
 
+.single-star {
+    align-items: center;
+}
+
+.single-star svg {
+    width: 1rem;
+    height: 1rem;
+}
+.single-star span {
+    margin-left: .3rem;
+    font-weight: 600;
+}
 
 .main-product {
     margin-bottom: 1rem;

@@ -26,16 +26,14 @@
         <div class="product-main-info">
             <h2>{{ product.brand }} - {{ product.name }}</h2>
             <div class="info-row">
-                <div class="product-rating">
-                    {% include "svg/star-filled.svg" %}
-                    {% include "svg/star-filled.svg" %}
-                    {% include "svg/star-filled.svg" %}
-                    {% include "svg/star-half.svg" %}
-                    {% include "svg/star-nofill.svg" %}
+                <div class="product-rating single-star">
+                    {% include "svg/star-filled.svg" %} <span>{{ product.rating_avg }}</span>
                 </div>
                 <span>|
                 </span>
                 <span class="review-count">{{ reviews|length }} reviews</span>
+                <span>|</span>
+                <span class="sold-count">{{ product.sold_count }} sold</span>
             </div>
             <p class="product-price">
                 ${{ "%.2f"|format(product.price) }}
@@ -51,7 +49,13 @@
                     <label for="quantity">Quantity:</label>
                     <input type="number" id="quantity" name="quantity" value="1" min="1">
                 </div>
-                <button type="submit" class="add-to-cart-btn">Add to Cart</button>
+                <div class="action-buttons">
+                    <button type="submit" class="add-to-cart-btn">Add to Cart</button>
+            </form>
+            <form action="{{ url_for('like_product', product_id=product.id) }}" method="post" class="like-form">
+                <button type="submit" class="like-btn" title="{{ 'Unlike' if is_liked else 'Like' }}">
+                    {% include "svg/heart.svg" if is_liked else "svg/heart-nofill.svg" %}
+                </button>
             </form>
         </div>
     </section>

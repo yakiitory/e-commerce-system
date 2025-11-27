@@ -1,0 +1,143 @@
+:root {
+    --light-blue: #CDD6F4;
+    --purple: #B4BEFE;
+    --star-pink: #F5C2E7;
+    --yellow: #F9E2AF;
+    --text-dark: #000000;
+    --gray: #777777;
+    --light-gray: #C4C4C4;
+    --lightest-gray: #EBEBEB;
+    --dark-blue: #1E1E2E;
+    --white: #FFFFFF;
+}
+
+.liked-products-container {
+    max-width: 1200px;
+    margin: 2rem auto;
+    padding: 1rem;
+}
+
+.liked-products-container h3 {
+    font-size: 1.75rem;
+    font-weight: 600;
+    color: var(--gray);
+    border-bottom: 1px solid var(--lightest-gray);
+    padding-bottom: 1rem;
+    margin-bottom: 2rem;
+}
+
+/* Main Products Grid */
+.main-product {
+    margin-bottom: 1rem;
+}
+
+.main-product-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 1rem;
+    justify-content: start; 
+}
+
+.main-product-item {
+    background-color: #fff;
+    border: 1px solid #EBEBEB;
+    border-radius: .5rem;
+    padding: .5rem;
+    transition: border-color 0.2s ease-in-out;
+    display: flex;
+    flex-direction: column;
+}
+
+.main-product-img {
+    width: 100%;
+    aspect-ratio: 1/1;
+    border: 1px solid #EBEBEB;
+    overflow: hidden;
+}
+
+.main-product-img img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.main-product-details {
+    margin-top: .75rem;
+    display: flex;
+    flex-direction: column;
+    gap: .3rem; /* Reduced gap for smaller card */
+}
+
+.main-product-details p:nth-of-type(1) {
+    font-size: 13px; /* Slightly smaller font */
+    font-weight: 500;
+    color: #B4BEFE;
+    margin: 0;
+}
+
+.main-product-details p:nth-of-type(2) {
+    font-weight: 400;
+    font-size: .9rem; /* Slightly smaller font */
+    margin: 0;
+    color: #777777;
+}
+
+.main-product-price {
+    display: flex;
+    gap: .3rem;
+}
+
+.main-product-price span {
+    font-size: 13px; /* Smaller price font */
+    font-weight: 600;
+}
+
+.main-product-price span:nth-of-type(2) {
+    font-weight: 400;
+    color: #777777;
+    text-decoration: line-through;
+}
+
+.city-container {
+    display: flex;
+    gap: .4rem;
+    font-size: 13px;
+    margin-top: auto; /* Pushes city to the bottom */
+    padding-top: .5rem;
+}
+
+.main-product-details .city-container p {
+    margin: 0;
+    color: #777777;
+}
+
+.city-icon svg {
+    height: .9rem;
+    width: .9rem;
+    color: #fff;
+}
+
+/* Product Link Wrapper */
+.product-link {
+    text-decoration: none;
+    color: inherit;
+    border-radius: .5rem; 
+}
+
+.product-link:hover .main-product-item {
+    border-color: #B4BEFE;
+    background-color: #F6F6F6;
+}
+
+.small-star-ratings {
+    display: flex;
+    gap: .1rem;
+    margin: .25rem 0;
+}
+
+.small-star-ratings svg {
+    width: .75rem;
+    height: .75rem;
+    fill: #F5C2E7;
+    flex-shrink: 0;
+}

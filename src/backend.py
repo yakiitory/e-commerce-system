@@ -1,8 +1,8 @@
 from datetime import datetime
 from dataclasses import asdict
 
-from models.accounts import User, UserCreate, Merchant, MerchantCreate
-from models.products import (Product, ProductCreate, Category, CategoryCreate, 
+from models.accounts import User, UserCreate, Merchant, MerchantCreate, UserMetadata
+from models.products import (Product, ProductCreate, ProductMetadata, Category, CategoryCreate, 
                               Inventory, InventoryCreate)
 from models.orders import (Cart, CartItem, Order, OrderItem, Invoice, Status) # Make sure AddressCreate has user_id: int | None = None
 from models.addresses import Address, AddressCreate # Make sure Address has user_id: int | None = None
@@ -16,29 +16,36 @@ mock_products = [
         name="Thinkbook 14+",
         merchant_id=1,
         brand="Lenovo",
-        category_id=1,
+        category_id=2,
         description="Operating System: Windows 11 Home Chinese Edition Display: 14.5 16:10 3K (3072x1920) IPS 120Hz 100% DCI-P3 500nits Anti-glare Storage: 1TB M.2 2242 PCIe Gen4 SSD Right: 1x RJ45, USB 3.2 Gen1, SD Card reader (SD/SDHC/SDXC), USB 2.0 (Hidden) Left: USB 3.2 Gen2 (10Gb/s), USB 3.2 Gen1, HDMI 2.1 TMDS, USB-C 4 (Thunderbolt 4, 100W) Features: MIL-STD 810H certified Keyboard and Touchpad: Full-size backlit keyboard, 1.5mm key travel, precision touchpad Audio & Mic: Stereo speakers, 2W x2, Dual microphone array",
         address_id=1,
         images=["/static/img/product1.jpg", "/static/img/product1-no1.jpg"],
         price=65000.00,
         original_price=70000.00,
-        discount_rate=0.07,
-        quantity_available=5
+        quantity_available=5,
     ),
     Product(
         id=2,
         name="Loq",
         merchant_id=1,
         brand="Lenovo",
-        category_id=1,
+        category_id=2,
         description="AMD Ryzen 7 7435HS (8C / 16T, 3.1 / 4.5GHz, 4MB L2 / 16MB L3)2x 12GB SODIMM DDR5-4800 1TB SSD M.2 2242 PCIe 4.0x4 NVMe NVIDIA GeForce RTX 4070 8GB GDDR6, Boost Clock 2175MHz, TGP 115W Windows 11 Home, Portuguese / English 3-year, Courier or Carry-in",
         address_id=1,
         images=["/static/img/product2.jpg", "/static/img/product2-no1.jpg"],
         price=80000.00,
         original_price=80000.00,
-        discount_rate=0.0,
         quantity_available=5
     )
+]
+
+mock_product_metadata = [
+    ProductMetadata(product_id=1, sold_count=25, rating_avg=4.5, rating_count=1),
+    ProductMetadata(product_id=2, sold_count=10, rating_avg=5.0, rating_count=0),
+]
+
+mock_user_metadata = [
+    UserMetadata(id=1, user_id=2, liked_products=(1,)) # User 2 likes product 1
 ]
 
 mock_users = {
@@ -425,6 +432,28 @@ def mock_delete_product(product_id: int) -> dict:
     else:
         return {"status": False, "message": "Product not found."}
 
+def mock_get_product_metadata(product_id: int) -> ProductMetadata | None:
+    """Retrieves the metadata for a specific product.
+
+    Args:
+        product_id (int): The ID of the product.
+
+    Returns:
+        ProductMetadata | None: The ProductMetadata object if found, otherwise None.
+    """
+    return next((meta for meta in mock_product_metadata if meta.product_id == product_id), None)
+
+def mock_get_user_metadata(user_id: int) -> UserMetadata | None:
+    """Retrieves the metadata for a specific user.
+
+    Args:
+        user_id (int): The ID of the user.
+
+    Returns:
+        UserMetadata | None: The UserMetadata object if found, otherwise None.
+    """
+    return next((meta for meta in mock_user_metadata if meta.user_id == user_id), None)
+
 # Category Management
 
 def mock_get_all_categories() -> list[Category]:
@@ -721,6 +750,10 @@ def mock_create_order_from_cart(cart_id: int, form_data: dict) -> dict:
         if product_to_update:
             if product_to_update.quantity_available >= item.product_quantity:
                 product_to_update.quantity_available -= item.product_quantity
+                # Update sold_count in metadata
+                metadata = mock_get_product_metadata(item.product_id)
+                if metadata:
+                    metadata.sold_count += item.product_quantity
             else:
                 # This is a failsafe. In a real app, this check should happen earlier.
                 return {"status": False, "message": f"Not enough stock for {product_to_update.name}."}
@@ -1123,3 +1156,35 @@ def mock_get_all_admin_logs() -> list[AdminLog]:
         list[AdminLog]: A list of all AdminLog objects.
     """
     return mock_admin_logs
+
+def mock_like_unlike_product(user_id: int, product_id: int) -> dict:
+    """Toggles a product in a user's liked list.
+
+    Args:
+        user_id (int): The ID of the user.
+        product_id (int): The ID of the product.
+
+    Returns:
+        dict: A dictionary with status and message.
+    """
+    metadata = mock_get_user_metadata(user_id)
+    if not metadata:
+        return {"status": False, "message": "User metadata not found."}
+
+    liked_list = list(metadata.liked_products)
+    if product_id in liked_list:
+        liked_list.remove(product_id)
+        metadata.liked_products = tuple(liked_list)
+        return {"status": True, "message": "Product removed from your likes."}
+    else:
+        liked_list.append(product_id)
+        metadata.liked_products = tuple(liked_list)
+        return {"status": True, "message": "Product added to your likes!"}
+
+def mock_get_liked_products(user_id: int) -> list[Product]:
+    """Retrieves all products liked by a user.
+    """
+    metadata = mock_get_user_metadata(user_id)
+    if not metadata:
+        return []
+    return [p for p in mock_products if p.id in metadata.liked_products]

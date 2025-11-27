@@ -2,6 +2,7 @@
 
 {% block head %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/products.css') }}">
+<script src="{{ url_for('static', filename='js/products.js') }}"></script>
 <title>Browse - FleaMart</title>
 {% endblock %}
 
@@ -16,8 +17,20 @@
                     SEARCH FILTER
                 </div>
 
+                <section class="filter-section">
+                    <h3>Search</h3>
+                    <input type="search" name="query" class="filter-search-input" placeholder="Search products..." value="{{ search_criteria.query or '' }}">
+                </section>
+
                 <section class="filter-section filter-by-price">
                     <h3>Price Range</h3>
+                    <!-- Hidden inputs to preserve other filters -->
+                    {% if selected_category %}
+                    <input type="hidden" name="category" value="{{ selected_category.id }}">
+                    {% endif %}
+                    {% if sort_by %}
+                    <input type="hidden" name="sort_by" value="{{ sort_by }}">
+                    {% endif %}
                     <div class="price-inputs">
                         <input type="number" name="min_price" placeholder="₱ MIN" value="{{ filter_values.min_price or '' }}">
                         {% include "svg/minus.svg" %}
@@ -54,25 +67,22 @@
                 <section class="filter-section filter-by-ratings">
                     <h3>Ratings</h3>
                     <ul class="ratings-container">
-                        <li class="star-ratings">
-                            {% include "svg/star-filled.svg" %}{% include "svg/star-filled.svg" %}{% include "svg/star-filled.svg" %}{% include "svg/star-filled.svg" %}{% include "svg/star-filled.svg" %}
+                        {% for i in [5, 4, 3, 2, 1] %}
+                        <li>
+                            <a href="{{ url_for('products_page', category=selected_category.id if selected_category else none, sort_by=sort_by, min_price=filter_values.min_price, max_price=filter_values.max_price, min_rating=i) }}" 
+                               class="star-ratings {{ 'active' if filter_values.min_rating == i }}">
+                                {% include "svg/star-filled.svg" %}
+                                <span>{{ i }} {% if i < 5 %}& Up{% endif %}</span>
+                            </a>
                         </li>
-                        <li class="star-ratings">
-                            {% include "svg/star-filled.svg" %}{% include "svg/star-filled.svg" %}{% include "svg/star-filled.svg" %}{% include "svg/star-filled.svg" %}{% include "svg/star-nofill.svg" %}
-                            <span>& Up</span>
+                        {% endfor %}
+                        {% if filter_values.min_rating %}
+                        <li>
+                            <a href="{{ url_for('products_page', category=selected_category.id if selected_category else none, sort_by=sort_by, min_price=filter_values.min_price, max_price=filter_values.max_price) }}" class="clear-rating-filter">
+                                Clear Rating
+                            </a>
                         </li>
-                        <li class="star-ratings">
-                            {% include "svg/star-filled.svg" %}{% include "svg/star-filled.svg" %}{% include "svg/star-filled.svg" %}{% include "svg/star-nofill.svg" %}{% include "svg/star-nofill.svg" %}
-                            <span>& Up</span>
-                        </li>
-                        <li class="star-ratings">
-                            {% include "svg/star-filled.svg" %}{% include "svg/star-filled.svg" %}{% include "svg/star-nofill.svg" %}{% include "svg/star-nofill.svg" %}{% include "svg/star-nofill.svg" %}
-                            <span>& Up</span>
-                        </li>
-                        <li class="star-ratings">
-                            {% include "svg/star-filled.svg" %}{% include "svg/star-nofill.svg" %}{% include "svg/star-nofill.svg" %}{% include "svg/star-nofill.svg" %}{% include "svg/star-nofill.svg" %}
-                            <span>& Up</span>
-                        </li>
+                        {% endif %}
                     </ul>
                 </section>
             </form>
@@ -84,6 +94,9 @@
                 {% if selected_category %}
                     <span>Showing products in: </span>
                     <span>'{{ selected_category.name }}'</span>
+                {% elif search_criteria.query %}
+                    <span>Showing results for: </span>
+                    <span>'{{ search_criteria.query }}'</span>
                 {% else %}
                     <span>Showing: </span>
                     <span>'All Products'</span>
@@ -93,9 +106,15 @@
             <div class="sort-bar">
                 <div class="sort-options">
                     <span>Sort by</span>
-                    <button class="sort-btn-active">Sold</button>
-                    <button class="sort-btn">Ratings</button>
-                    <button class="sort-btn">Brand</button>
+                    <a href="{{ url_for('products_page', sort_by='sold') }}" class="sort-btn {{ 'sort-btn-active' if sort_by == 'sold' else '' }}">
+                        Sold
+                    </a>
+                    <a href="{{ url_for('products_page', category=selected_category.id if selected_category else none, min_price=filter_values.min_price, max_price=filter_values.max_price, min_rating=filter_values.min_rating, sort_by='ratings') }}" class="sort-btn {{ 'sort-btn-active' if sort_by == 'ratings' else '' }}">
+                        Ratings
+                    </a>
+                    <a href="{{ url_for('products_page', category=selected_category.id if selected_category else none, min_price=filter_values.min_price, max_price=filter_values.max_price, min_rating=filter_values.min_rating, sort_by='brand') }}" class="sort-btn {{ 'sort-btn-active' if sort_by == 'brand' else '' }}">
+                        Brand
+                    </a>
 
                     <div class="price-dropdown-container">
 
@@ -107,21 +126,33 @@
                         </div>
 
                         <ul class="sort-menu">
-                            <li>Low to High</li>
-                            <li>High to Low</li>
+                            <li>
+                                <a href="{{ url_for('products_page', category=selected_category.id if selected_category else none, min_price=filter_values.min_price, max_price=filter_values.max_price, min_rating=filter_values.min_rating, sort_by='price_asc') }}">Low to High</a>
+                            </li>
+                            <li>
+                                <a href="{{ url_for('products_page', category=selected_category.id if selected_category else none, min_price=filter_values.min_price, max_price=filter_values.max_price, min_rating=filter_values.min_rating, sort_by='price_desc') }}">High to Low</a>
+                            </li>
                         </ul>
 
                     </div>
                 </div>
                 <div class="pagination-controls">
-                    <span>1/1</span>
+                    <span>Page {{ page }} of {{ total_pages }}</span>
                     <div class="pagination-btn-group">
-                        <button>
-                            {% include "svg/arrow-left.svg" %}
-                        </button>
-                        <button>
-                            {% include "svg/arrow-right.svg" %}
-                        </button>
+                        {% if page > 1 %}
+                            <a href="{{ url_for('products_page', page=page-1, category=selected_category.id if selected_category else none, sort_by=sort_by, min_price=filter_values.min_price, max_price=filter_values.max_price, min_rating=filter_values.min_rating) }}" class="pagination-btn">
+                                {% include "svg/arrow-left.svg" %}
+                            </a>
+                        {% else %}
+                            <button class="pagination-btn" disabled>{% include "svg/arrow-left.svg" %}</button>
+                        {% endif %}
+                        {% if page < total_pages %}
+                            <a href="{{ url_for('products_page', page=page+1, category=selected_category.id if selected_category else none, sort_by=sort_by, min_price=filter_values.min_price, max_price=filter_values.max_price, min_rating=filter_values.min_rating) }}" class="pagination-btn">
+                                {% include "svg/arrow-right.svg" %}
+                            </a>
+                        {% else %}
+                            <button class="pagination-btn" disabled>{% include "svg/arrow-right.svg" %}</button>
+                        {% endif %}
                     </div>
                 </div>
 
@@ -138,12 +169,8 @@
                             <div class="main-product-details">
                                 <p>{{ product.category_name }}</p>
                                 <p>{{ product.brand }} - {{ product.name }}</p>
-                                <div class="small-star-ratings">
-                                    {% include "svg/star-filled.svg" %}
-                                    {% include "svg/star-filled.svg" %}
-                                    {% include "svg/star-filled.svg" %}
-                                    {% include "svg/star-half.svg" %}
-                                    {% include "svg/star-nofill.svg" %}
+                                <div class="small-star-ratings single-star">
+                                    {% include "svg/star-filled.svg" %} <span>{{ product.rating_avg }}</span>
                                 </div>
                                 <div class="main-product-price">
                                     <span>₱{{ "{:,.2f}".format(product.price) }}</span>

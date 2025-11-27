@@ -1,16 +1,15 @@
+document.addEventListener('DOMContentLoaded', () => {
+    const priceDropdown = document.querySelector('.price-dropdown-container');
+    if (priceDropdown) {
+        const trigger = priceDropdown.querySelector('.price-dropdown-trigger');
+        
+        trigger.addEventListener('click', (event) => {
+            event.stopPropagation(); // Prevents the window click listener from firing immediately
+            priceDropdown.classList.toggle('active');
+        });
 
-    document.addeventlistener('domcontentloaded', function() {
-    const dropdowncontainer = document.queryselector('.price-dropdown-container');
-    const dropdowntrigger = document.queryselector('.price-dropdown-trigger');
-
-    dropdowntrigger.addeventlistener('click', function(event) {
-        event.stoppropagation();
-        dropdowncontainer.classlist.toggle('active');
-    });
-
-    window.addeventlistener('click', function(event) {
-        if (dropdowncontainer.classlist.contains('active') && !dropdowncontainer.contains(event.target)) {
-            dropdowncontainer.classlist.remove('active');
-        } 
+        window.addEventListener('click', () => {
+            priceDropdown.classList.remove('active');
+        });
+    }
 });
-    });

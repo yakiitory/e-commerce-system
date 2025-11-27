@@ -68,13 +68,8 @@
                         <img src="{{ deal_of_the_day.images[0] if deal_of_the_day.images else '' }}" alt="{{ deal_of_the_day.name }}" class="deal-img">
                     </div>
                     <div class="deal-details">
-                        <div class="big-star-ratings">
-                            <!-- Star ratings can be dynamically generated later if review data is available -->
-                            {% include "svg/star-filled.svg" %}
-                            {% include "svg/star-filled.svg" %}
-                            {% include "svg/star-filled.svg" %}
-                            {% include "svg/star-half.svg" %}
-                            {% include "svg/star-nofill.svg" %}
+                        <div class="big-star-ratings single-star">
+                            {% include "svg/star-filled.svg" %} <span>{{ deal_of_the_day.rating_avg }}</span>
                         </div>
                         <h3><a href="{{ url_for('product_page', product_id=deal_of_the_day.id) }}">{{ deal_of_the_day.brand }} - {{ deal_of_the_day.name }}</a></h3>
                         <p>{{ deal_of_the_day.description[:150] }}...</p>
@@ -123,13 +118,8 @@
                             <div class="main-product-details">
                                 <p>{{ product.category_name }}</p>
                                 <p>{{ product.brand }} - {{ product.name }}</p>
-                                <div class="star-ratings">
-                                    <!-- Star ratings can be dynamic later -->
-                                    {% include "svg/star-filled.svg" %}
-                                    {% include "svg/star-filled.svg" %}
-                                    {% include "svg/star-filled.svg" %}
-                                    {% include "svg/star-half.svg" %}
-                                    {% include "svg/star-nofill.svg" %}
+                                <div class="star-ratings single-star">
+                                    {% include "svg/star-filled.svg" %} <span>{{ product.rating_avg }}</span>
                                 </div>
                                 <div class="main-product-price">
                                     <span>₱{{ "%.2f"|format(product.price) }}</span>
