@@ -65,7 +65,14 @@
                             <span>₱{{ "{:,.2f}".format(total_price) }}</span>
                         </div>
                     </div>
-                    <button type="submit" class="place-order-btn" {% if not addresses %}disabled{% endif %}>Place Your Order</button>
+                    {% if virtual_card %}
+                        <button type="submit" class="place-order-btn" {% if not addresses %}disabled{% endif %}>Place Your Order</button>
+                    {% else %}
+                        <div class="activation-prompt">
+                            <p>You must activate your virtual card before placing an order.</p>
+                            <a href="{{ url_for('payments_page') }}" class="activate-link-btn">Activate Card</a>
+                        </div>
+                    {% endif %}
                 </div>
             </div>
         </form>

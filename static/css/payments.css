@@ -157,7 +157,12 @@
     background-color: #fcfcfc;
 }
 
-.payment-table .amount {
+.payment-table .amount-sent {
     font-weight: 600;
     color: #d9534f; /* A reddish color for expenses */
+}
+
+.payment-table .amount-received {
+    font-weight: 600;
+    color: #4CAF50; /* A greenish color for income */
 }

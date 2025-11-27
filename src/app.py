@@ -31,6 +31,7 @@ def index():
     Returns:
         str: The rendered HTML of the index page.
     """
+    # If a merchant is logged in, redirect them to their dashboard.
     if 'username' in session:
         user = backend.mock_get_user_by_username(session['username'])
         if user and user.role == 'merchant':
@@ -39,10 +40,13 @@ def index():
     categories = backend.mock_get_all_categories()
     all_products = backend.mock_get_all_products()
 
+    # Enrich product data with category names for display
     for product in all_products:
         category = backend.mock_get_category_by_id(product.category_id)
         product.category_name = category.name if category else "Uncategorized"
 
+    # Simulate different product lists for the home page sections
+    # In a real application, these would be based on sales data, ratings, etc.
     trending_products = all_products[:4]
     new_arrivals = all_products[-4:]
     top_rated = all_products[:4]
@@ -76,6 +80,7 @@ def login_page():
             session['username'] = username
             flash(result["message"], "success")
             
+            # Redirect merchants to their dashboard, others to index.
             user = backend.mock_get_user_by_username(username)
             if user and user.role == 'merchant':
                 return redirect(url_for('merchant_dashboard_page'))
@@ -186,7 +191,7 @@ def orders_page():
 
     user = backend.mock_get_user_by_username(session['username'])
     orders = backend.mock_get_orders_by_user_id(user.id)
-    
+
     status_filter_str = request.args.get('status')
     if status_filter_str:
         try:
@@ -205,7 +210,8 @@ def orders_page():
             item.product = backend.mock_get_product_by_id(item.product_id)
             total_price += item.total_price
         order.total_price = total_price
-
+    
+    # Pass the selected status to the template to highlight the active button
     return render_template('orders.html', orders=orders, Status=backend.Status, selected_status=status_filter_str)
 
 @app.route('/cancel-order/<int:order_id>', methods=['POST'])
@@ -273,6 +279,33 @@ def login_security_page():
         flash("Please log in to view this page.", "error")
         return redirect(url_for('login_page'))
     return render_template('login-security.html')
+
+@app.route('/change-password', methods=['GET', 'POST'])
+def change_password_page():
+    """Handles the password change process."""
+    if 'username' not in session:
+        flash("Please log in to change your password.", "error")
+        return redirect(url_for('login_page'))
+
+    if request.method == 'POST':
+        username = session['username']
+        old_password = request.form.get('old_password')
+        new_password = request.form.get('new_password')
+        confirm_password = request.form.get('confirm_password')
+
+        if new_password != confirm_password:
+            flash("New passwords do not match.", "error")
+            return redirect(url_for('change_password_page'))
+
+        result = backend.mock_change_password(username, old_password, new_password)
+        flash(result['message'], 'success' if result['status'] else 'error')
+        
+        if result['status']:
+            return redirect(url_for('login_security_page'))
+        else:
+            return redirect(url_for('change_password_page'))
+
+    return render_template('change-password.html')
 
 @app.route('/user-addresses')
 def user_addresses_page():
@@ -362,7 +395,7 @@ def merchant_orders_page():
 
     orders = backend.mock_get_orders_by_merchant_id(user.id)
     for order in orders:
-
+        # Enrich with customer and product details for display
         customer = next((u for u in backend.mock_users.values() if u.id == order.user_id), None)
         order.customer_name = f"{customer.first_name} {customer.last_name}" if customer else "Unknown User"
 
@@ -397,6 +430,7 @@ def merchant_cancel_order(order_id: int):
     if user.role != 'merchant':
         return redirect(url_for('index'))
 
+    # In a real app, this would also trigger a refund process.
     result = backend.mock_update_order_status(order_id, backend.Status.CANCELLED)
     flash(result['message'], 'success' if result['status'] else 'error')
     return redirect(url_for('merchant_orders_page'))
@@ -416,25 +450,29 @@ def add_product_page():
 
     if request.method == 'POST':
         form_data = request.form.to_dict()
-
+        
+        # Convert types and add merchant-specific data
         form_data['merchant_id'] = user.id
         form_data['price'] = float(form_data.get('price', 0))
         form_data['original_price'] = float(form_data.get('original_price', form_data['price']))
         form_data['quantity_available'] = int(form_data.get('quantity_available', 0))
         form_data['category_id'] = int(form_data.get('category_id'))
         
+        # For simplicity, assume the merchant's first address is the product location
         merchant_addresses = backend.mock_get_addresses_by_user_id(user.id)
         if not merchant_addresses:
             flash("You must have a saved address to add a product.", "error")
             return redirect(url_for('user_addresses_page'))
         form_data['address_id'] = merchant_addresses[0].id
 
+        # Handle images - simple comma-separated string to list
         form_data['images'] = [img.strip() for img in form_data.get('images', '').split(',') if img.strip()]
 
         result = backend.mock_create_product(form_data)
         flash(result['message'], 'success' if result['status'] else 'error')
         return redirect(url_for('merchant_dashboard_page'))
 
+    # For GET request
     categories = backend.mock_get_all_categories()
     return render_template('add-product.html', categories=categories)
 
@@ -452,6 +490,7 @@ def edit_product_page(product_id: int):
 
     product = backend.mock_get_product_by_id(product_id)
 
+    # Security check: ensure the product belongs to the logged-in merchant
     if not product or product.merchant_id != user.id:
         flash("Product not found or you do not have permission to edit it.", "error")
         return redirect(url_for('merchant_dashboard_page'))
@@ -459,13 +498,16 @@ def edit_product_page(product_id: int):
     if request.method == 'POST':
         form_data = request.form.to_dict()
 
+        # Convert types
         form_data['price'] = float(form_data.get('price', 0))
         form_data['original_price'] = float(form_data.get('original_price', form_data['price']))
         form_data['quantity_available'] = int(form_data.get('quantity_available', 0))
         form_data['category_id'] = int(form_data.get('category_id'))
 
+        # Handle images
         form_data['images'] = [img.strip() for img in form_data.get('images', '').split(',') if img.strip()]
 
+        # Remove fields that shouldn't be updated directly
         form_data.pop('merchant_id', None)
         form_data.pop('address_id', None)
 
@@ -473,6 +515,7 @@ def edit_product_page(product_id: int):
         flash(result['message'], 'success' if result['status'] else 'error')
         return redirect(url_for('merchant_dashboard_page'))
 
+    # For GET request
     categories = backend.mock_get_all_categories()
     return render_template('edit-product.html', product=product, categories=categories)
 
@@ -488,6 +531,7 @@ def payments_page():
     virtual_card = backend.mock_get_virtual_card_by_owner_id(user.id)
     payment_history = backend.mock_get_user_payments(user.id)
 
+    # For display purposes, enrich payment history with sender/receiver names
     for payment in payment_history:
         sender = next((u for u in backend.mock_users.values() if u.id == payment.sender_id), None)
         receiver = next((u for u in backend.mock_users.values() if u.id == payment.receiver_id), None)
@@ -568,35 +612,50 @@ def checkout_page():
             flash("Please select a shipping address.", "error")
             return redirect(url_for('checkout_page'))
 
+        # 1. Attempt to process the payment FIRST
+        # For this system, we assume all items in a cart belong to one merchant.
+        # We get the merchant_id from the first item.
+        first_product_id = cart.items[0].product_id
+        product = backend.mock_get_product_by_id(first_product_id)
+        if not product:
+            flash("An item in your cart could not be found.", "error")
+            return redirect(url_for('cart_page'))
+
         total_price = sum(item.product_price * item.product_quantity for item in cart.items)
-        payment_data = {"sender_id": user.id, "receiver_id": 1, "amount": total_price, "type": "ORDER"} # Assuming receiver_id 1 for the merchant
+        payment_data = {"sender_id": user.id, "receiver_id": product.merchant_id, "amount": total_price, "type": "ORDER"}
         payment_result = backend.mock_process_payment(payment_data)
 
+        # If payment fails, stop everything and return the user to the checkout page.
         if not payment_result['status']:
             flash(f"Payment failed: {payment_result['message']}", "error")
             return redirect(url_for('checkout_page'))
 
+        # 2. If payment was successful, create the order
         order_result = backend.mock_create_order_from_cart(cart.id, {"payment_type": "VirtualCard"})
         if not order_result['status']:
             flash(f"Payment succeeded, but failed to create order: {order_result['message']}", "error")
-
+            # In a real app, you would refund the payment here.
             return redirect(url_for('cart_page'))
         
         order_id = order_result['order_id']
 
+        # 3. Create the invoice for the new order
         backend.mock_create_invoice(order_id, address_id)
 
+        # 4. Finally, clear the user's cart
         backend.mock_clear_cart(cart.id)
 
         flash("Your order has been placed successfully!", "success")
         return redirect(url_for('account_details_page'))
 
+    # For GET request
     addresses = backend.mock_get_addresses_by_user_id(user.id)
+    virtual_card = backend.mock_get_virtual_card_by_owner_id(user.id)
     total_price = sum(item.product_price * item.product_quantity for item in cart.items)
     for item in cart.items:
         item.product = backend.mock_get_product_by_id(item.product_id)
 
-    return render_template('checkout.html', cart_items=cart.items, total_price=total_price, addresses=addresses)
+    return render_template('checkout.html', cart_items=cart.items, total_price=total_price, addresses=addresses, virtual_card=virtual_card)
 
 @app.route('/products-page')
 def products_page(): 

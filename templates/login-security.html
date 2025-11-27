@@ -12,7 +12,7 @@
         <div class="security-details">
             <p><strong>Username:</strong> {{ current_user.username }}</p>
             <p><strong>Email:</strong> {{ current_user.email }}</p>
-            <a href="#">Change Password</a>
+            <a href="{{ url_for('change_password_page') }}">Change Password</a>
         </div>
         <div class="logout-section">
             <p>Click the button below to securely log out of your account.</p>

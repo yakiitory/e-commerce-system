@@ -63,8 +63,15 @@
                     <tr>
                         <td>{{ payment.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
                         <td>{{ payment.type }}</td>
-                        <td class="amount">- ₱{{ "{:,.2f}".format(payment.amount) }}</td>
-                        <td>{{ payment.receiver_name }}</td>
+                        {% if payment.sender_id == current_user.id %}
+                            {# User sent the payment #}
+                            <td class="amount-sent">- ₱{{ "{:,.2f}".format(payment.amount) }}</td>
+                            <td>To: {{ payment.receiver_name }}</td>
+                        {% else %}
+                            {# User received the payment #}
+                            <td class="amount-received">+ ₱{{ "{:,.2f}".format(payment.amount) }}</td>
+                            <td>From: {{ payment.sender_name }}</td>
+                        {% endif %}
                     </tr>
                     {% endfor %}
                 </tbody>

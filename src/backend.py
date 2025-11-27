@@ -108,14 +108,18 @@ mock_user_addresses = [
     (2, 1) 
 ]
 mock_merchant_addresses = [
-    # (merchant_id, address_id)
+    # (merchant_id, address_id) - Assuming merchant with id=1 has an address
+    (1, 1)
 ]
 mock_virtual_cards = [
-    VirtualCard(id=1, owner_id=1, balance=5000.00)
+    # Merchant's card, with funds received from the mock payment
+    VirtualCard(id=1, owner_id=1, balance=70000.00),
+    # User's card, with funds spent on the mock payment
+    VirtualCard(id=2, owner_id=2, balance=10000.00)
 ]
 
 mock_payments = [
-    Payment(id=1, sender_id=1, receiver_id=1, type="ORDER", amount=65000.00, created_at=datetime.now())
+    Payment(id=1, sender_id=2, receiver_id=1, type="ORDER", amount=65000.00, created_at=datetime.now())
 ]
 
 mock_reviews = [
@@ -287,6 +291,30 @@ def mock_delete_user(username: str) -> dict:
         del mock_users[username]
         return {"status": True, "message": f"User '{username}' deleted successfully."}
     return {"status": False, "message": "User not found."}
+
+def mock_change_password(username: str, old_password: str, new_password: str) -> dict:
+    """Changes a user's password after verifying the old one.
+
+    Args:
+        username (str): The username of the user.
+        old_password (str): The user's current password.
+        new_password (str): The new password to set.
+
+    Returns:
+        dict: A dictionary with a 'status' boolean and a 'message' string.
+    """
+    user = mock_users.get(username)
+    if not user:
+        return {"status": False, "message": "User not found."}
+
+    if user.hash != old_password:
+        return {"status": False, "message": "Incorrect current password."}
+
+    if len(new_password) < 6:
+        return {"status": False, "message": "New password must be at least 6 characters long."}
+
+    user.hash = new_password
+    return {"status": True, "message": "Password changed successfully."}
 
 # Product Management
 
@@ -924,16 +952,24 @@ def mock_process_payment(form_data: dict) -> dict:
         dict: A dictionary with status, message, and the new payment's ID.
     """
     sender_id = form_data.get("sender_id")
+    receiver_id = form_data.get("receiver_id")
     amount = form_data.get("amount")
 
-    card = mock_get_virtual_card_by_owner_id(sender_id)
-    if not card:
+    sender_card = mock_get_virtual_card_by_owner_id(sender_id)
+    if not sender_card:
         return {"status": False, "message": "Sender's virtual card not found."}
-    if card.balance < amount:
+    if sender_card.balance < amount:
         return {"status": False, "message": "Insufficient balance."}
 
+    receiver_card = mock_get_virtual_card_by_owner_id(receiver_id)
+    if not receiver_card:
+        return {"status": False, "message": "The merchant cannot accept payments at this time. Please try again later."}
+
     try:
-        card.balance -= amount
+        # Transfer funds
+        sender_card.balance -= amount
+        receiver_card.balance += amount
+
         new_id = max(p.id for p in mock_payments) + 1 if mock_payments else 1
         new_payment = Payment(
             id=new_id,
@@ -954,7 +990,7 @@ def mock_get_user_payments(user_id: int) -> list[Payment]:
     Returns:
         list[Payment]: A list of Payment objects.
     """
-    return [p for p in mock_payments if p.sender_id == user_id or p.receiver_id == user_id]
+    return sorted([p for p in mock_payments if p.sender_id == user_id or p.receiver_id == user_id], key=lambda p: p.created_at, reverse=True)
 
 # --- Reviews & Logging ---
 

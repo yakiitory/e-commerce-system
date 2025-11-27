@@ -131,3 +131,28 @@
     background-color: var(--light-gray);
     cursor: not-allowed;
 }
+
+.activation-prompt {
+    margin-top: 1.5rem;
+    padding: 1rem;
+    background-color: #fffbe6;
+    border: 1px solid var(--yellow);
+    border-radius: 8px;
+    text-align: center;
+}
+
+.activation-prompt p {
+    margin: 0 0 1rem 0;
+    font-weight: 600;
+    color: #664d03;
+}
+
+.activate-link-btn {
+    display: inline-block;
+    background-color: var(--yellow);
+    color: var(--text-dark);
+    padding: 0.6rem 1.5rem;
+    border-radius: 4px;
+    text-decoration: none;
+    font-weight: 700;
+}
