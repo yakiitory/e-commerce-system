@@ -25,19 +25,29 @@
             </button>
         </form>
         <div class="icons-container">
-            <a href="">{% include "svg/heart.svg" %}</a>
+            <!-- <a href="">{% include "svg/heart.svg" %}</a> -->
             {% if current_user %}
-            <a href="{{ url_for('logout') }}" title="Logout">{% include "svg/account.svg" %}</a>
+            <a href="{{ url_for('account_details_page') }}" title="Account">{% include "svg/account.svg" %}</a>
             {% else %}
             <a href="{{ url_for('login_page') }}" title="Login">{% include "svg/account.svg" %}</a>
             {% endif %}
-            <a href="">{% include "svg/shopping_cart.svg" %}</a>
+            {% if current_user %}
+                {% if current_user.role == 'merchant' %}
+                    <a href="{{ url_for('merchant_dashboard_page') }}" title="Dashboard">{% include "svg/shopping_cart.svg" %}</a>
+                {% else %}
+                    <a href="{{ url_for('cart_page') }}" title="Shopping Cart">{% include "svg/shopping_cart.svg" %}</a>
+                {% endif %}
+            {% else %}
+                <a href="{{ url_for('cart_page') }}" title="Login to view cart">{% include "svg/shopping_cart.svg" %}</a>
+            {% endif %}
         </div>
     </nav>
+    {% if not current_user or current_user.role != 'merchant' %}
     <nav class="nav-bar">
         <a href="{{ url_for('index') }}">HOME</a>
         <a href="{{ url_for('products_page') }}">BROWSE</a>
     </nav>
+    {% endif %}
     <main class="content-wrapper">
         {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %} 

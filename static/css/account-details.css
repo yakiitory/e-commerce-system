@@ -1,0 +1,93 @@
+.user-settings-container {
+    display: flex;
+    gap: 2rem;
+    flex-direction: column;
+    margin: 2rem 10rem;
+}
+
+.user-settings-container h3 {
+    width: 100%;
+    margin: 0;
+    border-bottom: 2px solid #c4c4c4;
+}
+
+.account-cards-container {
+    display: grid;
+    /* This creates 3 equal columns */
+    grid-template-columns: repeat(3, 1fr); 
+    /* Spacing between cards */
+    gap: 20px; 
+}
+
+/* 3. Individual Card Styling */
+/* This targets all the divs inside the container */
+.account-card {
+    /* 1. Reset default link styles */
+    text-decoration: none; /* Removes the underline */
+    color: inherit;        /* Forces text to use your defined colors, not blue */
+    
+    /* 2. Layout structure (Card logic) */
+    display: flex;         /* Allows Icon and Text to sit side-by-side */
+    align-items: center;   /* Vertically centers them */
+    
+    /* 3. Card Visuals */
+    background-color: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 20px;
+    cursor: pointer;
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+/* Optional: Hover effect */
+.account-cards-container > div:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+/* 4. The Icon Circle */
+.icon-placeholder {
+    width: 60px;
+    height: 60px;
+    background-color: #fcfcfc;
+    border: 2px solid #f6dce6; /* The pinkish border */
+    border-radius: 50%; /* Makes it a circle */
+    flex-shrink: 0; /* Prevents circle from squishing */
+    margin-right: 20px;
+    
+    /* Background pattern logic to match image (optional) */
+    background-image: 
+        linear-gradient(45deg, #eee 25%, transparent 25%, transparent 75%, #eee 75%, #eee),
+        linear-gradient(45deg, #eee 25%, transparent 25%, transparent 75%, #eee 75%, #eee);
+    background-position: 0 0, 4px 4px;
+    background-size: 8px 8px;
+    opacity: 0.6;
+}
+
+/* 5. Text Styling */
+.card-text h4 {
+    margin: 0 0 8px 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #1a1a1a;
+}
+
+.card-text p {
+    margin: 0;
+    font-size: 14px;
+    color: #757575; /* Gray text color */
+    line-height: 1.4;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 900px) {
+    .account-cards-container {
+        grid-template-columns: repeat(2, 1fr); /* 2 columns on tablets */
+    }
+}
+
+@media (max-width: 600px) {
+    .account-cards-container {
+        grid-template-columns: 1fr; /* 1 column on mobile */
+    }
+}
+

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/login-security.css') }}">
+<title>Login & Security</title>
+{% endblock %}
+
+<main class="content-wrapper">
+{% block body %}
+    <div class="security-container">
+        <h3>Login & Security</h3>
+        <div class="security-details">
+            <p><strong>Username:</strong> {{ current_user.username }}</p>
+            <p><strong>Email:</strong> {{ current_user.email }}</p>
+            <a href="#">Change Password</a>
+        </div>
+        <div class="logout-section">
+            <p>Click the button below to securely log out of your account.</p>
+            <a href="{{ url_for('logout') }}">
+                <button class="logout-btn">Logout</button>
+            </a>
+        </div>
+    </div>
+{% endblock %}
+</main>

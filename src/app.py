@@ -31,7 +31,28 @@ def index():
     Returns:
         str: The rendered HTML of the index page.
     """
-    return render_template('index.html')
+    if 'username' in session:
+        user = backend.mock_get_user_by_username(session['username'])
+        if user and user.role == 'merchant':
+            return redirect(url_for('merchant_dashboard_page'))
+
+    categories = backend.mock_get_all_categories()
+    all_products = backend.mock_get_all_products()
+
+    for product in all_products:
+        category = backend.mock_get_category_by_id(product.category_id)
+        product.category_name = category.name if category else "Uncategorized"
+
+    trending_products = all_products[:4]
+    new_arrivals = all_products[-4:]
+    top_rated = all_products[:4]
+    best_sellers = all_products[:4]
+    deal_of_the_day = all_products[0] if all_products else None
+    popular_lately = all_products[:8]
+
+    return render_template('index.html', categories=categories, trending_products=trending_products,
+                           new_arrivals=new_arrivals, top_rated=top_rated, best_sellers=best_sellers,
+                           deal_of_the_day=deal_of_the_day, popular_lately=popular_lately)
 
 
 @app.route('/login-page', methods=['GET', 'POST'])
@@ -54,6 +75,10 @@ def login_page():
         if result["status"]:
             session['username'] = username
             flash(result["message"], "success")
+            
+            user = backend.mock_get_user_by_username(username)
+            if user and user.role == 'merchant':
+                return redirect(url_for('merchant_dashboard_page'))
             return redirect(url_for('index'))
         else:
             flash(result["message"], "error")
@@ -107,7 +132,7 @@ def register_user_page():
         return redirect(url_for('register_auth_page'))
     return render_template('register-user.html')
 
-@app.route('/register-merchant-page')
+@app.route('/register-merchant-page', methods=['GET', 'POST'])
 def register_merchant_page():
     """Handles the first step of merchant registration (merchant details).
 
@@ -119,7 +144,7 @@ def register_merchant_page():
         HTML for the merchant registration page on GET.
     """
     if request.method == 'POST':
-        session['registration_data'] = request.form.to.dict()
+        session['registration_data'] = request.form.to_dict()
         return redirect(url_for('register_auth_page'))
     return render_template('register-merchant.html')
 
@@ -147,6 +172,419 @@ def register_auth_page():
             flash(result["message"], "error")
 
     return render_template('register-auth.html')
+
+@app.route('/account-details-page')
+def account_details_page():
+    return render_template('account-details.html')
+
+@app.route('/orders')
+def orders_page():
+    """Renders the page that displays the user's order history."""
+    if 'username' not in session:
+        flash("Please log in to view your orders.", "error")
+        return redirect(url_for('login_page'))
+
+    user = backend.mock_get_user_by_username(session['username'])
+    orders = backend.mock_get_orders_by_user_id(user.id)
+
+    for order in orders:
+        total_price = 0
+        for item in order.orders:
+            item.product = backend.mock_get_product_by_id(item.product_id)
+            total_price += item.total_price
+        order.total_price = total_price
+
+    return render_template('orders.html', orders=orders, Status=backend.Status)
+
+@app.route('/cancel-order/<int:order_id>', methods=['POST'])
+def cancel_order(order_id: int):
+    """Cancels a user's order."""
+    if 'username' not in session:
+        return redirect(url_for('login_page'))
+
+    user = backend.mock_get_user_by_username(session['username'])
+    order = next((o for o in backend.mock_get_orders_by_user_id(user.id) if o.id == order_id), None)
+
+    if not order:
+        flash("Order not found or you do not have permission to cancel it.", "error")
+        return redirect(url_for('orders_page'))
+
+    result = backend.mock_update_order_status(order.id, backend.Status.CANCELLED)
+    flash(result['message'], 'success' if result['status'] else 'error')
+    return redirect(url_for('orders_page'))
+
+@app.route('/confirm-delivery/<int:order_id>', methods=['POST'])
+def confirm_delivery(order_id: int):
+    """Confirms that an order has been delivered."""
+    if 'username' not in session:
+        return redirect(url_for('login_page'))
+
+    user = backend.mock_get_user_by_username(session['username'])
+    order = next((o for o in backend.mock_get_orders_by_user_id(user.id) if o.id == order_id), None)
+
+    result = backend.mock_update_order_status(order.id, backend.Status.DELIVERED)
+    return redirect(url_for('orders_page'))
+
+@app.route('/invoice/<int:order_id>')
+def invoice_page(order_id: int):
+    """Renders the invoice page for a specific order."""
+    if 'username' not in session:
+        flash("Please log in to view this page.", "error")
+        return redirect(url_for('login_page'))
+
+    user = backend.mock_get_user_by_username(session['username'])
+    order = next((o for o in backend.mock_get_orders_by_user_id(user.id) if o.id == order_id), None)
+
+    if not order:
+        flash("Order not found or you do not have permission to view it.", "error")
+        return redirect(url_for('orders_page'))
+
+    invoice = backend.mock_get_invoice_by_order_id(order.id)
+    if not invoice:
+        flash("Invoice for this order could not be found.", "error")
+        return redirect(url_for('orders_page'))
+
+    address = backend.mock_get_address_by_id(invoice.address_id)
+    
+    total_price = 0
+    for item in order.orders:
+        item.product = backend.mock_get_product_by_id(item.product_id)
+        total_price += item.total_price
+    order.total_price = total_price
+
+    return render_template('invoice.html', order=order, invoice=invoice, address=address)
+
+@app.route('/login-security')
+def login_security_page():
+    """Renders the login and security settings page."""
+    if 'username' not in session:
+        flash("Please log in to view this page.", "error")
+        return redirect(url_for('login_page'))
+    return render_template('login-security.html')
+
+@app.route('/user-addresses')
+def user_addresses_page():
+    """Renders the page that displays the user's saved addresses."""
+    if 'username' not in session:
+        flash("Please log in to view this page.", "error")
+        return redirect(url_for('login_page'))
+    
+    user = backend.mock_get_user_by_username(session['username'])
+    addresses = backend.mock_get_addresses_by_user_id(user.id)
+    return render_template('user-addresses.html', addresses=addresses)
+
+@app.route('/add-address', methods=['POST'])
+def add_address():
+    """Handles adding a new address for the current user."""
+    if 'username' not in session:
+        flash("Please log in to add an address.", "error")
+        return redirect(url_for('login_page'))
+
+    user = backend.mock_get_user_by_username(session['username'])
+    address_data = request.form.to_dict()
+    
+    result = backend.mock_create_address(address_data, user_id=user.id)
+    flash(result['message'], 'success' if result['status'] else 'error')
+    return redirect(url_for('user_addresses_page'))
+
+@app.route('/edit-address/<int:address_id>', methods=['POST'])
+def edit_address(address_id: int):
+    """Handles editing an existing address."""
+    if 'username' not in session:
+        flash("Please log in to edit an address.", "error")
+        return redirect(url_for('login_page'))
+
+    user = backend.mock_get_user_by_username(session['username'])
+    user_addresses = backend.mock_get_addresses_by_user_id(user.id)
+
+    if address_id not in [addr.id for addr in user_addresses]:
+        flash("Address not found or you do not have permission to edit it.", "error")
+        return redirect(url_for('user_addresses_page'))
+
+    result = backend.mock_update_address(address_id, request.form.to_dict())
+    flash(result['message'], 'success' if result['status'] else 'error')
+    return redirect(url_for('user_addresses_page'))
+
+@app.route('/delete-address/<int:address_id>', methods=['POST'])
+def delete_address(address_id: int):
+    """Handles deleting an address."""
+    if 'username' not in session:
+        flash("Please log in to delete an address.", "error")
+        return redirect(url_for('login_page'))
+
+    user = backend.mock_get_user_by_username(session['username'])
+    user_addresses = backend.mock_get_addresses_by_user_id(user.id)
+
+    if address_id not in [addr.id for addr in user_addresses]:
+        flash("Address not found or you do not have permission to delete it.", "error")
+        return redirect(url_for('user_addresses_page'))
+
+    backend.mock_delete_address(address_id)
+    flash("Address deleted successfully.", "success")
+    return redirect(url_for('user_addresses_page'))
+
+@app.route('/merchant-dashboard')
+def merchant_dashboard_page():
+    """Renders the merchant dashboard page."""
+    if 'username' not in session:
+        flash("Please log in to view this page.", "error")
+        return redirect(url_for('login_page'))
+    
+    user = backend.mock_get_user_by_username(session['username'])
+    if user.role != 'merchant':
+        flash("You do not have permission to access this page.", "error")
+        return redirect(url_for('index'))
+
+    products = backend.mock_get_products_by_merchant_id(user.id)
+    return render_template('merchant-dashboard.html', products=products)
+
+@app.route('/merchant-orders')
+def merchant_orders_page():
+    """Renders the page for merchants to manage their orders."""
+    if 'username' not in session:
+        return redirect(url_for('login_page'))
+    
+    user = backend.mock_get_user_by_username(session['username'])
+    if user.role != 'merchant':
+        return redirect(url_for('index'))
+
+    orders = backend.mock_get_orders_by_merchant_id(user.id)
+    for order in orders:
+
+        customer = next((u for u in backend.mock_users.values() if u.id == order.user_id), None)
+        order.customer_name = f"{customer.first_name} {customer.last_name}" if customer else "Unknown User"
+
+        order.total_price = sum(item.total_price for item in order.orders)
+        for item in order.orders:
+            item.product = backend.mock_get_product_by_id(item.product_id)
+
+
+    return render_template('merchant-orders.html', orders=orders, Status=backend.Status)
+
+@app.route('/merchant-ship-order/<int:order_id>', methods=['POST'])
+def merchant_ship_order(order_id: int):
+    """Allows a merchant to mark an order as shipped."""
+    if 'username' not in session:
+        return redirect(url_for('login_page'))
+    
+    user = backend.mock_get_user_by_username(session['username'])
+    if user.role != 'merchant':
+        return redirect(url_for('index'))
+
+    result = backend.mock_update_order_status(order_id, backend.Status.SHIPPED)
+    flash(result['message'], 'success' if result['status'] else 'error')
+    return redirect(url_for('merchant_orders_page'))
+
+@app.route('/merchant-cancel-order/<int:order_id>', methods=['POST'])
+def merchant_cancel_order(order_id: int):
+    """Allows a merchant to cancel a pending order."""
+    if 'username' not in session:
+        return redirect(url_for('login_page'))
+    
+    user = backend.mock_get_user_by_username(session['username'])
+    if user.role != 'merchant':
+        return redirect(url_for('index'))
+
+    result = backend.mock_update_order_status(order_id, backend.Status.CANCELLED)
+    flash(result['message'], 'success' if result['status'] else 'error')
+    return redirect(url_for('merchant_orders_page'))
+
+
+@app.route('/add-product', methods=['GET', 'POST'])
+def add_product_page():
+    """Renders the page for adding a new product and handles form submission."""
+    if 'username' not in session:
+        flash("Please log in to add a product.", "error")
+        return redirect(url_for('login_page'))
+
+    user = backend.mock_get_user_by_username(session['username'])
+    if user.role != 'merchant':
+        flash("You do not have permission to perform this action.", "error")
+        return redirect(url_for('index'))
+
+    if request.method == 'POST':
+        form_data = request.form.to_dict()
+
+        form_data['merchant_id'] = user.id
+        form_data['price'] = float(form_data.get('price', 0))
+        form_data['original_price'] = float(form_data.get('original_price', form_data['price']))
+        form_data['quantity_available'] = int(form_data.get('quantity_available', 0))
+        form_data['category_id'] = int(form_data.get('category_id'))
+        
+        merchant_addresses = backend.mock_get_addresses_by_user_id(user.id)
+        if not merchant_addresses:
+            flash("You must have a saved address to add a product.", "error")
+            return redirect(url_for('user_addresses_page'))
+        form_data['address_id'] = merchant_addresses[0].id
+
+        form_data['images'] = [img.strip() for img in form_data.get('images', '').split(',') if img.strip()]
+
+        result = backend.mock_create_product(form_data)
+        flash(result['message'], 'success' if result['status'] else 'error')
+        return redirect(url_for('merchant_dashboard_page'))
+
+    categories = backend.mock_get_all_categories()
+    return render_template('add-product.html', categories=categories)
+
+@app.route('/edit-product/<int:product_id>', methods=['GET', 'POST'])
+def edit_product_page(product_id: int):
+    """Renders the page for editing an existing product and handles updates."""
+    if 'username' not in session:
+        flash("Please log in to edit a product.", "error")
+        return redirect(url_for('login_page'))
+
+    user = backend.mock_get_user_by_username(session['username'])
+    if user.role != 'merchant':
+        flash("You do not have permission to perform this action.", "error")
+        return redirect(url_for('index'))
+
+    product = backend.mock_get_product_by_id(product_id)
+
+    if not product or product.merchant_id != user.id:
+        flash("Product not found or you do not have permission to edit it.", "error")
+        return redirect(url_for('merchant_dashboard_page'))
+
+    if request.method == 'POST':
+        form_data = request.form.to_dict()
+
+        form_data['price'] = float(form_data.get('price', 0))
+        form_data['original_price'] = float(form_data.get('original_price', form_data['price']))
+        form_data['quantity_available'] = int(form_data.get('quantity_available', 0))
+        form_data['category_id'] = int(form_data.get('category_id'))
+
+        form_data['images'] = [img.strip() for img in form_data.get('images', '').split(',') if img.strip()]
+
+        form_data.pop('merchant_id', None)
+        form_data.pop('address_id', None)
+
+        result = backend.mock_update_product(product_id, form_data)
+        flash(result['message'], 'success' if result['status'] else 'error')
+        return redirect(url_for('merchant_dashboard_page'))
+
+    categories = backend.mock_get_all_categories()
+    return render_template('edit-product.html', product=product, categories=categories)
+
+
+@app.route('/payments')
+def payments_page():
+    """Renders the user's payments page, showing virtual card and history."""
+    if 'username' not in session:
+        flash("Please log in to view your payment information.", "error")
+        return redirect(url_for('login_page'))
+
+    user = backend.mock_get_user_by_username(session['username'])
+    virtual_card = backend.mock_get_virtual_card_by_owner_id(user.id)
+    payment_history = backend.mock_get_user_payments(user.id)
+
+    for payment in payment_history:
+        sender = next((u for u in backend.mock_users.values() if u.id == payment.sender_id), None)
+        receiver = next((u for u in backend.mock_users.values() if u.id == payment.receiver_id), None)
+        payment.sender_name = sender.username if sender else "N/A"
+        payment.receiver_name = receiver.username if receiver else "N/A"
+
+    return render_template('payments.html', virtual_card=virtual_card, payment_history=payment_history)
+
+@app.route('/activate-card', methods=['POST'])
+def activate_card():
+    """Activates a virtual card for the current user."""
+    if 'username' not in session:
+        flash("Please log in to activate a card.", "error")
+        return redirect(url_for('login_page'))
+
+    user = backend.mock_get_user_by_username(session['username'])
+    result = backend.mock_create_virtual_card(user.id)
+    flash(result['message'], 'success' if result['status'] else 'error')
+    return redirect(url_for('payments_page'))
+
+@app.route('/deposit-to-card', methods=['POST'])
+def deposit_to_card():
+    """Handles deposits to the user's virtual card."""
+    if 'username' not in session:
+        flash("Please log in to make a deposit.", "error")
+        return redirect(url_for('login_page'))
+
+    user = backend.mock_get_user_by_username(session['username'])
+    virtual_card = backend.mock_get_virtual_card_by_owner_id(user.id)
+
+    if not virtual_card:
+        flash("You don't have an active virtual card.", "error")
+        return redirect(url_for('payments_page'))
+
+    amount = request.form.get('amount', type=float)
+    if not amount or amount <= 0:
+        flash("Please enter a valid deposit amount.", "error")
+        return redirect(url_for('payments_page'))
+
+    result = backend.mock_deposit_to_virtual_card(virtual_card.id, amount)
+    flash(result['message'], 'success' if result['status'] else 'error')
+    return redirect(url_for('payments_page'))
+
+@app.route('/cart')
+def cart_page():
+    """Renders the shopping cart page for the current user."""
+    if 'username' not in session:
+        flash("Please log in to view your cart.", "error")
+        return redirect(url_for('login_page'))
+
+    user = backend.mock_get_user_by_username(session['username'])
+    cart = backend.mock_get_cart_by_user_id(user.id)
+    
+    total_price = 0
+    for item in cart.items:
+        item.product = backend.mock_get_product_by_id(item.product_id)
+        total_price += item.product_price * item.product_quantity
+
+    return render_template('cart.html', cart_items=cart.items, total_price=total_price)
+
+@app.route('/checkout', methods=['GET', 'POST'])
+def checkout_page():
+    """Handles the checkout process."""
+    if 'username' not in session:
+        flash("Please log in to proceed to checkout.", "error")
+        return redirect(url_for('login_page'))
+
+    user = backend.mock_get_user_by_username(session['username'])
+    cart = backend.mock_get_cart_by_user_id(user.id)
+
+    if not cart.items:
+        flash("Your cart is empty.", "error")
+        return redirect(url_for('cart_page'))
+
+    if request.method == 'POST':
+        address_id = request.form.get('address_id', type=int)
+        if not address_id:
+            flash("Please select a shipping address.", "error")
+            return redirect(url_for('checkout_page'))
+
+        total_price = sum(item.product_price * item.product_quantity for item in cart.items)
+        payment_data = {"sender_id": user.id, "receiver_id": 1, "amount": total_price, "type": "ORDER"} # Assuming receiver_id 1 for the merchant
+        payment_result = backend.mock_process_payment(payment_data)
+
+        if not payment_result['status']:
+            flash(f"Payment failed: {payment_result['message']}", "error")
+            return redirect(url_for('checkout_page'))
+
+        order_result = backend.mock_create_order_from_cart(cart.id, {"payment_type": "VirtualCard"})
+        if not order_result['status']:
+            flash(f"Payment succeeded, but failed to create order: {order_result['message']}", "error")
+
+            return redirect(url_for('cart_page'))
+        
+        order_id = order_result['order_id']
+
+        backend.mock_create_invoice(order_id, address_id)
+
+        backend.mock_clear_cart(cart.id)
+
+        flash("Your order has been placed successfully!", "success")
+        return redirect(url_for('account_details_page'))
+
+    addresses = backend.mock_get_addresses_by_user_id(user.id)
+    total_price = sum(item.product_price * item.product_quantity for item in cart.items)
+    for item in cart.items:
+        item.product = backend.mock_get_product_by_id(item.product_id)
+
+    return render_template('checkout.html', cart_items=cart.items, total_price=total_price, addresses=addresses)
 
 @app.route('/products-page')
 def products_page(): 
@@ -231,6 +669,43 @@ def add_to_cart():
     result = backend.mock_add_item_to_cart(cart.id, {'product_id': product_id, 'product_quantity': quantity})
     flash(result['message'], 'success' if result['status'] else 'error')
     return redirect(url_for('product_page', product_id=product_id))
+
+@app.route('/update-cart-item/<int:item_id>', methods=['POST'])
+def update_cart_item(item_id: int):
+    """Updates the quantity of an item in the user's cart."""
+    if 'username' not in session:
+        flash("Please log in to modify your cart.", "error")
+        return redirect(url_for('login_page'))
+
+    user = backend.mock_get_user_by_username(session['username'])
+    cart = backend.mock_get_cart_by_user_id(user.id)
+    
+    try:
+        quantity = int(request.form.get('quantity'))
+        if quantity < 1:
+            flash("Quantity must be at least 1.", "error")
+            return redirect(url_for('cart_page'))
+    except (ValueError, TypeError):
+        flash("Invalid quantity specified.", "error")
+        return redirect(url_for('cart_page'))
+
+    result = backend.mock_update_cart_item_quantity(cart.id, item_id, quantity)
+    flash(result['message'], 'success' if result['status'] else 'error')
+    return redirect(url_for('cart_page'))
+
+@app.route('/remove-from-cart/<int:item_id>', methods=['POST'])
+def remove_from_cart(item_id: int):
+    """Removes an item from the user's cart."""
+    if 'username' not in session:
+        flash("Please log in to modify your cart.", "error")
+        return redirect(url_for('login_page'))
+
+    user = backend.mock_get_user_by_username(session['username'])
+    cart = backend.mock_get_cart_by_user_id(user.id)
+
+    result = backend.mock_remove_item_from_cart(cart.id, item_id)
+    flash(result['message'], 'success' if result['status'] else 'error')
+    return redirect(url_for('cart_page'))
 
 @app.route('/add-review/<int:product_id>', methods=['POST'])
 def add_review(product_id: int):

@@ -9,7 +9,7 @@
 {% block body %}
     <div class="register-container">
         <h3>Create Account</h3>
-        <form action="{{ url_for('register_page') }}" method="post">
+        <form action="{{ url_for('register_auth_page') }}" method="post">
             <input type="text" name="username" placeholder="Username" required>
             <div class="password-container">
                 <input type="password" name="password" placeholder="Password" required>

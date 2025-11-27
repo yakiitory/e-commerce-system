@@ -2,6 +2,7 @@
 
 {% block head %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/product-detail.css') }}">
+<script src="{{ url_for('static', filename='js/product-details.js') }}" defer></script>
 <title>{{ product.name }}</title>
 {% endblock %}
 
@@ -84,6 +85,7 @@
                     </div>
                     <p class="review-body">{{ review.description }}</p>
                 </div>
+            </div>
             {% else %}
             <p>No reviews for this product yet.</p>
             {% endfor %}
@@ -94,8 +96,13 @@
             <h4>Write a Review</h4>
             <form action="{{ url_for('add_review', product_id=product.id) }}" method="post">
                 <div class="form-group">
-                    <label for="rating">Rating:</label>
-                    <input type="number" name="rating" min="1" max="5" required>
+                    <label>Rating:</label>
+                    <div class="star-rating-input">
+                        {% for i in range(1, 6) %}
+                        <span class="star" data-value="{{ i }}">{% include "svg/star-nofill.svg" %}</span>
+                        {% endfor %}
+                    </div>
+                    <input type="hidden" name="rating" id="rating-value" value="0" required>
                 </div>
                 <div class="form-group">
                     <label for="description">Review:</label>
@@ -107,5 +114,11 @@
         {% endif %}
     </section>
 </div>
-{% endblock %}
 </main>
+
+<div id="svg-templates" style="display: none;">
+    <span id="star-filled-template">{% include "svg/star-filled.svg" %}</span>
+    <span id="star-nofill-template">{% include "svg/star-nofill.svg" %}</span>
+</div>
+
+{% endblock %}

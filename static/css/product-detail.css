@@ -243,6 +243,27 @@
     font-weight: 600;
 }
 
+/* --- Star Rating Input Styles --- */
+.star-rating-input {
+    padding-left: 1rem;
+    margin-top: .4rem;
+    display: flex;
+    gap: 4px; /* Adds a small space between stars */
+    cursor: pointer;
+    align-items: center;
+}
+
+.star-rating-input .star svg {
+    fill: var(--star-pink);
+    width: 22px !important;  /* Use !important to override inline SVG attributes */
+    height: 22px !important; /* Use !important to override inline SVG attributes */
+    transition: transform 0.1s ease-in-out;
+}
+
+.star-rating-input .star:hover {
+    transform: scale(1.1); /* Slightly enlarges star on hover */
+}
+
 /* --- Responsive --- */
 @media (max-width: 768px) {
     .product-header {

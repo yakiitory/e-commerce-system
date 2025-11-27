@@ -4,9 +4,9 @@ from dataclasses import asdict
 from models.accounts import User, UserCreate, Merchant, MerchantCreate
 from models.products import (Product, ProductCreate, Category, CategoryCreate, 
                               Inventory, InventoryCreate)
-from models.orders import (Cart, CartItem, Order, OrderItem, Invoice, Status)
-from models.addresses import Address, AddressCreate
-from models.payments import VirtualCard, Payment, Voucher
+from models.orders import (Cart, CartItem, Order, OrderItem, Invoice, Status) # Make sure AddressCreate has user_id: int | None = None
+from models.addresses import Address, AddressCreate # Make sure Address has user_id: int | None = None
+from models.payments import VirtualCard, Payment, Voucher # Make sure AddressCreate has user_id: int | None = None
 from models.reviews import Review
 from models.logs import Interaction, AdminLog
 
@@ -95,23 +95,27 @@ mock_orders = [
 ]
 
 mock_invoices = [
-    Invoice(id=1, order_id=1, address_id=1, issue_date=datetime.now(), status=Status.PAID, payment_summary="Paid via COD")
+    Invoice(id=1, order_id=1, address_id=1, issue_date=datetime.now(), status=Status.PAID, payment_summary="Paid via Virtual Card")
 ]
 
 mock_addresses = [
     Address(id=1, house_no="123", street="Maple Street", city="Springfield", postal_code="12345", additional_notes="N/A")
 ]
 
+# Mock junction tables to represent the many-to-many relationship
+mock_user_addresses = [
+    # (user_id, address_id)
+    (2, 1) 
+]
+mock_merchant_addresses = [
+    # (merchant_id, address_id)
+]
 mock_virtual_cards = [
     VirtualCard(id=1, owner_id=1, balance=5000.00)
 ]
 
 mock_payments = [
     Payment(id=1, sender_id=1, receiver_id=1, type="ORDER", amount=65000.00, created_at=datetime.now())
-]
-
-mock_vouchers = [
-    Voucher(id=1, merchant_id=1, type="DISCOUNT", active_until=datetime(2026, 12, 31), cashback=0.0, created_at=datetime.now())
 ]
 
 mock_reviews = [
@@ -172,9 +176,23 @@ def mock_register(form_data: dict) -> dict:
         if 'store_name' in form_data:
             # Merchant Registration
             if 'password' in form_data:
-                form_data['hash'] = form_data.pop('password')
+                form_data['hash'] = form_data.pop('password', None)
                 form_data.pop('re_password', None)
+            
+            address_fields = ['house_number', 'street', 'city', 'postal', 'additional_notes']
+            address_data = {key: form_data.pop(key) for key in address_fields if key in form_data}
+            if 'house_number' in address_data:
+                address_data['house_no'] = address_data.pop('house_number')
+            if 'postal' in address_data:
+                address_data['postal_code'] = address_data.pop('postal')
 
+            address_result = mock_create_address(address_data)
+            if not address_result['status']:
+                return {"status": False, "message": f"Failed to create address: {address_result['message']}"}
+            
+            # Link address to merchant in the junction table
+            mock_merchant_addresses.append((new_id, address_result['address_id']))
+            
             merchant_create_data = MerchantCreate(**form_data)
             
             new_account = Merchant(
@@ -186,14 +204,29 @@ def mock_register(form_data: dict) -> dict:
         else:
             # User Registration
             if 'password' in form_data:
-                form_data['hash'] = form_data.pop('password')
+                form_data['hash'] = form_data.pop('password', None)
                 form_data.pop('re_password', None)
+
+            address_fields = ['house_number', 'street', 'city', 'postal', 'additional_notes']
+            address_data = {key: form_data.pop(key) for key in address_fields if key in form_data}
+            if 'house_number' in address_data:
+                address_data['house_no'] = address_data.pop('house_number')
+            if 'postal' in address_data:
+                address_data['postal_code'] = address_data.pop('postal')
+
+            address_result = mock_create_address(address_data)
+            if not address_result['status']:
+                return {"status": False, "message": f"Failed to create address: {address_result['message']}"}
+
+            # Link address to user in the junction table
+            mock_user_addresses.append((new_id, address_result['address_id']))
 
             user_create_fields = [
                 'username', 'hash', 'first_name', 'last_name', 
                 'phone_number', 'email', 'gender', 'age'
             ]
             user_create_dict = {key: form_data[key] for key in user_create_fields if key in form_data}
+
             user_create_data = UserCreate(**user_create_dict)
             
             new_account = User(
@@ -264,6 +297,31 @@ def mock_get_all_products() -> list[Product]:
         list[Product]: A list of all Product objects.
     """
     return mock_products
+
+def mock_get_products_by_category_id(category_id: int) -> list[Product]:
+    """Retrieves all products belonging to a specific category.
+
+    Args:
+        category_id (int): The ID of the category.
+
+    Returns:
+        list[Product]: A list of Product objects in that category.
+    """
+    if not category_id:
+        return mock_get_all_products()
+    return [p for p in mock_products if p.category_id == category_id]
+
+def mock_get_products_by_merchant_id(merchant_id: int) -> list[Product]:
+    """Retrieves all products for a specific merchant.
+
+    Args:
+        merchant_id (int): The ID of the merchant.
+
+    Returns:
+        list[Product]: A list of Product objects.
+    """
+    return [p for p in mock_products if p.merchant_id == merchant_id]
+
 
 def mock_get_product_by_id(product_id: int) -> Product | None:
     """Retrieves a single product by its ID.
@@ -538,6 +596,31 @@ def mock_add_item_to_cart(cart_id: int, form_data: dict) -> dict:
     cart.items.append(new_item)
     return {"status": True, "message": "Item added to cart."}
 
+def mock_update_cart_item_quantity(cart_id: int, item_id: int, quantity: int) -> dict:
+    """Updates the quantity of a specific item in a cart.
+
+    Args:
+        cart_id (int): The ID of the cart.
+        item_id (int): The ID of the cart item to update.
+        quantity (int): The new quantity for the item.
+
+    Returns:
+        dict: A dictionary with a 'status' boolean and a 'message' string.
+    """
+    cart = next((c for c in mock_carts if c.id == cart_id), None)
+    if not cart:
+        return {"status": False, "message": "Cart not found."}
+
+    item_to_update = next((item for item in cart.items if item.id == item_id), None)
+    if not item_to_update:
+        return {"status": False, "message": "Item not found in cart."}
+
+    if quantity > 0:
+        item_to_update.product_quantity = quantity
+        return {"status": True, "message": "Cart updated successfully."}
+    else:
+        return mock_remove_item_from_cart(cart_id, item_id)
+
 def mock_remove_item_from_cart(cart_id: int, item_id: int) -> dict:
     """Removes an item from a cart.
 
@@ -558,6 +641,21 @@ def mock_remove_item_from_cart(cart_id: int, item_id: int) -> dict:
     if len(cart.items) < initial_len:
         return {"status": True, "message": "Item removed from cart."}
     return {"status": False, "message": "Item not found in cart."}
+
+def mock_clear_cart(cart_id: int) -> dict:
+    """Removes all items from a cart.
+
+    Args:
+        cart_id (int): The ID of the cart to clear.
+
+    Returns:
+        dict: A dictionary with a 'status' boolean and a 'message' string.
+    """
+    cart = next((c for c in mock_carts if c.id == cart_id), None)
+    if not cart:
+        return {"status": False, "message": "Cart not found."}
+    cart.items = []
+    return {"status": True, "message": "Cart cleared successfully."}
 
 def mock_create_order_from_cart(cart_id: int, form_data: dict) -> dict:
     """Creates an order from all items in a cart and then empties the cart.
@@ -595,7 +693,6 @@ def mock_create_order_from_cart(cart_id: int, form_data: dict) -> dict:
         orders=tuple(order_items)
     )
     mock_orders.append(new_order)
-    cart.items = [] 
     return {"status": True, "message": "Order created successfully.", "order_id": new_order_id}
 
 def mock_get_orders_by_user_id(user_id: int) -> list[Order]:
@@ -608,6 +705,85 @@ def mock_get_orders_by_user_id(user_id: int) -> list[Order]:
         list[Order]: A list of Order objects belonging to the user.
     """
     return [o for o in mock_orders if o.user_id == user_id]
+
+def mock_get_orders_by_merchant_id(merchant_id: int) -> list[Order]:
+    """Retrieves all orders containing products from a specific merchant.
+
+    Args:
+        merchant_id (int): The ID of the merchant.
+
+    Returns:
+        list[Order]: A list of relevant Order objects.
+    """
+    merchant_orders = []
+    merchant_product_ids = {p.id for p in mock_get_products_by_merchant_id(merchant_id)}
+    
+    for order in mock_orders:
+        for item in order.orders:
+            if item.product_id in merchant_product_ids:
+                merchant_orders.append(order)
+                break # Move to the next order once a match is found
+    return merchant_orders
+
+def mock_update_order_status(order_id: int, new_status: Status) -> dict:
+    """Updates the status of a specific order.
+
+    Args:
+        order_id (int): The ID of the order to update.
+        new_status (Status): The new status for the order.
+
+    Returns:
+        dict: A dictionary with a 'status' boolean and a 'message' string.
+    """
+    order_to_update = next((o for o in mock_orders if o.id == order_id), None)
+    if not order_to_update:
+        return {"status": False, "message": "Order not found."}
+
+    order_to_update.status = new_status
+    return {"status": True, "message": f"Order status updated to {new_status.value}."}
+
+
+def mock_create_invoice(order_id: int, address_id: int) -> dict:
+    """Creates an invoice for a given order.
+
+    Args:
+        order_id (int): The ID of the order.
+        address_id (int): The ID of the shipping address.
+
+    Returns:
+        dict: A dictionary with status, message, and the new invoice's ID.
+    """
+    try:
+        new_id = max(i.id for i in mock_invoices) + 1 if mock_invoices else 1
+        new_invoice = Invoice(id=new_id, order_id=order_id, address_id=address_id, issue_date=datetime.now(), status=Status.PAID, payment_summary="Paid via Virtual Card")
+        mock_invoices.append(new_invoice)
+        return {"status": True, "message": "Invoice created successfully.", "invoice_id": new_id}
+    except Exception as e:
+        return {"status": False, "message": f"Failed to create invoice: {e}"}
+
+def mock_get_invoice_by_order_id(order_id: int) -> Invoice | None:
+    """Retrieves an invoice by its associated order ID.
+
+    Args:
+        order_id (int): The ID of the order.
+
+    Returns:
+        Invoice | None: The Invoice object if found, otherwise None.
+    """
+    return next((i for i in mock_invoices if i.order_id == order_id), None)
+
+
+def mock_get_addresses_by_user_id(user_id: int) -> list[Address]:
+    """Retrieves all addresses associated with a user via the junction table.
+
+    Args:
+        user_id (int): The ID of the user.
+
+    Returns:
+        list[Address]: A list of the user's Address objects.
+    """
+    address_ids = [addr_id for u_id, addr_id in mock_user_addresses if u_id == user_id]
+    return [addr for addr in mock_addresses if addr.id in address_ids]
 
 # Address Management
 
@@ -622,11 +798,15 @@ def mock_get_address_by_id(address_id: int) -> Address | None:
     """
     return next((a for a in mock_addresses if a.id == address_id), None)
 
-def mock_create_address(form_data: dict) -> dict:
+def mock_create_address(form_data: dict, user_id: int | None = None) -> dict:
     """Creates a new address.
+
+    If a user_id is provided, it also links the new address to the user
+    in the mock junction table.
 
     Args:
         form_data (dict): A dictionary containing address details.
+        user_id (int | None): The ID of the user creating the address.
 
     Returns:
         dict: A dictionary with status, message, and the new address's ID.
@@ -636,6 +816,10 @@ def mock_create_address(form_data: dict) -> dict:
         address_create = AddressCreate(**form_data)
         new_address = Address(id=new_id, **asdict(address_create))
         mock_addresses.append(new_address)
+
+        if user_id:
+            mock_user_addresses.append((user_id, new_id))
+
         return {"status": True, "message": "Address created successfully.", "address_id": new_id}
     except TypeError as e:
         return {"status": False, "message": f"Invalid address data: {e}"}
@@ -674,6 +858,10 @@ def mock_delete_address(address_id: int) -> dict:
     global mock_addresses
     initial_len = len(mock_addresses)
     mock_addresses = [a for a in mock_addresses if a.id != address_id]
+
+    # Also remove links from junction tables
+    global mock_user_addresses
+    mock_user_addresses = [(u_id, a_id) for u_id, a_id in mock_user_addresses if a_id != address_id]
     
     if len(mock_addresses) < initial_len:
         return {"status": True, "message": f"Address {address_id} deleted successfully."}
@@ -692,6 +880,39 @@ def mock_get_virtual_card_by_owner_id(owner_id: int) -> VirtualCard | None:
         VirtualCard | None: The VirtualCard object if found, otherwise None.
     """
     return next((vc for vc in mock_virtual_cards if vc.owner_id == owner_id), None)
+
+def mock_create_virtual_card(owner_id: int) -> dict:
+    """Creates a new virtual card for a user.
+
+    Args:
+        owner_id (int): The ID of the user who will own the card.
+
+    Returns:
+        dict: A dictionary with status and message.
+    """
+    if mock_get_virtual_card_by_owner_id(owner_id):
+        return {"status": False, "message": "User already has a virtual card."}
+
+    new_id = max(vc.id for vc in mock_virtual_cards) + 1 if mock_virtual_cards else 1
+    new_card = VirtualCard(id=new_id, owner_id=owner_id, balance=0.00)
+    mock_virtual_cards.append(new_card)
+    return {"status": True, "message": "Virtual card activated successfully!"}
+
+def mock_deposit_to_virtual_card(card_id: int, amount: float) -> dict:
+    """Deposits a specified amount into a virtual card.
+
+    Args:
+        card_id (int): The ID of the virtual card.
+        amount (float): The amount to deposit.
+
+    Returns:
+        dict: A dictionary with status and message.
+    """
+    card = next((vc for vc in mock_virtual_cards if vc.id == card_id), None)
+    if not card:
+        return {"status": False, "message": "Virtual card not found."}
+    card.balance += amount
+    return {"status": True, "message": f"Successfully deposited ₱{amount:,.2f}."}
 
 def mock_process_payment(form_data: dict) -> dict:
     """Processes a payment from a sender's virtual card.
@@ -734,38 +955,6 @@ def mock_get_user_payments(user_id: int) -> list[Payment]:
         list[Payment]: A list of Payment objects.
     """
     return [p for p in mock_payments if p.sender_id == user_id or p.receiver_id == user_id]
-
-def mock_create_voucher(form_data: dict) -> dict:
-    """Creates a new voucher.
-
-    Args:
-        form_data (dict): A dictionary containing voucher details.
-
-    Returns:
-        dict: A dictionary with status, message, and the new voucher's ID.
-    """
-    try:
-        new_id = max(v.id for v in mock_vouchers) + 1 if mock_vouchers else 1
-        if isinstance(form_data.get("active_until"), str):
-            form_data["active_until"] = datetime.fromisoformat(form_data["active_until"])
-        
-        new_voucher = Voucher(id=new_id, created_at=datetime.now(), **form_data)
-        mock_vouchers.append(new_voucher)
-        return {"status": True, "message": "Voucher created successfully.", "voucher_id": new_id}
-    except (TypeError, ValueError) as e:
-        return {"status": False, "message": f"Invalid voucher data: {e}"}
-
-def mock_get_vouchers_by_merchant(merchant_id: int) -> list[Voucher]:
-    """Retrieves all active vouchers for a specific merchant.
-
-    Args:
-        merchant_id (int): The ID of the merchant.
-
-    Returns:
-        list[Voucher]: A list of active Voucher objects.
-    """
-    now = datetime.now()
-    return [v for v in mock_vouchers if v.merchant_id == merchant_id and v.active_until > now]
 
 # --- Reviews & Logging ---
 
