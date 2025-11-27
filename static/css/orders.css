@@ -28,6 +28,29 @@
     padding-bottom: 1rem;
 }
 
+.order-filters {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid var(--lightest-gray);
+    padding-bottom: 1.5rem;
+}
+
+.filter-btn {
+    padding: 0.5rem 1rem;
+    border-radius: 1.5rem;
+    background-color: #f0f0f0;
+    color: var(--gray);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.filter-btn.active {
+    background-color: var(--dark-blue);
+    color: var(--white);
+}
+
 .orders-list {
     display: flex;
     flex-direction: column;

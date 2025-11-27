@@ -9,6 +9,13 @@
 {% block body %}
     <div class="orders-container">
         <h3>Your Orders</h3>
+        <div class="order-filters">
+            <a href="{{ url_for('orders_page') }}" class="filter-btn {{ 'active' if not selected_status else '' }}">All</a>
+            <a href="{{ url_for('orders_page', status='PENDING') }}" class="filter-btn {{ 'active' if selected_status == 'PENDING' else '' }}">Pending</a>
+            <a href="{{ url_for('orders_page', status='SHIPPED') }}" class="filter-btn {{ 'active' if selected_status == 'SHIPPED' else '' }}">Shipped</a>
+            <a href="{{ url_for('orders_page', status='DELIVERED') }}" class="filter-btn {{ 'active' if selected_status == 'DELIVERED' else '' }}">Delivered</a>
+            <a href="{{ url_for('orders_page', status='CANCELLED') }}" class="filter-btn {{ 'active' if selected_status == 'CANCELLED' else '' }}">Cancelled</a>
+        </div>
         <div class="orders-list">
             {% if orders %}
                 {% for order in orders %}

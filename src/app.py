@@ -186,6 +186,18 @@ def orders_page():
 
     user = backend.mock_get_user_by_username(session['username'])
     orders = backend.mock_get_orders_by_user_id(user.id)
+    
+    status_filter_str = request.args.get('status')
+    if status_filter_str:
+        try:
+            status_filter = backend.Status[status_filter_str.upper()]
+            orders = [o for o in orders if o.status == status_filter]
+        except KeyError:
+            # Handle invalid status string gracefully
+            flash("Invalid status filter.", "error")
+
+    # Sort all orders by creation date, newest first
+    orders.sort(key=lambda o: o.order_created, reverse=True)
 
     for order in orders:
         total_price = 0
@@ -194,7 +206,7 @@ def orders_page():
             total_price += item.total_price
         order.total_price = total_price
 
-    return render_template('orders.html', orders=orders, Status=backend.Status)
+    return render_template('orders.html', orders=orders, Status=backend.Status, selected_status=status_filter_str)
 
 @app.route('/cancel-order/<int:order_id>', methods=['POST'])
 def cancel_order(order_id: int):
