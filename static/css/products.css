@@ -117,6 +117,42 @@
     filter: brightness(.85);
 }
 
+/* Filter by Category */
+.filter-by-category .category-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.filter-by-category .category-list li {
+    padding: 0.2rem 0;
+}
+
+.filter-by-category .category-list a {
+    text-decoration: none;
+    color: var(--gray);
+    font-weight: 500;
+    transition: color 0.2s;
+    display: block;
+    padding: 0.3rem 0;
+}
+
+.filter-by-category .category-list a:hover {
+    color: var(--purple);
+}
+
+.filter-by-category .category-list a.active {
+    color: var(--dark-blue);
+    font-weight: 700;
+}
+
+.filter-by-category .submenu {
+    list-style: none;
+    padding-left: 1rem;
+    margin-top: 0.2rem;
+}
+
+
 /* Filter by ratings */
 
 .ratings-container {

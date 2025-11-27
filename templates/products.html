@@ -2,7 +2,6 @@
 
 {% block head %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/products.css') }}">
-<script src="{{ url_for('static', filename='js/products.js') }}" defer></script>
 <title>Browse - FleaMart</title>
 {% endblock %}
 
@@ -11,72 +10,84 @@
     <div class="main-container">
 
         <aside class="sidebar">
-            <div class="filter-header">
-                {% include "svg/filter.svg" %}
-                SEARCH FILTER
-            </div>
-
-            <section class="filter-section filter-by-price">
-                <h3>Price Range</h3>
-                <div class="price-inputs">
-                    <input type="text" placeholder="₱ MIN">
-                    {% include "svg/minus.svg" %}
-                    <input type="text" placeholder="₱ MAX">
+            <form action="{{ url_for('products_page') }}" method="get">
+                <div class="filter-header">
+                    {% include "svg/filter.svg" %}
+                    SEARCH FILTER
                 </div>
-                <button class="apply-btn">APPLY</button>
-            </section>
 
-            <section class="filter-section filter-by-ratings">
-                <h3>Ratings</h3>
-                <ul class="ratings-container">
-                    <li class="star-ratings">
-                        {% include "svg/star-filled.svg" %}
-                        {% include "svg/star-filled.svg" %}
-                        {% include "svg/star-filled.svg" %}
-                        {% include "svg/star-filled.svg" %}
-                        {% include "svg/star-filled.svg" %}
-                    </li>
-                    <li class="star-ratings">
-                        {% include "svg/star-filled.svg" %}
-                        {% include "svg/star-filled.svg" %}
-                        {% include "svg/star-filled.svg" %}
-                        {% include "svg/star-filled.svg" %}
-                        {% include "svg/star-nofill.svg" %}
-                        <span>& Up</span>
-                    </li>
-                    <li class="star-ratings">
-                        {% include "svg/star-filled.svg" %}
-                        {% include "svg/star-filled.svg" %}
-                        {% include "svg/star-filled.svg" %}
-                        {% include "svg/star-nofill.svg" %}
-                        {% include "svg/star-nofill.svg" %}
-                        <span>& Up</span>
-                    </li>
-                    <li class="star-ratings">
-                        {% include "svg/star-filled.svg" %}
-                        {% include "svg/star-filled.svg" %}
-                        {% include "svg/star-nofill.svg" %}
-                        {% include "svg/star-nofill.svg" %}
-                        {% include "svg/star-nofill.svg" %}
-                        <span>& Up</span>
-                    </li>
-                    <li class="star-ratings">
-                        {% include "svg/star-filled.svg" %}
-                        {% include "svg/star-nofill.svg" %}
-                        {% include "svg/star-nofill.svg" %}
-                        {% include "svg/star-nofill.svg" %}
-                        {% include "svg/star-nofill.svg" %}
-                        <span>& Up</span>
-                    </li>
-                </ul>
-            </section>
+                <section class="filter-section filter-by-price">
+                    <h3>Price Range</h3>
+                    <div class="price-inputs">
+                        <input type="number" name="min_price" placeholder="₱ MIN" value="{{ filter_values.min_price or '' }}">
+                        {% include "svg/minus.svg" %}
+                        <input type="number" name="max_price" placeholder="₱ MAX" value="{{ filter_values.max_price or '' }}">
+                    </div>
+                    <button type="submit" class="apply-btn">APPLY</button>
+                </section>
+
+                <section class="filter-section filter-by-category">
+                    <h3>Categories</h3>
+                    <ul class="category-list">
+                        <li>
+                            <a href="{{ url_for('products_page') }}" class="{{ 'active' if not selected_category else '' }}">All Products</a>
+                        </li>
+                        {% for category in categories %}
+                            {% if category.parent_id is none %}
+                            <li class="has-submenu">
+                                <div class="category-item">
+                                    <a href="{{ url_for('products_page', category=category.id) }}" class="{{ 'active' if selected_category and selected_category.id == category.id else '' }}">{{ category.name }}</a>
+                                </div>
+                                <ul class="submenu">
+                                    {% for sub_category in categories %}
+                                        {% if sub_category.parent_id == category.id %}
+                                        <li><a href="{{ url_for('products_page', category=sub_category.id) }}" class="{{ 'active' if selected_category and selected_category.id == sub_category.id else '' }}">{{ sub_category.name }}</a></li>
+                                        {% endif %}
+                                    {% endfor %}
+                                </ul>
+                            </li>
+                            {% endif %}
+                        {% endfor %}
+                    </ul>
+                </section>
+
+                <section class="filter-section filter-by-ratings">
+                    <h3>Ratings</h3>
+                    <ul class="ratings-container">
+                        <li class="star-ratings">
+                            {% include "svg/star-filled.svg" %}{% include "svg/star-filled.svg" %}{% include "svg/star-filled.svg" %}{% include "svg/star-filled.svg" %}{% include "svg/star-filled.svg" %}
+                        </li>
+                        <li class="star-ratings">
+                            {% include "svg/star-filled.svg" %}{% include "svg/star-filled.svg" %}{% include "svg/star-filled.svg" %}{% include "svg/star-filled.svg" %}{% include "svg/star-nofill.svg" %}
+                            <span>& Up</span>
+                        </li>
+                        <li class="star-ratings">
+                            {% include "svg/star-filled.svg" %}{% include "svg/star-filled.svg" %}{% include "svg/star-filled.svg" %}{% include "svg/star-nofill.svg" %}{% include "svg/star-nofill.svg" %}
+                            <span>& Up</span>
+                        </li>
+                        <li class="star-ratings">
+                            {% include "svg/star-filled.svg" %}{% include "svg/star-filled.svg" %}{% include "svg/star-nofill.svg" %}{% include "svg/star-nofill.svg" %}{% include "svg/star-nofill.svg" %}
+                            <span>& Up</span>
+                        </li>
+                        <li class="star-ratings">
+                            {% include "svg/star-filled.svg" %}{% include "svg/star-nofill.svg" %}{% include "svg/star-nofill.svg" %}{% include "svg/star-nofill.svg" %}{% include "svg/star-nofill.svg" %}
+                            <span>& Up</span>
+                        </li>
+                    </ul>
+                </section>
+            </form>
         </aside>
 
         <div class="content-area">
             <div class="search-result-container">
                 {% include "svg/search-plus.svg" %}
-                <span>Search Result for</span>
-                <span>'keyword'</span>
+                {% if selected_category %}
+                    <span>Showing products in: </span>
+                    <span>'{{ selected_category.name }}'</span>
+                {% else %}
+                    <span>Showing: </span>
+                    <span>'All Products'</span>
+                {% endif %}
             </div>
 
             <div class="sort-bar">
@@ -135,9 +146,9 @@
                                     {% include "svg/star-nofill.svg" %}
                                 </div>
                                 <div class="main-product-price">
-                                    <span>${{ "%.2f"|format(product.price) }}</span>
+                                    <span>₱{{ "{:,.2f}".format(product.price) }}</span>
                                     {% if product.original_price > product.price %}
-                                    <span>${{ "%.2f"|format(product.original_price) }}</span>
+                                    <span>₱{{ "{:,.2f}".format(product.original_price) }}</span>
                                     {% endif %}
                                 </div>
                                 <div class="city-container">
@@ -149,6 +160,8 @@
                             </div>
                         </div>
                     </a>
+                    {% else %}
+                    <p>No products found matching your criteria.</p>
                     {% endfor %}
                 </div>
             </div>          

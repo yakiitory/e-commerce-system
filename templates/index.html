@@ -2,6 +2,7 @@
 
 {% block head %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
+<script src="{{ url_for('static', filename='js/index.js') }}" defer></script>
 <title>FleaMart Home</title>
 {% endblock %}
 
@@ -16,153 +17,26 @@
             <section class="sidebar-section category-card">
             <h3>CATEGORY</h3>
                 <ul class="category-list">
-                    <li class="has-submenu">
-                        <div class="category-item">
-                            <span>Clothing</span>
-                            <span class="toggle-icon">
-                                {% include "svg/plus.svg" %}
-                            </span>
-                        </div>
-                        <ul class="submenu">
-                            <li><a href="#">Shirts</a></li>
-                            <li><a href="#">Pants</a></li>
-                            <li><a href="#">Dresses</a></li>
-                        </ul>
-                    </li>
-                    <li class="has-submenu">
-                        <div class="category-item">
-                            <span>Grocery</span>
-                            <span class="toggle-icon">
-                                {% include "svg/plus.svg" %}
-                            </span>
-                        </div>
-                        <ul class="submenu">
-                            <li><a href="#">Fresh Produce</a></li>
-                            <li><a href="#">Snacks</a></li>
-                            <li><a href="#">Beverages</a></li>
-                        </ul>
-                    </li>
-                    <li class="has-submenu">
-                        <div class="category-item">
-                            <span>Books</span>
-                            <span class="toggle-icon">
-                                {% include "svg/plus.svg" %}
-                            </span>
-                        </div>
-                        <ul class="submenu">
-                            <li><a href="#">Fiction</a></li>
-                            <li><a href="#">Non-Fiction</a></li>
-                            <li><a href="#">Comics</a></li>
-                        </ul>
-                    </li>
-                    <li class="has-submenu">
-                        <div class="category-item">
-                            <span>Home and Kitchen</span>
-                            <span class="toggle-icon">
-                                {% include "svg/plus.svg" %}
-                            </span>
-                        </div>
-                        <ul class="submenu">
-                            <li><a href="#">Furniture</a></li>
-                            <li><a href="#">Cookware</a></li>
-                            <li><a href="#">Appliances</a></li>
-                        </ul>
-                    </li>
-                    <li class="has-submenu">
-                        <div class="category-item">
-                            <span>Electronics</span>
-                            <span class="toggle-icon">
-                                {% include "svg/plus.svg" %}
-                            </span>
-                        </div><ul class="submenu">
-                            <li><a href="#">Phones</a></li>
-                            <li><a href="#">Laptops</a></li>
-                            <li><a href="#">Accessories</a></li>
-                        </ul>
-                    </li>
+                    {% for category in categories %}
+                        {% if category.parent_id is none %}
+                        <li class="has-submenu">
+                            <div class="category-item">
+                                <a href="{{ url_for('products_page', category=category.id) }}">{{ category.name }}</a>
+                                <span class="toggle-icon">
+                                    {% include "svg/plus.svg" %}
+                                </span>
+                            </div>
+                            <ul class="submenu">
+                                {% for sub_category in categories %}
+                                    {% if sub_category.parent_id == category.id %}
+                                    <li><a href="{{ url_for('products_page', category=sub_category.id) }}">{{ sub_category.name }}</a></li>
+                                    {% endif %}
+                                {% endfor %}
+                            </ul>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
                 </ul>
-            </section>
-
-            <section class="sidebar-section best-sellers">
-                <h3>BEST SELLERS</h3>
-                <a href="#" class="product-link">
-                    <div class="best-seller-item">
-                        <div class="small-img"></div>
-                        <div class="best-seller-details">
-                            <p>Brand - Product Name</p>
-                            <div class="star-ratings">
-                                {% include "svg/star-filled.svg" %}
-                                {% include "svg/star-filled.svg" %}
-                                {% include "svg/star-filled.svg" %}
-                                {% include "svg/star-half.svg" %}
-                                {% include "svg/star-nofill.svg" %}
-                            </div>
-                            <div class="best-seller-price">
-                                <span>₱450.00</span>
-                                <span>₱350.00</span>
-                            </div>
-                        </div>
-                    </div>
-                </a>
-                <a href="#" class="product-link">
-                    <div class="best-seller-item">
-                        <div class="small-img"></div>
-                        <div class="best-seller-details">
-                            <p>Brand - Product Name</p>
-                            <div class="star-ratings">
-                                {% include "svg/star-filled.svg" %}
-                                {% include "svg/star-filled.svg" %}
-                                {% include "svg/star-filled.svg" %}
-                                {% include "svg/star-half.svg" %}
-                                {% include "svg/star-nofill.svg" %}
-                            </div>
-                            <div class="best-seller-price">
-                                <span>₱450.00</span>
-                                <span>₱350.00</span>
-                            </div>
-                        </div>
-                    </div>
-                </a>
-                <a href="#" class="product-link">
-                    <div class="best-seller-item">
-                        <div class="small-img"></div>
-                        <div class="best-seller-details">
-                            <p>Brand - Product Name</p>
-                            <div class="star-ratings">
-                                {% include "svg/star-filled.svg" %}
-                                {% include "svg/star-filled.svg" %}
-                                {% include "svg/star-filled.svg" %}
-                                {% include "svg/star-half.svg" %}
-                                {% include "svg/star-nofill.svg" %}
-                            </div>
-                            <div class="best-seller-price">
-                                <span>₱450.00</span>
-                                <span>₱350.00</span>
-                            </div>
-                        </div>
-                    </div>
-                </a>
-                <a href="#" class="product-link">
-                    <div class="best-seller-item">
-                        <div class="small-img"></div>
-                        <div class="best-seller-details">
-                            <p>Brand - Product Name</p>
-                            <div class="star-ratings">
-                                {% include "svg/star-filled.svg" %}
-                                {% include "svg/star-filled.svg" %}
-                                {% include "svg/star-filled.svg" %}
-                                {% include "svg/star-half.svg" %}
-                                {% include "svg/star-nofill.svg" %}
-                            </div>
-                            <div class="best-seller-price">
-                                <span>₱450.00</span>
-                                <span>₱350.00</span>
-                            </div>
-                        </div>
-                    </div>
-                </a>
-
-                
             </section>
 
             <section class="sidebar-section testimonials">
@@ -185,209 +59,40 @@
         </aside>
 
         <div class="content-area">
-            <section class="product-minimal-container">
-
-                <div class="product-column">
-                    <h3 class="main-title">Trending</h3>
-                    <div class="minimal-item-container">
-                        <a href="#" class="product-link">
-                            <div class="minimal-item">
-                                <div class="small-img"></div>
-                                <div class="minimal-details">
-                                    <p>Brand - Product Name</p>
-                                    <p>Category</p>
-                                    <div class="product-minimal-price">
-                                        <span>₱450.00</span>
-                                        <span>₱350.00</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </a>
-                        <a href="#" class="product-link">
-                            <div class="minimal-item">
-                                <div class="small-img"></div>
-                                <div class="minimal-details">
-                                    <p>Brand - Product Name</p>
-                                    <p>Category</p>
-                                    <div class="product-minimal-price">
-                                        <span>₱450.00</span>
-                                        <span>₱350.00</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </a>
-                        <a href="#" class="product-link">
-                            <div class="minimal-item">
-                                <div class="small-img"></div>
-                                <div class="minimal-details">
-                                    <p>Brand - Product Name</p>
-                                    <p>Category</p>
-                                    <div class="product-minimal-price">
-                                        <span>₱450.00</span>
-                                        <span>₱350.00</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </a>
-                        <a href="#" class="product-link">
-                            <div class="minimal-item">
-                                <div class="small-img"></div>
-                                <div class="minimal-details">
-                                    <p>Brand - Product Name</p>
-                                    <p>Category</p>
-                                    <div class="product-minimal-price">
-                                        <span>₱450.00</span>
-                                        <span>₱350.00</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </a>
-                    </div>
-                </div>
-
-                <div class="product-column">
-                    <h3 class="main-title">New Arrivals</h3>
-                    <div class="minimal-item-container">
-                        <a href="#" class="product-link">
-                            <div class="minimal-item">
-                                <div class="small-img"></div>
-                                <div class="minimal-details">
-                                    <p>Brand - Product Name</p>
-                                    <p>Category</p>
-                                    <div class="product-minimal-price">
-                                        <span>₱450.00</span>
-                                        <span>₱350.00</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </a>
-                        <a href="#" class="product-link">
-                            <div class="minimal-item">
-                                <div class="small-img"></div>
-                                <div class="minimal-details">
-                                    <p>Brand - Product Name</p>
-                                    <p>Category</p>
-                                    <div class="product-minimal-price">
-                                        <span>₱450.00</span>
-                                        <span>₱350.00</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </a>
-                        <a href="#" class="product-link">
-                            <div class="minimal-item">
-                                <div class="small-img"></div>
-                                <div class="minimal-details">
-                                    <p>Brand - Product Name</p>
-                                    <p>Category</p>
-                                    <div class="product-minimal-price">
-                                        <span>₱450.00</span>
-                                        <span>₱350.00</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </a>
-                        <a href="#" class="product-link">
-                            <div class="minimal-item">
-                                <div class="small-img"></div>
-                                <div class="minimal-details">
-                                    <p>Brand - Product Name</p>
-                                    <p>Category</p>
-                                    <div class="product-minimal-price">
-                                        <span>₱450.00</span>
-                                        <span>₱350.00</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </a>
-                    </div>
-                </div>
-
-               <div class="product-column">
-                    <h3 class="main-title">Top Rated</h3>
-                    <div class="minimal-item-container">
-                        <a href="#" class="product-link">
-                            <div class="minimal-item">
-                                <div class="small-img"></div>
-                                <div class="minimal-details">
-                                    <p>Brand - Product Name</p>
-                                    <p>Category</p>
-                                    <div class="product-minimal-price">
-                                        <span>₱450.00</span>
-                                        <span>₱350.00</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </a>
-                        <a href="#" class="product-link">
-                            <div class="minimal-item">
-                                <div class="small-img"></div>
-                                <div class="minimal-details">
-                                    <p>Brand - Product Name</p>
-                                    <p>Category</p>
-                                    <div class="product-minimal-price">
-                                        <span>₱450.00</span>
-                                        <span>₱350.00</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </a>
-                        <a href="#" class="product-link">
-                            <div class="minimal-item">
-                                <div class="small-img"></div>
-                                <div class="minimal-details">
-                                    <p>Brand - Product Name</p>
-                                    <p>Category</p>
-                                    <div class="product-minimal-price">
-                                        <span>₱450.00</span>
-                                        <span>₱350.00</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </a>
-                        <a href="#" class="product-link">
-                            <div class="minimal-item">
-                                <div class="small-img"></div>
-                                <div class="minimal-details">
-                                    <p>Brand - Product Name</p>
-                                    <p>Category</p>
-                                    <div class="product-minimal-price">
-                                        <span>₱450.00</span>
-                                        <span>₱350.00</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </a>
-                    </div>
-                </div> 
-            </section>
-
+    
             <section class="deal-of-the-day">
                 <h3 class="main-title">Deal of the Day</h3>
+                {% if deal_of_the_day %}
                 <div class="deal-container">
                     <div class="deal-img-container">
-                        <div class="deal-img"></div>
+                        <img src="{{ deal_of_the_day.images[0] if deal_of_the_day.images else '' }}" alt="{{ deal_of_the_day.name }}" class="deal-img">
                     </div>
                     <div class="deal-details">
                         <div class="big-star-ratings">
+                            <!-- Star ratings can be dynamically generated later if review data is available -->
                             {% include "svg/star-filled.svg" %}
                             {% include "svg/star-filled.svg" %}
                             {% include "svg/star-filled.svg" %}
                             {% include "svg/star-half.svg" %}
                             {% include "svg/star-nofill.svg" %}
                         </div>
-                        <h3>BRAND - PRODUCT NAME</h3>
-                        <p>Lorem ipsum dolor sit amet consectetur adipiscing elit Ut et massa mi. Aliquam in hendrerit urna. Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
+                        <h3><a href="{{ url_for('product_page', product_id=deal_of_the_day.id) }}">{{ deal_of_the_day.brand }} - {{ deal_of_the_day.name }}</a></h3>
+                        <p>{{ deal_of_the_day.description[:150] }}...</p>
                         <div class="deal-price">
-                            <span>₱350.00</span>
-                            <span>₱450.00</span>
+                            <span>₱{{ "%.2f"|format(deal_of_the_day.price) }}</span>
+                            {% if deal_of_the_day.original_price > deal_of_the_day.price %}
+                            <span>₱{{ "%.2f"|format(deal_of_the_day.original_price) }}</span>
+                            {% endif %}
                         </div>
-                        <button class="add-to-cart-btn">ADD TO CART</button>
+                        <form action="{{ url_for('add_to_cart') }}" method="POST">
+                            <input type="hidden" name="product_id" value="{{ deal_of_the_day.id }}">
+                            <button type="submit" class="add-to-cart-btn">ADD TO CART</button>
+                        </form>
 
                         <div class="progress-bar-container">
                             <div class="progress-labels">
-                               <span>ALREADY SOLD: <b>25</b> </span>
-                               <span>AVAILABLE: <b>40</b></span> 
+                               <span>ALREADY SOLD: <b>{{ deal_of_the_day_total_stock - deal_of_the_day.quantity_available }}</b> </span>
+                               <span>AVAILABLE: <b>{{ deal_of_the_day.quantity_available }}</b></span> 
                             </div>
                             <div class="progress-bar-bg">
                                 <div class="progress-bar-fill"></div>
@@ -396,24 +101,30 @@
                         <div class="timer-container">
                             <p>HURRY UP! OFFER ENDS IN:</p> 
                             <div class="timer-boxes">
-                                <div class="time-box">360<span>days</span></div><div class="time-box">24<span>hours</span></div>
+                                <div class="time-box">360<span>days</span></div>
+                                <div class="time-box">24<span>hours</span></div>
                                 <div class="time-box">59<span>min</span></div><div class="time-box">0<span>sec</span></div> 
                             </div>                       
                         </div>
                     </div>
                 </div>
+                {% else %}
+                <p>There is no deal of the day available right now. Please check back later!</p>
+                {% endif %}
             </section>
 
             <section class="main-product">
                 <h3 class="main-title">Popular Lately</h3>
                 <div class="main-product-container">
-                    <a href="#" class="product-link">
+                    {% for product in popular_lately %}
+                    <a href="{{ url_for('product_page', product_id=product.id) }}" class="product-link">
                         <div class="main-product-item">
-                            <div class="main-product-img"></div>
+                            <img src="{{ product.images[0] if product.images else '' }}" alt="{{ product.name }}" class="main-product-img">
                             <div class="main-product-details">
-                                <p>CATEGORY</p>
-                                <p>Brand - Product Name</p>
+                                <p>{{ product.category_name }}</p>
+                                <p>{{ product.brand }} - {{ product.name }}</p>
                                 <div class="star-ratings">
+                                    <!-- Star ratings can be dynamic later -->
                                     {% include "svg/star-filled.svg" %}
                                     {% include "svg/star-filled.svg" %}
                                     {% include "svg/star-filled.svg" %}
@@ -421,305 +132,21 @@
                                     {% include "svg/star-nofill.svg" %}
                                 </div>
                                 <div class="main-product-price">
-                                    <span>₱450.00</span>
-                                    <span>₱350.00</span>
+                                    <span>₱{{ "%.2f"|format(product.price) }}</span>
+                                    {% if product.original_price > product.price %}
+                                    <span>₱{{ "%.2f"|format(product.original_price) }}</span>
+                                    {% endif %}
                                 </div>
                                 <div class="city-container">
                                     <div class="city-icon">
                                         {% include "svg/location.svg" %}
                                     </div>
-                                    <p>City</p>
+                                    <p>{{ product.city }}</p>
                                 </div>
                             </div>
                         </div>
                     </a>
-
-                    <a href="#" class="product-link">
-                        <div class="main-product-item">
-                            <div class="main-product-img"></div>
-                            <div class="main-product-details">
-                                <p>CATEGORY</p>
-                                <p>Brand - Product Name</p>
-                                <div class="star-ratings">
-                                    {% include "svg/star-filled.svg" %}
-                                    {% include "svg/star-filled.svg" %}
-                                    {% include "svg/star-filled.svg" %}
-                                    {% include "svg/star-half.svg" %}
-                                    {% include "svg/star-nofill.svg" %}
-                                </div>
-                                <div class="main-product-price">
-                                    <span>₱450.00</span>
-                                    <span>₱350.00</span>
-                                </div>
-                                <div class="city-container">
-                                    <div class="city-icon">
-                                        {% include "svg/location.svg" %}
-                                    </div>
-                                    <p>City</p>
-                                </div>
-                            </div>
-                        </div>
-                    </a>
-                    <a href="#" class="product-link">
-                        <div class="main-product-item">
-                            <div class="main-product-img"></div>
-                            <div class="main-product-details">
-                                <p>CATEGORY</p>
-                                <p>Brand - Product Name</p>
-                                <div class="star-ratings">
-                                    {% include "svg/star-filled.svg" %}
-                                    {% include "svg/star-filled.svg" %}
-                                    {% include "svg/star-filled.svg" %}
-                                    {% include "svg/star-half.svg" %}
-                                    {% include "svg/star-nofill.svg" %}
-                                </div>
-                                <div class="main-product-price">
-                                    <span>₱450.00</span>
-                                    <span>₱350.00</span>
-                                </div>
-                                <div class="city-container">
-                                    <div class="city-icon">
-                                        {% include "svg/location.svg" %}
-                                    </div>
-                                    <p>City</p>
-                                </div>
-                            </div>
-                        </div>
-                    </a>
-                    <a href="#" class="product-link">
-                        <div class="main-product-item">
-                            <div class="main-product-img"></div>
-                            <div class="main-product-details">
-                                <p>CATEGORY</p>
-                                <p>Brand - Product Name</p>
-                                <div class="star-ratings">
-                                    {% include "svg/star-filled.svg" %}
-                                    {% include "svg/star-filled.svg" %}
-                                    {% include "svg/star-filled.svg" %}
-                                    {% include "svg/star-half.svg" %}
-                                    {% include "svg/star-nofill.svg" %}
-                                </div>
-                                <div class="main-product-price">
-                                    <span>₱450.00</span>
-                                    <span>₱350.00</span>
-                                </div>
-                                <div class="city-container">
-                                    <div class="city-icon">
-                                        {% include "svg/location.svg" %}
-                                    </div>
-                                    <p>City</p>
-                                </div>
-                            </div>
-                        </div>
-                    </a>
-                    <a href="#" class="product-link">
-                        <div class="main-product-item">
-                            <div class="main-product-img"></div>
-                            <div class="main-product-details">
-                                <p>CATEGORY</p>
-                                <p>Brand - Product Name</p>
-                                <div class="star-ratings">
-                                    {% include "svg/star-filled.svg" %}
-                                    {% include "svg/star-filled.svg" %}
-                                    {% include "svg/star-filled.svg" %}
-                                    {% include "svg/star-half.svg" %}
-                                    {% include "svg/star-nofill.svg" %}
-                                </div>
-                                <div class="main-product-price">
-                                    <span>₱450.00</span>
-                                    <span>₱350.00</span>
-                                </div>
-                                <div class="city-container">
-                                    <div class="city-icon">
-                                        {% include "svg/location.svg" %}
-                                    </div>
-                                    <p>City</p>
-                                </div>
-                            </div>
-                        </div>
-                    </a>
-                    <a href="#" class="product-link">
-                        <div class="main-product-item">
-                            <div class="main-product-img"></div>
-                            <div class="main-product-details">
-                                <p>CATEGORY</p>
-                                <p>Brand - Product Name</p>
-                                <div class="star-ratings">
-                                    {% include "svg/star-filled.svg" %}
-                                    {% include "svg/star-filled.svg" %}
-                                    {% include "svg/star-filled.svg" %}
-                                    {% include "svg/star-half.svg" %}
-                                    {% include "svg/star-nofill.svg" %}
-                                </div>
-                                <div class="main-product-price">
-                                    <span>₱450.00</span>
-                                    <span>₱350.00</span>
-                                </div>
-                                <div class="city-container">
-                                    <div class="city-icon">
-                                        {% include "svg/location.svg" %}
-                                    </div>
-                                    <p>City</p>
-                                </div>
-                            </div>
-                        </div>
-                    </a>
-                    <a href="#" class="product-link">
-                        <div class="main-product-item">
-                            <div class="main-product-img"></div>
-                            <div class="main-product-details">
-                                <p>CATEGORY</p>
-                                <p>Brand - Product Name</p>
-                                <div class="star-ratings">
-                                    {% include "svg/star-filled.svg" %}
-                                    {% include "svg/star-filled.svg" %}
-                                    {% include "svg/star-filled.svg" %}
-                                    {% include "svg/star-half.svg" %}
-                                    {% include "svg/star-nofill.svg" %}
-                                </div>
-                                <div class="main-product-price">
-                                    <span>₱450.00</span>
-                                    <span>₱350.00</span>
-                                </div>
-                                <div class="city-container">
-                                    <div class="city-icon">
-                                        {% include "svg/location.svg" %}
-                                    </div>
-                                    <p>City</p>
-                                </div>
-                            </div>
-                        </div>
-                    </a>
-                    <a href="#" class="product-link">
-                        <div class="main-product-item">
-                            <div class="main-product-img"></div>
-                            <div class="main-product-details">
-                                <p>CATEGORY</p>
-                                <p>Brand - Product Name</p>
-                                <div class="star-ratings">
-                                    {% include "svg/star-filled.svg" %}
-                                    {% include "svg/star-filled.svg" %}
-                                    {% include "svg/star-filled.svg" %}
-                                    {% include "svg/star-half.svg" %}
-                                    {% include "svg/star-nofill.svg" %}
-                                </div>
-                                <div class="main-product-price">
-                                    <span>₱450.00</span>
-                                    <span>₱350.00</span>
-                                </div>
-                                <div class="city-container">
-                                    <div class="city-icon">
-                                        {% include "svg/location.svg" %}
-                                    </div>
-                                    <p>City</p>
-                                </div>
-                            </div>
-                        </div>
-                    </a>
-                    <a href="#" class="product-link">
-                        <div class="main-product-item">
-                            <div class="main-product-img"></div>
-                            <div class="main-product-details">
-                                <p>CATEGORY</p>
-                                <p>Brand - Product Name</p>
-                                <div class="star-ratings">
-                                    {% include "svg/star-filled.svg" %}
-                                    {% include "svg/star-filled.svg" %}
-                                    {% include "svg/star-filled.svg" %}
-                                    {% include "svg/star-half.svg" %}
-                                    {% include "svg/star-nofill.svg" %}
-                                </div>
-                                <div class="main-product-price">
-                                    <span>₱450.00</span>
-                                    <span>₱350.00</span>
-                                </div>
-                                <div class="city-container">
-                                    <div class="city-icon">
-                                        {% include "svg/location.svg" %}
-                                    </div>
-                                    <p>City</p>
-                                </div>
-                            </div>
-                        </div>
-                    </a>
-                    <a href="#" class="product-link">
-                        <div class="main-product-item">
-                            <div class="main-product-img"></div>
-                            <div class="main-product-details">
-                                <p>CATEGORY</p>
-                                <p>Brand - Product Name</p>
-                                <div class="star-ratings">
-                                    {% include "svg/star-filled.svg" %}
-                                    {% include "svg/star-filled.svg" %}
-                                    {% include "svg/star-filled.svg" %}
-                                    {% include "svg/star-half.svg" %}
-                                    {% include "svg/star-nofill.svg" %}
-                                </div>
-                                <div class="main-product-price">
-                                    <span>₱450.00</span>
-                                    <span>₱350.00</span>
-                                </div>
-                                <div class="city-container">
-                                    <div class="city-icon">
-                                        {% include "svg/location.svg" %}
-                                    </div>
-                                    <p>City</p>
-                                </div>
-                            </div>
-                        </div>
-                    </a>
-                    <a href="#" class="product-link">
-                        <div class="main-product-item">
-                            <div class="main-product-img"></div>
-                            <div class="main-product-details">
-                                <p>CATEGORY</p>
-                                <p>Brand - Product Name</p>
-                                <div class="star-ratings">
-                                    {% include "svg/star-filled.svg" %}
-                                    {% include "svg/star-filled.svg" %}
-                                    {% include "svg/star-filled.svg" %}
-                                    {% include "svg/star-half.svg" %}
-                                    {% include "svg/star-nofill.svg" %}
-                                </div>
-                                <div class="main-product-price">
-                                    <span>₱450.00</span>
-                                    <span>₱350.00</span>
-                                </div>
-                                <div class="city-container">
-                                    <div class="city-icon">
-                                        {% include "svg/location.svg" %}
-                                    </div>
-                                    <p>City</p>
-                                </div>
-                            </div>
-                        </div>
-                    </a>
-                    <a href="#" class="product-link">
-                        <div class="main-product-item">
-                            <div class="main-product-img"></div>
-                            <div class="main-product-details">
-                                <p>CATEGORY</p>
-                                <p>Brand - Product Name</p>
-                                <div class="star-ratings">
-                                    {% include "svg/star-filled.svg" %}
-                                    {% include "svg/star-filled.svg" %}
-                                    {% include "svg/star-filled.svg" %}
-                                    {% include "svg/star-half.svg" %}
-                                    {% include "svg/star-nofill.svg" %}
-                                </div>
-                                <div class="main-product-price">
-                                    <span>₱450.00</span>
-                                    <span>₱350.00</span>
-                                </div>
-                                <div class="city-container">
-                                    <div class="city-icon">
-                                        {% include "svg/location.svg" %}
-                                    </div>
-                                    <p>City</p>
-                                </div>
-                            </div>
-                        </div>
-                    </a>
+                    {% endfor %}
                 </div>
             </section>
 

@@ -43,20 +43,25 @@ def index():
     # Enrich product data with category names for display
     for product in all_products:
         category = backend.mock_get_category_by_id(product.category_id)
+        address = backend.mock_get_address_by_id(product.address_id)
         product.category_name = category.name if category else "Uncategorized"
+        product.city = address.city if address else "N/A"
 
-    # Simulate different product lists for the home page sections
-    # In a real application, these would be based on sales data, ratings, etc.
     trending_products = all_products[:4]
     new_arrivals = all_products[-4:]
     top_rated = all_products[:4]
     best_sellers = all_products[:4]
     deal_of_the_day = all_products[0] if all_products else None
+    deal_of_the_day_total_stock = 0
+
+    if deal_of_the_day:
+        deal_of_the_day_total_stock = 50
+
     popular_lately = all_products[:8]
 
     return render_template('index.html', categories=categories, trending_products=trending_products,
                            new_arrivals=new_arrivals, top_rated=top_rated, best_sellers=best_sellers,
-                           deal_of_the_day=deal_of_the_day, popular_lately=popular_lately)
+                           deal_of_the_day=deal_of_the_day, deal_of_the_day_total_stock=deal_of_the_day_total_stock, popular_lately=popular_lately)
 
 
 @app.route('/login-page', methods=['GET', 'POST'])
@@ -198,7 +203,7 @@ def orders_page():
             status_filter = backend.Status[status_filter_str.upper()]
             orders = [o for o in orders if o.status == status_filter]
         except KeyError:
-            # Handle invalid status string gracefully
+            # Handle invalid status string
             flash("Invalid status filter.", "error")
 
     # Sort all orders by creation date, newest first
@@ -395,7 +400,6 @@ def merchant_orders_page():
 
     orders = backend.mock_get_orders_by_merchant_id(user.id)
     for order in orders:
-        # Enrich with customer and product details for display
         customer = next((u for u in backend.mock_users.values() if u.id == order.user_id), None)
         order.customer_name = f"{customer.first_name} {customer.last_name}" if customer else "Unknown User"
 
@@ -430,7 +434,6 @@ def merchant_cancel_order(order_id: int):
     if user.role != 'merchant':
         return redirect(url_for('index'))
 
-    # In a real app, this would also trigger a refund process.
     result = backend.mock_update_order_status(order_id, backend.Status.CANCELLED)
     flash(result['message'], 'success' if result['status'] else 'error')
     return redirect(url_for('merchant_orders_page'))
@@ -451,21 +454,18 @@ def add_product_page():
     if request.method == 'POST':
         form_data = request.form.to_dict()
         
-        # Convert types and add merchant-specific data
         form_data['merchant_id'] = user.id
         form_data['price'] = float(form_data.get('price', 0))
         form_data['original_price'] = float(form_data.get('original_price', form_data['price']))
         form_data['quantity_available'] = int(form_data.get('quantity_available', 0))
         form_data['category_id'] = int(form_data.get('category_id'))
         
-        # For simplicity, assume the merchant's first address is the product location
         merchant_addresses = backend.mock_get_addresses_by_user_id(user.id)
         if not merchant_addresses:
             flash("You must have a saved address to add a product.", "error")
             return redirect(url_for('user_addresses_page'))
         form_data['address_id'] = merchant_addresses[0].id
 
-        # Handle images - simple comma-separated string to list
         form_data['images'] = [img.strip() for img in form_data.get('images', '').split(',') if img.strip()]
 
         result = backend.mock_create_product(form_data)
@@ -490,7 +490,7 @@ def edit_product_page(product_id: int):
 
     product = backend.mock_get_product_by_id(product_id)
 
-    # Security check: ensure the product belongs to the logged-in merchant
+    # Ensure the product belongs to the logged-in merchant
     if not product or product.merchant_id != user.id:
         flash("Product not found or you do not have permission to edit it.", "error")
         return redirect(url_for('merchant_dashboard_page'))
@@ -531,7 +531,7 @@ def payments_page():
     virtual_card = backend.mock_get_virtual_card_by_owner_id(user.id)
     payment_history = backend.mock_get_user_payments(user.id)
 
-    # For display purposes, enrich payment history with sender/receiver names
+    # payment history with sender/receiver names
     for payment in payment_history:
         sender = next((u for u in backend.mock_users.values() if u.id == payment.sender_id), None)
         receiver = next((u for u in backend.mock_users.values() if u.id == payment.receiver_id), None)
@@ -612,9 +612,7 @@ def checkout_page():
             flash("Please select a shipping address.", "error")
             return redirect(url_for('checkout_page'))
 
-        # 1. Attempt to process the payment FIRST
-        # For this system, we assume all items in a cart belong to one merchant.
-        # We get the merchant_id from the first item.
+        # Process payment first 
         first_product_id = cart.items[0].product_id
         product = backend.mock_get_product_by_id(first_product_id)
         if not product:
@@ -630,7 +628,7 @@ def checkout_page():
             flash(f"Payment failed: {payment_result['message']}", "error")
             return redirect(url_for('checkout_page'))
 
-        # 2. If payment was successful, create the order
+        # If payment was successful, create the order
         order_result = backend.mock_create_order_from_cart(cart.id, {"payment_type": "VirtualCard"})
         if not order_result['status']:
             flash(f"Payment succeeded, but failed to create order: {order_result['message']}", "error")
@@ -639,10 +637,10 @@ def checkout_page():
         
         order_id = order_result['order_id']
 
-        # 3. Create the invoice for the new order
+        # Create the invoice for the new order
         backend.mock_create_invoice(order_id, address_id)
 
-        # 4. Finally, clear the user's cart
+        # Clear the user's cart
         backend.mock_clear_cart(cart.id)
 
         flash("Your order has been placed successfully!", "success")
@@ -665,15 +663,37 @@ def products_page():
         str: The rendered HTML of the products page with a list of all
         products.
     """
-    products = backend.mock_get_all_products()
-    for product in products:
+    all_products = backend.mock_get_all_products()
+    categories = backend.mock_get_all_categories()
+
+    # Get filter parameters from URL
+    selected_category_id = request.args.get('category', type=int)
+    min_price = request.args.get('min_price', type=float)
+    max_price = request.args.get('max_price', type=float)
+    min_rating = request.args.get('min_rating', type=float)
+
+    # Apply filters
+    filtered_products = all_products
+    if selected_category_id:
+        filtered_products = [p for p in filtered_products if p.category_id == selected_category_id]
+    if min_price is not None:
+        filtered_products = [p for p in filtered_products if p.price >= min_price]
+    if max_price is not None:
+        filtered_products = [p for p in filtered_products if p.price <= max_price]
+    # Rating filter is not implemented in mock data, so we'll skip it for now.
+
+    selected_category = backend.mock_get_category_by_id(selected_category_id) if selected_category_id else None
+
+    for product in filtered_products:
         category = backend.mock_get_category_by_id(product.category_id)
         address = backend.mock_get_address_by_id(product.address_id)
         
         product.category_name = category.name if category else "Uncategorized"
         product.city = address.city if address else "N/A"
 
-    return render_template('products.html', products=products)
+    return render_template('products.html', products=filtered_products, categories=categories, 
+                           selected_category=selected_category,
+                           filter_values={'min_price': min_price, 'max_price': max_price, 'min_rating': min_rating})
 
 @app.route('/product-page/<int:product_id>')
 def product_page(product_id: int):

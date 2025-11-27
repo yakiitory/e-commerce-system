@@ -70,8 +70,12 @@ mock_users = {
 }
 
 mock_categories = [
-    Category(id=1, name="Laptops", parent_id=None, description="Portable computers for work and play."),
-    Category(id=2, name="Gaming Laptops", parent_id=1, description="High-performance laptops for gaming."),
+    Category(id=1, name="Electronics", parent_id=None, description="Gadgets and devices."),
+    Category(id=2, name="Laptops", parent_id=1, description="Portable computers for work and play."),
+    Category(id=3, name="Smartphones", parent_id=1, description="Mobile phones with advanced features."),
+    Category(id=4, name="Clothing", parent_id=None, description="Apparel and accessories."),
+    Category(id=5, name="Men's", parent_id=4, description="Clothing for men."),
+    Category(id=6, name="Women's", parent_id=4, description="Clothing for women."),
 ]
 
 mock_inventories = [
@@ -711,6 +715,16 @@ def mock_create_order_from_cart(cart_id: int, form_data: dict) -> dict:
             total_price=item.product_price * item.product_quantity
         )
         order_items.append(order_item)
+
+        # --- Update Product Quantity ---
+        product_to_update = mock_get_product_by_id(item.product_id)
+        if product_to_update:
+            if product_to_update.quantity_available >= item.product_quantity:
+                product_to_update.quantity_available -= item.product_quantity
+            else:
+                # This is a failsafe. In a real app, this check should happen earlier.
+                return {"status": False, "message": f"Not enough stock for {product_to_update.name}."}
+        # -----------------------------
 
     new_order = Order(
         id=new_order_id,
