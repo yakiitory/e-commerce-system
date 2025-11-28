@@ -4,11 +4,12 @@ from typing import cast
 from models.status import Status
 from datetime import datetime
 import os
-from services import AuthService, InteractionService, ProductService, OrderService, MediaService, ReviewService, TransactionService
+from services import AddressService, AuthService, InteractionService, ProductService, OrderService, MediaService, ReviewService, TransactionService
 from repositories import (
     AdminRepository,
     CartRepository,
     MerchantRepository,
+    AddressRepository,
     OrderRepository,
     PaymentRepository,
     ProductMetadataRepository,
@@ -19,10 +20,12 @@ from repositories import (
     VirtualCardRepository,
 )
 from database.database import Database
+from models.products import ProductCreate, ProductMetadata
 import backend
 
 db = Database()
 admin_repository            = AdminRepository(db)
+address_repository          = AddressRepository(db)
 merchant_repository         = MerchantRepository(db)
 order_repository            = OrderRepository(db)
 payment_repository          = PaymentRepository(db)
@@ -34,6 +37,10 @@ virtual_card_repository     = VirtualCardRepository(db)
 product_repository          = ProductRepository(db)
 cart_repository             = CartRepository(db, product_metadata_repository)
 
+address_service = AddressService(
+    db=db,
+    address_repo=address_repository
+)
 auth_service = AuthService(
     user_repo=user_repository,
     merchant_repo=merchant_repository,
@@ -50,9 +57,11 @@ transaction_service = TransactionService(
     payment_repo=payment_repository,
     virtual_card_repo=virtual_card_repository
 )
+media_service = MediaService(media_root="src/static/db-images")
 product_service = ProductService(
     db=db,
-    product_repo=product_repository
+    product_repo=product_repository,
+    media_service=media_service
 )
 order_service = OrderService(
     db=db,
@@ -60,7 +69,6 @@ order_service = OrderService(
     product_repo=product_repository,
     transaction_service=transaction_service
 )
-media_service = MediaService()
 review_service = ReviewService(
     db=db,
     review_repo=review_repository,
@@ -401,8 +409,16 @@ def user_addresses_page():
         flash("Please log in to view this page.", "error")
         return redirect(url_for('login_page'))
     
-    user = backend.mock_get_user_by_username(session['username'])
-    addresses = backend.mock_get_addresses_by_user_id(user.id)
+    user = user_repository.get_by_username(session['username'])
+    if not user:
+        flash("User not found. Please log in again.", "error")
+        return redirect(url_for('login_page'))
+
+    success, result = address_service.get_user_addresses(user.id)
+    addresses = result if success else []
+    if not success:
+        flash(str(result), "error")
+
     return render_template('user-addresses.html', addresses=addresses)
 
 @app.route('/add-address', methods=['POST'])
@@ -412,11 +428,14 @@ def add_address():
         flash("Please log in to add an address.", "error")
         return redirect(url_for('login_page'))
 
-    user = backend.mock_get_user_by_username(session['username'])
+    user = user_repository.get_by_username(session['username'])
+    if not user:
+        flash("User not found. Please log in again.", "error")
+        return redirect(url_for('login_page'))
+
     address_data = request.form.to_dict()
-    
-    result = backend.mock_create_address(address_data, user_id=user.id)
-    flash(result['message'], 'success' if result['status'] else 'error')
+    success, message = address_service.add_address_for_user(user.id, address_data)
+    flash(message, 'success' if success else 'error')
     return redirect(url_for('user_addresses_page'))
 
 @app.route('/edit-address/<int:address_id>', methods=['POST'])
@@ -426,15 +445,13 @@ def edit_address(address_id: int):
         flash("Please log in to edit an address.", "error")
         return redirect(url_for('login_page'))
 
-    user = backend.mock_get_user_by_username(session['username'])
-    user_addresses = backend.mock_get_addresses_by_user_id(user.id)
+    user = user_repository.get_by_username(session['username'])
+    if not user:
+        flash("User not found. Please log in again.", "error")
+        return redirect(url_for('login_page'))
 
-    if address_id not in [addr.id for addr in user_addresses]:
-        flash("Address not found or you do not have permission to edit it.", "error")
-        return redirect(url_for('user_addresses_page'))
-
-    result = backend.mock_update_address(address_id, request.form.to_dict())
-    flash(result['message'], 'success' if result['status'] else 'error')
+    success, message = address_service.update_user_address(user.id, address_id, request.form.to_dict())
+    flash(message, 'success' if success else 'error')
     return redirect(url_for('user_addresses_page'))
 
 @app.route('/delete-address/<int:address_id>', methods=['POST'])
@@ -444,15 +461,13 @@ def delete_address(address_id: int):
         flash("Please log in to delete an address.", "error")
         return redirect(url_for('login_page'))
 
-    user = backend.mock_get_user_by_username(session['username'])
-    user_addresses = backend.mock_get_addresses_by_user_id(user.id)
+    user = user_repository.get_by_username(session['username'])
+    if not user:
+        flash("User not found. Please log in again.", "error")
+        return redirect(url_for('login_page'))
 
-    if address_id not in [addr.id for addr in user_addresses]:
-        flash("Address not found or you do not have permission to delete it.", "error")
-        return redirect(url_for('user_addresses_page'))
-
-    backend.mock_delete_address(address_id)
-    flash("Address deleted successfully.", "success")
+    success, message = address_service.delete_user_address(user.id, address_id)
+    flash(message, 'success' if success else 'error')
     return redirect(url_for('user_addresses_page'))
 
 @app.route('/merchant-dashboard')
@@ -462,62 +477,80 @@ def merchant_dashboard_page():
         flash("Please log in to view this page.", "error")
         return redirect(url_for('login_page'))
     
-    user = backend.mock_get_user_by_username(session['username'])
-    if user.role != 'merchant':
+    user = user_repository.get_by_username(session['username'])
+    if not user or user.role != 'merchant':
         flash("You do not have permission to access this page.", "error")
         return redirect(url_for('index'))
 
-    products = backend.mock_get_products_by_merchant_id(user.id)
+    success, products_or_message = product_service.get_products_by_merchant_id(user.id)
+
+    if not success:
+        flash(str(products_or_message), "error")
+        products = []
+    else:
+        products = products_or_message or []
+
     return render_template('merchant-dashboard.html', products=products)
 
 @app.route('/merchant-orders')
 def merchant_orders_page():
     """Renders the page for merchants to manage their orders."""
     if 'username' not in session:
+        flash("Please log in to view this page.", "error")
         return redirect(url_for('login_page'))
     
-    user = backend.mock_get_user_by_username(session['username'])
-    if user.role != 'merchant':
+    user = merchant_repository.get_by_username(session['username'])
+    if not user or user.role != 'merchant':
+        flash("You do not have permission to access this page.", "error")
         return redirect(url_for('index'))
 
-    orders = backend.mock_get_orders_by_merchant_id(user.id)
+    success, orders_or_message = order_service.get_orders_for_merchant(user.id)
+    if not success:
+        flash(str(orders_or_message), "error")
+        orders = []
+    else:
+        orders = orders_or_message or []
+
     for order in orders:
-        customer = next((u for u in backend.mock_users.values() if u.id == order.user_id), None)
-        order.customer_name = f"{customer.first_name} {customer.last_name}" if customer else "Unknown User"
+        customer = user_repository.read(order.user_id)
+        setattr(order, 'customer_name', f"{customer.first_name} {customer.last_name}" if customer else "Unknown User")
 
-        order.total_price = sum(item.total_price for item in order.orders)
-        for item in order.orders:
-            item.product = backend.mock_get_product_by_id(item.product_id)
+        for item in order.items:
+            _, product_entry = product_service.get_product_for_display(item.product_id)
+            setattr(item, 'product', product_entry)
 
-
-    return render_template('merchant-orders.html', orders=orders, Status=backend.Status)
+    return render_template('merchant-orders.html', orders=orders, Status=Status)
 
 @app.route('/merchant-ship-order/<int:order_id>', methods=['POST'])
 def merchant_ship_order(order_id: int):
     """Allows a merchant to mark an order as shipped."""
     if 'username' not in session:
+        flash("Please log in to perform this action.", "error")
         return redirect(url_for('login_page'))
     
-    user = backend.mock_get_user_by_username(session['username'])
-    if user.role != 'merchant':
+    user = merchant_repository.get_by_username(session['username'])
+    if not user or user.role != 'merchant':
+        flash("You do not have permission to perform this action.", "error")
         return redirect(url_for('index'))
 
-    result = backend.mock_update_order_status(order_id, backend.Status.SHIPPED)
-    flash(result['message'], 'success' if result['status'] else 'error')
+    success, message = order_service.ship_order(order_id=order_id, merchant_id=user.id)
+    flash(message, 'success' if success else 'error')
     return redirect(url_for('merchant_orders_page'))
 
 @app.route('/merchant-cancel-order/<int:order_id>', methods=['POST'])
 def merchant_cancel_order(order_id: int):
     """Allows a merchant to cancel a pending order."""
     if 'username' not in session:
+        flash("Please log in to perform this action.", "error")
         return redirect(url_for('login_page'))
     
-    user = backend.mock_get_user_by_username(session['username'])
-    if user.role != 'merchant':
+    user = merchant_repository.get_by_username(session['username'])
+    if not user or user.role != 'merchant':
+        flash("You do not have permission to perform this action.", "error")
         return redirect(url_for('index'))
 
-    result = backend.mock_update_order_status(order_id, backend.Status.CANCELLED)
-    flash(result['message'], 'success' if result['status'] else 'error')
+    success, message = order_service.merchant_cancel_order(order_id=order_id, merchant_id=user.id)
+    flash(message, 'success' if success else 'error')
     return redirect(url_for('merchant_orders_page'))
 
 
@@ -528,34 +561,55 @@ def add_product_page():
         flash("Please log in to add a product.", "error")
         return redirect(url_for('login_page'))
 
-    user = backend.mock_get_user_by_username(session['username'])
-    if user.role != 'merchant':
+    user = merchant_repository.get_by_username(session['username'])
+    if not user or user.role != 'merchant':
         flash("You do not have permission to perform this action.", "error")
         return redirect(url_for('index'))
 
     if request.method == 'POST':
         form_data = request.form.to_dict()
-        
-        form_data['merchant_id'] = user.id
-        form_data['price'] = float(form_data.get('price', 0))
-        form_data['original_price'] = float(form_data.get('original_price', form_data['price']))
-        form_data['quantity_available'] = int(form_data.get('quantity_available', 0))
-        form_data['category_id'] = int(form_data.get('category_id'))
-        
-        merchant_addresses = backend.mock_get_addresses_by_user_id(user.id)
-        if not merchant_addresses:
+        images = request.files.getlist('images')
+
+        # --- Data Validation and Preparation ---
+        success, merchant_addresses_or_msg = address_service.get_merchant_addresses(user.id)
+        merchant_addresses = merchant_addresses_or_msg if success else []
+        if not merchant_addresses: # type: ignore
             flash("You must have a saved address to add a product.", "error")
             return redirect(url_for('user_addresses_page'))
-        form_data['address_id'] = merchant_addresses[0].id
 
-        form_data['images'] = [img.strip() for img in form_data.get('images', '').split(',') if img.strip()]
+        try:
+            product_data = ProductCreate(
+                name=form_data.get('name', 'Unnamed Product'),
+                brand=form_data.get('brand', 'Unbranded'),
+                category_id=int(form_data.get('category_id', 0)),
+                description=form_data.get('description', ''),
+                price=float(form_data.get('price', 0)),
+                original_price=float(form_data.get('original_price') or form_data.get('price', 0)),
+                quantity_available=int(form_data.get('quantity_available', 0)),
+                merchant_id=user.id,
+                address_id=merchant_addresses[0].id, # type: ignore
+                images=[] # Will be populated after product creation
+            )
+            metadata = ProductMetadata(product_id=0)
 
-        result = backend.mock_create_product(form_data)
-        flash(result['message'], 'success' if result['status'] else 'error')
+        except (ValueError, TypeError) as e:
+            flash(f"Invalid data provided: {e}", "error")
+            return redirect(url_for('add_product_page'))
+
+        # --- Service Call ---
+        new_product_id, message = product_service.create_product(product_data, metadata, images)
+
+        flash(message, 'success' if new_product_id else 'error')
+        if not new_product_id:
+            return redirect(url_for('add_product_page'))
+
         return redirect(url_for('merchant_dashboard_page'))
 
     # For GET request
-    categories = backend.mock_get_all_categories()
+    categories = product_service.get_all_categories()
+    if categories is None:
+        flash("Could not load categories.", "error")
+        categories = []
     return render_template('add-product.html', categories=categories)
 
 @app.route('/edit-product/<int:product_id>', methods=['GET', 'POST'])
@@ -565,40 +619,49 @@ def edit_product_page(product_id: int):
         flash("Please log in to edit a product.", "error")
         return redirect(url_for('login_page'))
 
-    user = backend.mock_get_user_by_username(session['username'])
-    if user.role != 'merchant':
+    user = merchant_repository.get_by_username(session['username'])
+    if not user or user.role != 'merchant':
         flash("You do not have permission to perform this action.", "error")
         return redirect(url_for('index'))
 
-    product = backend.mock_get_product_by_id(product_id)
+    # Fetch the product for both GET and POST to ensure it exists and is owned by the merchant
+    success, product_or_none = product_service.get_product(product_id)
+    if not success or not product_or_none:
+        flash("Product not found.", "error")
+        return redirect(url_for('merchant_dashboard_page'))
 
-    # Ensure the product belongs to the logged-in merchant
-    if not product or product.merchant_id != user.id:
+    product = product_or_none
+    if product.merchant_id != user.id:
         flash("Product not found or you do not have permission to edit it.", "error")
         return redirect(url_for('merchant_dashboard_page'))
 
     if request.method == 'POST':
         form_data = request.form.to_dict()
+        images = request.files.getlist('images')
 
-        # Convert types
-        form_data['price'] = float(form_data.get('price', 0))
-        form_data['original_price'] = float(form_data.get('original_price', form_data['price']))
-        form_data['quantity_available'] = int(form_data.get('quantity_available', 0))
-        form_data['category_id'] = int(form_data.get('category_id'))
+        try:
+            # Prepare data for the service
+            update_data = {
+                'name': form_data.get('name'),
+                'brand': form_data.get('brand'),
+                'category_id': int(form_data.get('category_id', 0)),
+                'description': form_data.get('description'),
+                'price': float(form_data.get('price', 0)),
+                'original_price': float(form_data.get('original_price') or form_data.get('price', 0)),
+                'quantity_available': int(form_data.get('quantity_available', 0)),
+            }
+        except (ValueError, TypeError) as e:
+            flash(f"Invalid data provided: {e}", "error")
+            return redirect(url_for('edit_product_page', product_id=product_id))
 
-        # Handle images
-        form_data['images'] = [img.strip() for img in form_data.get('images', '').split(',') if img.strip()]
+        # Call the service to update the product
+        success, message = product_service.update_product(product_id, user.id, update_data, images)
+        flash(message, 'success' if success else 'error')
 
-        # Remove fields that shouldn't be updated directly
-        form_data.pop('merchant_id', None)
-        form_data.pop('address_id', None)
-
-        result = backend.mock_update_product(product_id, form_data)
-        flash(result['message'], 'success' if result['status'] else 'error')
         return redirect(url_for('merchant_dashboard_page'))
 
     # For GET request
-    categories = backend.mock_get_all_categories()
+    categories = product_service.get_all_categories()
     return render_template('edit-product.html', product=product, categories=categories)
 
 

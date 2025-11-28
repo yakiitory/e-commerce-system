@@ -274,3 +274,78 @@ class OrderService:
             print(f"[OrderService WARN] No invoice found for order {order_id}")
 
         return (True, (order, invoice))
+
+    def ship_order(self, order_id: int, merchant_id: int) -> tuple[bool, str]:
+        """
+        Allows a merchant to mark an order as shipped.
+
+        Args:
+            order_id (int): The ID of the order to ship.
+            merchant_id (int): The ID of the merchant performing the action.
+
+        Returns:
+            tuple[bool, str]: A tuple containing a boolean for success and a message.
+        """
+        # 1. Fetch the order and perform validations
+        order = self.order_repo.read(order_id)
+        if not order:
+            return (False, f"Order with ID {order_id} not found.")
+
+        if order.merchant_id != merchant_id:
+            return (False, "You are not authorized to ship this order.")
+
+        if order.status != Status.PAID:
+            return (False, f"Order cannot be shipped. Current status: '{order.status.value}'.")
+
+        # 2. Update Order Status
+        success, message = self.order_repo.update_status(order_id, Status.SHIPPED)
+        return (success, "Order marked as shipped successfully." if success else message)
+
+    def merchant_cancel_order(self, order_id: int, merchant_id: int) -> tuple[bool, str]:
+        """
+        Allows a merchant to cancel an order, which refunds the customer.
+
+        Args:
+            order_id (int): The ID of the order to cancel.
+            merchant_id (int): The ID of the merchant performing the action.
+
+        Returns:
+            tuple[bool, str]: A tuple containing a boolean for success and a message.
+        """
+        transaction_committed = False
+        try:
+            self.db.begin_transaction()
+
+            # 1. Fetch the order and perform validations
+            order = self.order_repo.read(order_id)
+            if not order:
+                return (False, f"Order with ID {order_id} not found.")
+
+            if order.merchant_id != merchant_id:
+                return (False, "You are not authorized to cancel this order.")
+
+            if order.status != Status.PAID:
+                return (False, f"Only paid orders can be canceled. Current status: {order.status.value}.")
+
+            # 2. Process Refund (reusing logic from user cancellation)
+            user_card = self.order_repo.get_user_card_for_order(order_id)
+            merchant_card = self.order_repo.get_merchant_card_for_order(order_id)
+
+            if not user_card or not merchant_card:
+                return (False, "CRITICAL: Could not retrieve card details for refund. Cannot cancel order.")
+
+            refund_success, refund_message = self.transaction_service.transfer_funds(
+                sender_card_id=merchant_card.id, receiver_card_id=user_card.id,
+                amount=order.total_amount, payment_type="REFUND", in_transaction=True
+            )
+            if not refund_success:
+                return (False, f"Order cancellation failed: {refund_message}")
+
+            # 3. Update Order Status
+            self.order_repo.update_status(order_id, Status.CANCELLED)
+            self.db.commit()
+            transaction_committed = True
+            return (True, f"Order {order_id} has been successfully canceled and refunded.")
+        finally:
+            if not transaction_committed:
+                self.db.rollback()

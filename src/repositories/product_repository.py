@@ -165,6 +165,22 @@ class ProductRepository(BaseRepository):
             return (False, f"Failed to delete product metadata for product ID {identifier}. Product not deleted.")
         return self._delete_by_id(identifier, self.table_name, self.db, id_field="id")
     
+    def delete_images_for_product(self, product_id: int, db: Database) -> None:
+        """
+        Deletes all images and their junction table links for a specific product.
+        This method assumes it's being called within an existing transaction.
+        Note: This does not delete the physical files, only the DB records.
+        """
+        # Find all image IDs linked to the product
+        image_ids_query = "SELECT image_id FROM product_images WHERE product_id = %s"
+        image_id_rows = db.fetch_all(image_ids_query, (product_id,))
+        
+        if image_id_rows:
+            image_ids = tuple(row['image_id'] for row in image_id_rows)
+            # Delete from the junction table (handled by cascade on images table)
+            # Delete from the images table
+            db.execute_query(f"DELETE FROM images WHERE id IN ({',%s' * len(image_ids)})", image_ids)
+
     def _map_to_product(self, row: dict) -> Product | None:
         """
         Maps a database row (dictionary) to a Product dataclass object.
@@ -179,6 +195,42 @@ class ProductRepository(BaseRepository):
             return None
         return Product(**row)
     
+    def read_all_by_merchant_id(self, merchant_id: int) -> list[Product]:
+        """
+        Reads all products for a specific merchant, including their images.
+
+        Args:
+            merchant_id (int): The ID of the merchant whose products to retrieve.
+
+        Returns:
+            list[Product]: A list of Product objects, ordered by creation date.
+        """
+        products_query = f"SELECT * FROM {self.table_name} WHERE merchant_id = %s ORDER BY created_at DESC"
+        product_rows = self.db.fetch_all(products_query, (merchant_id,))
+
+        if not product_rows:
+            return []
+
+        products = []
+        for row in product_rows:
+            product_id = row['id']
+
+            # Fetch associated image URLs for the current product
+            images_query = """
+                SELECT i.url FROM images i
+                JOIN product_images pi ON i.id = pi.image_id
+                WHERE pi.product_id = %s
+                ORDER BY pi.is_thumbnail DESC, i.id
+            """
+            image_rows = self.db.fetch_all(images_query, (product_id,))
+            image_urls = [img_row['url'] for img_row in image_rows] if image_rows else []
+
+            # Add the list of image URLs to the product data before creating the object
+            row['images'] = image_urls
+            products.append(self._map_to_product(row))
+
+        return products
+
     def get_product_entry(self, identifier: int) -> ProductEntry | None:
         """
         Retrieves a 'product entry' for usage with the front end, such as a for you page entry.
