@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
-from models.orders import Order, OrderCreate, OrderItemCreate
+from models.orders import Order, OrderCreate, OrderItemCreate, Invoice, InvoiceCreate
 from models.status import Status
 
 if TYPE_CHECKING:
@@ -94,11 +94,22 @@ class OrderService:
                 # This is a critical failure. The transaction will be rolled back.
                 return (None, f"CRITICAL: Payment succeeded but order creation failed. Transaction rolled back. Reason: {order_message}")
 
-            # --- 4. Update Product Metadata ---
+            # --- 4. Create Invoice ---
+            invoice_to_create = InvoiceCreate(
+                address_id=shipping_address_id,
+                status=Status.PAID,
+                payment_summary=f"Paid via Virtual Card (User Card ID: {user_card_id})"
+            )
+            new_invoice_id, invoice_message = self.order_repo.create_invoice(invoice_to_create, new_order_id)
+            if not new_invoice_id:
+                # This is also a critical failure.
+                return (None, f"CRITICAL: Order created but invoice creation failed. Transaction rolled back. Reason: {invoice_message}")
+
+            # --- 5. Update Product Metadata ---
             for item in validated_items:
                 self.product_repo.metadata_repo.increment_field(item.product_id, 'sold_count', item.quantity)
 
-            # --- 5. Commit Transaction ---
+            # --- 6. Commit Transaction ---
             self.db.commit()
             transaction_committed = True
             return (new_order_id, f"Order created successfully with ID {new_order_id}.")
@@ -110,7 +121,7 @@ class OrderService:
             if not transaction_committed:
                 self.db.rollback()
 
-    def get_orders_for_user(self, user_id: int) -> tuple[bool, str | list[Order]]:
+    def get_orders_for_user(self, user_id: int) -> tuple[bool, list[Order] | None]:
         """
         Retrieves all orders placed by a specific user.
 
@@ -118,17 +129,17 @@ class OrderService:
             user_id (int): The ID of the user.
 
         Returns:
-            tuple[bool, str | list[Order]]: A tuple containing a boolean for success,
-                                            and either a list of orders or an error message.
+            tuple[bool, list[Order] | None]: A tuple containing a boolean for success,
+                                             and either a list of orders or `None` on failure.
         """
         try:
             orders = self.order_repo.read_all_by_user_id(user_id)
             return (True, orders)
         except Exception as e:
             print(f"[OrderService ERROR] An unexpected error occurred while fetching orders for user {user_id}: {e}")
-            return (False, "An unexpected error occurred while fetching orders.")
+            return (False, None)
 
-    def get_orders_for_merchant(self, merchant_id: int) -> tuple[bool, str | list[Order]]:
+    def get_orders_for_merchant(self, merchant_id: int) -> tuple[bool, list[Order] | None]:
         """
         Retrieves all orders for a specific merchant.
 
@@ -136,15 +147,15 @@ class OrderService:
             merchant_id (int): The ID of the merchant.
 
         Returns:
-            tuple[bool, str | list[Order]]: A tuple containing a boolean for success,
-                                            and either a list of orders or an error message.
+            tuple[bool, list[Order] | None]: A tuple containing a boolean for success,
+                                             and either a list of orders or `None` on failure.
         """
         try:
             orders = self.order_repo.read_all_by_merchant_id(merchant_id)
             return (True, orders)
         except Exception as e:
             print(f"[OrderService ERROR] An unexpected error occurred while fetching orders for merchant {merchant_id}: {e}")
-            return (False, "An unexpected error occurred while fetching orders.")
+            return (False, None)
 
     def cancel_order(self, order_id: int, user_id: int) -> tuple[bool, str]:
         """
@@ -210,3 +221,56 @@ class OrderService:
         finally:
             if not transaction_committed:
                 self.db.rollback()
+
+    def confirm_delivery(self, order_id: int, user_id: int) -> tuple[bool, str]:
+        """
+        Confirms that an order has been delivered by the user.
+
+        Args:
+            order_id (int): The ID of the order to confirm.
+            user_id (int): The ID of the user confirming the delivery.
+
+        Returns:
+            tuple[bool, str]: A tuple containing a boolean for success and a message.
+        """
+        # 1. Fetch the order and perform validations
+        order = self.order_repo.read(order_id)
+        if not order:
+            return (False, f"Order with ID {order_id} not found.")
+
+        if order.user_id != user_id:
+            return (False, "You are not authorized to confirm delivery for this order.")
+
+        if order.status != Status.SHIPPED:
+            return (False, f"Cannot confirm delivery. Order status is '{order.status.value}', not 'SHIPPED'.")
+
+        # 2. Update Order Status
+        success, message = self.order_repo.update_status(order_id, Status.DELIVERED)
+        return (success, "Delivery confirmed successfully! You can now review the product." if success else message)
+
+    def get_order_details(self, order_id: int, user_id: int) -> tuple[bool, str | tuple[Order, Invoice | None]]:
+        """
+        Retrieves the full details for an order, including the invoice,
+        and verifies user ownership.
+
+        Args:
+            order_id (int): The ID of the order to retrieve.
+            user_id (int): The ID of the user making the request.
+
+        Returns:
+            tuple[bool, str | tuple[Order, Invoice | None]]: A tuple containing success status,
+                and either an error message or a tuple of (Order, Invoice).
+        """
+        order = self.order_repo.read(order_id)
+        if not order:
+            return (False, f"Order with ID {order_id} not found.")
+
+        if order.user_id != user_id:
+            return (False, "You are not authorized to view this order.")
+
+        invoice = self.order_repo.get_invoice_by_order_id(order_id)
+        if not invoice:
+            # This is not a critical failure, an order might exist without an invoice yet.
+            print(f"[OrderService WARN] No invoice found for order {order_id}")
+
+        return (True, (order, invoice))

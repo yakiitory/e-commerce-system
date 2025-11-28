@@ -3,7 +3,7 @@ from .addresses import Address
 from .status import Status
 from .mixins import DateMixin
 from datetime import datetime
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, KW_ONLY
 
 
 @dataclass
@@ -37,6 +37,7 @@ class ProductEntry:
     product_id: int
     merchant_id: int
     category_id: int
+    address_id: int
     name: str
     brand: str
     price: float
@@ -45,6 +46,9 @@ class ProductEntry:
     warehouse: str
     thumbnail: str
     sold_count: int
+    _: KW_ONLY
+    category_name: str | None = None
+    city: str | None = None
 
 @dataclass
 class ProductMetadata:

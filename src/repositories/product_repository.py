@@ -191,7 +191,7 @@ class ProductRepository(BaseRepository):
             ProductEntry | None: A ProductEntry object if found, otherwise `None`.
         """
         from_products_query = f"""
-            SELECT id, merchant_id, category, id, name, brand, price, original_price, address_id 
+            SELECT id, merchant_id, category_id, name, brand, price, original_price, address_id 
             FROM {self.table_name}
             WHERE id = %s
         """
@@ -242,6 +242,7 @@ class ProductRepository(BaseRepository):
             product_id=products_dict["id"],
             merchant_id=products_dict["merchant_id"],
             category_id=products_dict["category_id"],
+            address_id=products_dict["address_id"],
             name=products_dict["name"],
             brand=products_dict["brand"],
             price=products_dict["price"],
@@ -268,6 +269,7 @@ class ProductRepository(BaseRepository):
                 p.id AS product_id,
                 p.merchant_id,
                 p.category_id,
+                p.address_id,
                 p.name,
                 p.brand,
                 p.price,
@@ -290,6 +292,62 @@ class ProductRepository(BaseRepository):
         term = f"%{search_term}%"
         rows = self.db.fetch_all(query, (term, term, limit))
 
+        return [ProductEntry(**row) for row in rows] if rows else []
+
+    def get_entries(self, limit: int, offset: int = 0, sort_by: str | None = None) -> list[ProductEntry]:
+        """
+        Retrieves a list of product entries with sorting and pagination.
+
+        Args:
+            limit (int): The maximum number of entries to return.
+            offset (int): The number of entries to skip (for pagination).
+            sort_by (str | None): The sorting criteria. Supported values:
+                                  'sold_count', 'price_asc', 'price_desc', 'ratings'.
+
+        Returns:
+            list[ProductEntry]: A list of product entry objects.
+        """
+        base_query = """
+            SELECT
+                p.id AS product_id,
+                p.merchant_id,
+                p.category_id,
+                p.address_id,
+                p.name,
+                p.brand,
+                p.price,
+                p.original_price,
+                pm.rating_avg AS ratings,
+                a.city AS warehouse,
+                i.url AS thumbnail,
+                pm.sold_count
+            FROM
+                products p
+            JOIN product_metadata pm ON p.id = pm.product_id
+            JOIN addresses a ON p.address_id = a.id
+            LEFT JOIN product_images pi ON p.id = pi.product_id AND pi.is_thumbnail = TRUE
+            LEFT JOIN images i ON pi.image_id = i.id
+        """
+
+        # --- Sorting Logic ---
+        order_clause = "ORDER BY p.created_at DESC" # Default sort
+        if sort_by == 'sold_count':
+            order_clause = "ORDER BY pm.sold_count DESC"
+        elif sort_by == 'price_asc':
+            order_clause = "ORDER BY p.price ASC"
+        elif sort_by == 'price_desc':
+            order_clause = "ORDER BY p.price DESC"
+        elif sort_by == 'ratings':
+            order_clause = "ORDER BY pm.rating_avg DESC"
+
+        # --- Pagination Logic ---
+        pagination_clause = "LIMIT %s OFFSET %s"
+
+        # --- Final Query ---
+        final_query = f"{base_query} {order_clause} {pagination_clause}"
+        params = (limit, offset)
+
+        rows = self.db.fetch_all(final_query, params)
         return [ProductEntry(**row) for row in rows] if rows else []
 
         

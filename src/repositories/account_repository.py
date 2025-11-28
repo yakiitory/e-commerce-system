@@ -53,6 +53,20 @@ class AccountRepository(BaseRepository):
             print(f"[AccountRepository ERROR] Failed to find by username: {e}")
             return False
 
+    def update_hash(self, identifier: int, new_hash: str) -> bool:
+        """
+        Updates the password hash for a specific account.
+
+        Args:
+            identifier (int): The ID of the account to update.
+            new_hash (str): The new, already-hashed password.
+
+        Returns:
+            bool: True if the update was successful, False otherwise.
+        """
+        return self._update_by_id(identifier, {'hash': new_hash}, self.table_name, self.db, ['hash'])
+
+
 
 class UserRepository(AccountRepository):
     def __init__(self, db: Database):

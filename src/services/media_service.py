@@ -27,7 +27,7 @@ class MediaService:
         self.media_dir = Path(media_root).resolve()
         self.media_dir.mkdir(parents=True, exist_ok=True)
 
-    def save_image(self, image: UploadFile, image_id: int) -> tuple[bool, str]:
+    def save_image(self, image: UploadFile, image_id: int) -> tuple[bool, str | None]:
         """
         Saves an uploaded image, compresses it, and converts it to JPEG.
 
@@ -39,11 +39,11 @@ class MediaService:
             image_id (int): The integer to use as the base filename.
 
         Returns:
-            A tuple containing a boolean for success and the relative path to the
-            saved image or an error message.
+            A tuple containing a boolean for success and the relative path to the saved
+            image, or `None` on failure.
         """
         if not image.content_type.startswith("image/"):
-            return (False, "File is not a valid image type.")
+            return (False, None)
 
         try:
             # Define the output path
@@ -63,4 +63,4 @@ class MediaService:
             return (True, str(Path(self.media_dir.name) / file_name))
         except Exception as e:
             print(f"[MediaService ERROR] Failed to save image {image_id}: {e}")
-            return (False, "An unexpected error occurred while saving the image.")
+            return (False, None)

@@ -60,7 +60,7 @@ class ReviewService:
         review_data = ReviewCreate(
             user_id=user_id,
             product_id=product_id,
-            ratings=rating,
+            rating=rating,
             description=description,
             attached=images or []
         )
@@ -87,7 +87,7 @@ class ReviewService:
             if not transaction_committed:
                 self.db.rollback()
 
-    def get_reviews_for_product(self, product_id: int) -> tuple[bool, str | list[Review]]:
+    def get_reviews_for_product(self, product_id: int) -> tuple[bool, list[Review] | None]:
         """
         Retrieves all reviews for a specific product.
 
@@ -95,11 +95,12 @@ class ReviewService:
             product_id (int): The ID of the product.
 
         Returns:
-            tuple[bool, str | list[Review]]: A tuple containing success status and the list of reviews or an error message.
+            tuple[bool, list[Review] | None]: A tuple containing success status and the list
+                                              of reviews, or `None` on failure.
         """
         try:
             reviews = self.review_repo.read_all_by_product_id(product_id)
             return (True, reviews)
         except Exception as e:
             print(f"[ReviewService ERROR] Failed to fetch reviews for product {product_id}: {e}")
-            return (False, "An unexpected error occurred while fetching reviews.")
+            return (False, None)

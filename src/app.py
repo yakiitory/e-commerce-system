@@ -1,13 +1,79 @@
 from flask import Flask, render_template, url_for, jsonify, request, abort, flash, redirect, session
 from dataclasses import asdict
+from typing import cast
+from models.status import Status
 from datetime import datetime
 import os
-
+from services import AuthService, InteractionService, ProductService, OrderService, MediaService, ReviewService, TransactionService
+from repositories import (
+    AdminRepository,
+    CartRepository,
+    MerchantRepository,
+    OrderRepository,
+    PaymentRepository,
+    ProductMetadataRepository,
+    ProductRepository,
+    ReviewRepository,
+    UserMetadataRepository,
+    UserRepository,
+    VirtualCardRepository,
+)
+from database.database import Database
 import backend
 
-app = Flask(__name__, template_folder='../templates', static_folder='../static')
+db = Database()
+admin_repository            = AdminRepository(db)
+merchant_repository         = MerchantRepository(db)
+order_repository            = OrderRepository(db)
+payment_repository          = PaymentRepository(db)
+product_metadata_repository = ProductMetadataRepository(db)
+review_repository           = ReviewRepository(db)
+user_metadata_repository    = UserMetadataRepository(db)
+user_repository             = UserRepository(db)
+virtual_card_repository     = VirtualCardRepository(db)
+product_repository          = ProductRepository(db)
+cart_repository             = CartRepository(db, product_metadata_repository)
 
-app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'yo_mama_gay')
+auth_service = AuthService(
+    user_repo=user_repository,
+    merchant_repo=merchant_repository,
+    admin_repo=admin_repository
+)
+interaction_service = InteractionService(
+    db=db, 
+    user_repo=user_repository, 
+    product_repo=product_repository, 
+    cart_repo=cart_repository
+)
+transaction_service = TransactionService(
+    db=db,
+    payment_repo=payment_repository,
+    virtual_card_repo=virtual_card_repository
+)
+product_service = ProductService(
+    db=db,
+    product_repo=product_repository
+)
+order_service = OrderService(
+    db=db,
+    order_repo=order_repository,
+    product_repo=product_repository,
+    transaction_service=transaction_service
+)
+media_service = MediaService()
+review_service = ReviewService(
+    db=db,
+    review_repo=review_repository,
+    order_repo=order_repository,
+    product_meta_repo=product_metadata_repository
+)
+
+def create_app():
+    app = Flask(__name__, template_folder='../templates', static_folder='../static')
+    app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'yo_mama_gay')
+    return app
+
+app = create_app()
 
 @app.context_processor
 def inject_user():
@@ -21,7 +87,7 @@ def inject_user():
     """
     current_user = None
     if 'username' in session:
-        current_user = backend.mock_get_user_by_username(session['username'])
+        current_user = user_repository.get_by_username(session['username'])
     return dict(current_user=current_user)
 
 @app.route('/')
@@ -33,23 +99,23 @@ def index():
     """
     # If a merchant is logged in, redirect them to their dashboard.
     if 'username' in session:
-        user = backend.mock_get_user_by_username(session['username'])
+        user = user_repository.get_by_username(session['username'])
         if user and user.role == 'merchant':
             return redirect(url_for('merchant_dashboard_page'))
 
     categories = backend.mock_get_all_categories()
-    all_products = backend.mock_get_all_products()
 
+    product_retrieve_status, all_products = product_service.get_product_entries(limit=12)
+
+    if not product_retrieve_status:
+        flash(str(all_products), "error") # Flash the error message to the user
+        all_products = [] # Ensure all_products is an empty list to prevent errors
+    
     # Enrich product data with category names for display
-    for product in all_products:
-        category = backend.mock_get_category_by_id(product.category_id)
-        address = backend.mock_get_address_by_id(product.address_id)
-        metadata = backend.mock_get_product_metadata(product.id)
-
+    for product in all_products: # type: ignore
+        category = product_service.get_product_category(product.category_id)
+    
         product.category_name = category.name if category else "Uncategorized"
-        product.city = address.city if address else "N/A"
-        product.sold_count = metadata.sold_count if metadata else 0
-        product.rating_avg = metadata.rating_avg if metadata else 0
 
     trending_products = all_products[:4]
     new_arrivals = all_products[-4:]
@@ -83,19 +149,18 @@ def login_page():
         username = request.form.get('username')
         password = request.form.get('password')
 
-        result = backend.mock_login(username, password)
+        is_success, account_or_message = auth_service.login(username or "", password or "")
 
-        if result["status"]:
+        if is_success and account_or_message:
             session['username'] = username
-            flash(result["message"], "success")
+            flash(f"Welcome back, {username}!", "success")
             
             # Redirect merchants to their dashboard, others to index.
-            user = backend.mock_get_user_by_username(username)
-            if user and user.role == 'merchant':
+            if account_or_message.role == 'merchant':
                 return redirect(url_for('merchant_dashboard_page'))
             return redirect(url_for('index'))
         else:
-            flash(result["message"], "error")
+            flash(str(account_or_message), "error")
 
     return render_template('login.html')
 
@@ -142,7 +207,7 @@ def register_user_page():
         HTML for the user registration page on GET.
     """
     if request.method == 'POST':
-        session['registration_data'] = request.form.to.dict()
+        session['registration_data'] = request.form.to_dict()
         return redirect(url_for('register_auth_page'))
     return render_template('register-user.html')
 
@@ -198,58 +263,68 @@ def orders_page():
         flash("Please log in to view your orders.", "error")
         return redirect(url_for('login_page'))
 
-    user = backend.mock_get_user_by_username(session['username'])
-    orders = backend.mock_get_orders_by_user_id(user.id)
+    user = user_repository.get_by_username(session['username'])
+    if not user:
+        flash("User not found. Please log in again.", "error")
+        session.pop('username', None)
+        return redirect(url_for('login_page'))
+
+    success, orders_or_none = order_service.get_orders_for_user(user.id)
+    if not success:
+        flash("Could not retrieve your orders at this time.", "error")
+        orders = []
+    else:
+        orders = orders_or_none or []
 
     status_filter_str = request.args.get('status')
     if status_filter_str:
         try:
-            status_filter = backend.Status[status_filter_str.upper()]
+            status_filter = Status[status_filter_str.upper()]
             orders = [o for o in orders if o.status == status_filter]
         except KeyError:
             # Handle invalid status string
             flash("Invalid status filter.", "error")
 
-    # Sort all orders by creation date, newest first
-    orders.sort(key=lambda o: o.order_created, reverse=True)
-
     for order in orders:
-        total_price = 0
-        for item in order.orders:
-            item.product = backend.mock_get_product_by_id(item.product_id)
-            total_price += item.total_price
-        order.total_price = total_price
+        for item in order.items:
+            _, product_entry = product_service.get_product_for_display(item.product_id)
+            setattr(item, 'product', product_entry)
     
     # Pass the selected status to the template to highlight the active button
-    return render_template('orders.html', orders=orders, Status=backend.Status, selected_status=status_filter_str)
+    return render_template('orders.html', orders=orders, Status=Status, selected_status=status_filter_str)
 
 @app.route('/cancel-order/<int:order_id>', methods=['POST'])
 def cancel_order(order_id: int):
     """Cancels a user's order."""
     if 'username' not in session:
+        flash("Please log in to cancel an order.", "error")
         return redirect(url_for('login_page'))
 
-    user = backend.mock_get_user_by_username(session['username'])
-    order = next((o for o in backend.mock_get_orders_by_user_id(user.id) if o.id == order_id), None)
+    user = user_repository.get_by_username(session['username'])
+    if not user:
+        flash("User not found. Please log in again.", "error")
+        session.pop('username', None)
+        return redirect(url_for('login_page'))
 
-    if not order:
-        flash("Order not found or you do not have permission to cancel it.", "error")
-        return redirect(url_for('orders_page'))
-
-    result = backend.mock_update_order_status(order.id, backend.Status.CANCELLED)
-    flash(result['message'], 'success' if result['status'] else 'error')
+    success, message = order_service.cancel_order(order_id=order_id, user_id=user.id)
+    flash(message, 'success' if success else 'error')
     return redirect(url_for('orders_page'))
 
 @app.route('/confirm-delivery/<int:order_id>', methods=['POST'])
 def confirm_delivery(order_id: int):
     """Confirms that an order has been delivered."""
     if 'username' not in session:
+        flash("Please log in to confirm an order delivery.", "error")
         return redirect(url_for('login_page'))
 
-    user = backend.mock_get_user_by_username(session['username'])
-    order = next((o for o in backend.mock_get_orders_by_user_id(user.id) if o.id == order_id), None)
+    user = user_repository.get_by_username(session['username'])
+    if not user:
+        flash("User not found. Please log in again.", "error")
+        session.pop('username', None)
+        return redirect(url_for('login_page'))
 
-    result = backend.mock_update_order_status(order.id, backend.Status.DELIVERED)
+    success, message = order_service.confirm_delivery(order_id=order_id, user_id=user.id)
+    flash(message, 'success' if success else 'error')
     return redirect(url_for('orders_page'))
 
 @app.route('/invoice/<int:order_id>')
@@ -259,25 +334,28 @@ def invoice_page(order_id: int):
         flash("Please log in to view this page.", "error")
         return redirect(url_for('login_page'))
 
-    user = backend.mock_get_user_by_username(session['username'])
-    order = next((o for o in backend.mock_get_orders_by_user_id(user.id) if o.id == order_id), None)
+    user = user_repository.get_by_username(session['username'])
+    if not user:
+        flash("User not found. Please log in again.", "error")
+        session.pop('username', None)
+        return redirect(url_for('login_page'))
 
-    if not order:
-        flash("Order not found or you do not have permission to view it.", "error")
+    success, result = order_service.get_order_details(order_id=order_id, user_id=user.id)
+
+    if not success:
+        flash(str(result), "error")
         return redirect(url_for('orders_page'))
-
-    invoice = backend.mock_get_invoice_by_order_id(order.id)
+    
+    order, invoice = cast(tuple, result)
     if not invoice:
         flash("Invoice for this order could not be found.", "error")
         return redirect(url_for('orders_page'))
 
-    address = backend.mock_get_address_by_id(invoice.address_id)
+    address = product_service.get_address_by_id(invoice.address_id) if invoice.address_id else None
     
-    total_price = 0
-    for item in order.orders:
-        item.product = backend.mock_get_product_by_id(item.product_id)
-        total_price += item.total_price
-    order.total_price = total_price
+    for item in order.items:
+        _, product_entry = product_service.get_product_for_display(item.product_id)
+        setattr(item, 'product', product_entry)
 
     return render_template('invoice.html', order=order, invoice=invoice, address=address)
 
@@ -298,18 +376,18 @@ def change_password_page():
 
     if request.method == 'POST':
         username = session['username']
-        old_password = request.form.get('old_password')
-        new_password = request.form.get('new_password')
-        confirm_password = request.form.get('confirm_password')
+        old_password = request.form.get('old_password', '')
+        new_password = request.form.get('new_password', '')
+        confirm_password = request.form.get('confirm_password', '')
 
         if new_password != confirm_password:
             flash("New passwords do not match.", "error")
             return redirect(url_for('change_password_page'))
 
-        result = backend.mock_change_password(username, old_password, new_password)
-        flash(result['message'], 'success' if result['status'] else 'error')
+        success, message = auth_service.change_password(username, old_password, new_password)
+        flash(message, 'success' if success else 'error')
         
-        if result['status']:
+        if success:
             return redirect(url_for('login_security_page'))
         else:
             return redirect(url_for('change_password_page'))
