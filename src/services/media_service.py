@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from PIL import Image
 
 if TYPE_CHECKING:
-    from fastapi import UploadFile
+    from werkzeug.datastructures import FileStorage
 
 
 class MediaService:
@@ -46,13 +46,13 @@ class MediaService:
             image, or `None` on failure.
         """
         if not image.content_type.startswith("image/"):
-            return (False, None)
+            return (False, "Invalid file type. Only images are allowed.")
 
         try:
             # Define the output path
             file_name = f"{image_id}.jpg"
-            output_path = self.products_dir / file_name
-
+            output_path = destination_dir / file_name
+            
             # Open the uploaded image using Pillow
             pil_image = Image.open(image.file)
 
@@ -64,12 +64,22 @@ class MediaService:
             pil_image.save(output_path, "jpeg", quality=85, optimize=True)
 
             # Return a relative path suitable for web URLs
-            relative_path = Path(self.media_dir.name) / self.products_dir.name / file_name
+            relative_path = Path(self.media_dir.name) / destination_dir.name / file_name
             # Use forward slashes for web paths, regardless of OS
             return (True, str(relative_path).replace(os.path.sep, '/'))
         except Exception as e:
             print(f"[MediaService ERROR] Failed to save image {image_id}: {e}")
             return (False, None)
+
+    def save_product_image(self, image: FileStorage, image_id: int) -> tuple[bool, str | None]:
+        """Saves an image for a product."""
+        # The type hint for `image` is now `FileStorage` from Werkzeug (used by Flask)
+        # instead of `UploadFile` from FastAPI. The logic remains the same.
+        return self._save_image(image, image_id, self.products_dir)
+
+    def save_review_image(self, image: FileStorage, image_id: int) -> tuple[bool, str | None]:
+        """Saves an image for a review."""
+        return self._save_image(image, image_id, self.reviews_dir)
 
     def delete_image(self, relative_path: str) -> bool:
         """

@@ -63,7 +63,7 @@ class ProductService:
                     raise Exception("Failed to create placeholder image record.")
 
                 # Save the physical image file using the new ID
-                saved, path_or_none = self.media_service.save_image(image_file, image_id)
+                saved, path_or_none = self.media_service.save_product_image(image_file, image_id)
                 if not saved or not path_or_none:
                     raise Exception(f"Failed to save image file for image ID {image_id}.")
 
@@ -187,7 +187,7 @@ class ProductService:
                         raise Exception("Failed to create placeholder image record.")
 
                     # Save the physical image file
-                    saved, path_or_none = self.media_service.save_image(image_file, image_id)
+                    saved, path_or_none = self.media_service.save_product_image(image_file, image_id)
                     if not saved or not path_or_none:
                         raise Exception(f"Failed to save image file for image ID {image_id}.")
 
@@ -295,6 +295,56 @@ class ProductService:
         except Exception as e:
             print(f"[ProductService ERROR] An unexpected error occurred while fetching product entries: {e}")
             return (False, None)
+
+    def get_trending_products(self, limit: int = 4) -> tuple[bool, list[ProductEntry] | None]:
+        """
+        Retrieves a list of trending products, sorted by sales count.
+
+        Args:
+            limit (int): The maximum number of products to retrieve.
+
+        Returns:
+            A tuple indicating success and a list of ProductEntry objects or None.
+        """
+        # "Trending" is often defined by recent sales volume. We'll use 'sold_count' for this.
+        return self.get_product_entries(limit=limit, sort_by='sold_count')
+
+    def get_new_arrivals(self, limit: int = 4) -> tuple[bool, list[ProductEntry] | None]:
+        """
+        Retrieves a list of the newest products, sorted by creation date.
+
+        Args:
+            limit (int): The maximum number of products to retrieve.
+
+        Returns:
+            A tuple indicating success and a list of ProductEntry objects or None.
+        """
+        # The default sort in get_entries is by creation date descending.
+        return self.get_product_entries(limit=limit, sort_by=None)
+
+    def get_top_rated_products(self, limit: int = 4) -> tuple[bool, list[ProductEntry] | None]:
+        """
+        Retrieves a list of top-rated products, sorted by average rating.
+
+        Args:
+            limit (int): The maximum number of products to retrieve.
+
+        Returns:
+            A tuple indicating success and a list of ProductEntry objects or None.
+        """
+        return self.get_product_entries(limit=limit, sort_by='ratings')
+
+    def get_best_selling_products(self, limit: int = 4) -> tuple[bool, list[ProductEntry] | None]:
+        """
+        Retrieves a list of best-selling products, sorted by sales count.
+
+        Args:
+            limit (int): The maximum number of products to retrieve.
+
+        Returns:
+            A tuple indicating success and a list of ProductEntry objects or None.
+        """
+        return self.get_product_entries(limit=limit, sort_by='sold_count')
 
     def get_product_category(self, category_id: int) -> Category | None:
         """

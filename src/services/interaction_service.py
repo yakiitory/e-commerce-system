@@ -150,3 +150,21 @@ class InteractionService:
             A tuple containing a boolean for success and a status message.
         """
         return self.cart_repo.remove_item(user_id, item_id)
+
+    def is_product_liked_by_user(self, user_id: int, product_id: int) -> bool:
+        """
+        Checks if a specific product is in a user's wishlist (liked products).
+
+        Args:
+            user_id (int): The ID of the user.
+            product_id (int): The ID of the product.
+
+        Returns:
+            bool: True if the product is in the user's wishlist, False otherwise.
+        """
+        try:
+            wishlist = self.user_repo.get_wishlist(user_id)
+            return product_id in wishlist
+        except Exception as e:
+            print(f"[InteractionService ERROR] Failed to check wishlist for user {user_id}: {e}")
+            return False

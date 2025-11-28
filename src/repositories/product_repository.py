@@ -309,46 +309,97 @@ class ProductRepository(BaseRepository):
             sold_count=metadata_dict["sold_count"]
         )
 
-    def search(self, search_term: str, limit: int = 20) -> list[ProductEntry]:
+    def search(self, filters: dict[str, Any], page: int, per_page: int) -> tuple[list[ProductEntry], int]:
         """
-        Searches for products by name or description and returns them as ProductEntry objects.
+        Searches, filters, sorts, and paginates products, returning them as ProductEntry objects.
 
         Args:
-            search_term (str): The term to search for.
-            limit (int): The maximum number of results to return.
+            filters (dict[str, Any]): A dictionary of filters (query, category, price, etc.).
+            page (int): The current page number for pagination.
+            per_page (int): The number of items per page.
 
         Returns:
-            list[ProductEntry]: A list of matching product entry objects.
+            tuple[list[ProductEntry], int]: A tuple containing the list of paginated
+                                            ProductEntry objects and the total number of
+                                            products matching the criteria.
         """
-        query = """
+        base_query = """
             SELECT
                 p.id AS product_id,
-                p.merchant_id,
-                p.category_id,
-                p.address_id,
-                p.name,
-                p.brand,
-                p.price,
-                p.original_price,
+                p.merchant_id, p.category_id, p.address_id,
+                p.name, p.brand, p.price, p.original_price,
                 pm.rating_avg AS ratings,
                 a.city AS warehouse,
                 i.url AS thumbnail,
                 pm.sold_count
             FROM
                 products p
-            JOIN product_metadata pm ON p.id = pm.product_id
-            JOIN addresses a ON p.address_id = a.id
-            LEFT JOIN product_images pi ON p.id = pi.product_id AND pi.is_thumbnail = TRUE
-            LEFT JOIN images i ON pi.image_id = i.id
-            WHERE
-                p.name LIKE %s OR p.description LIKE %s
-            LIMIT %s
+            INNER JOIN product_metadata pm ON p.id = pm.product_id
+            INNER JOIN addresses a ON p.address_id = a.id
+            LEFT JOIN (
+                SELECT pi.product_id, im.url
+                FROM product_images pi
+                JOIN images im ON pi.image_id = im.id
+                WHERE pi.is_thumbnail = TRUE
+            ) AS i ON p.id = i.product_id
         """
-        # Add wildcards for a 'contains' search
-        term = f"%{search_term}%"
-        rows = self.db.fetch_all(query, (term, term, limit))
+        count_query = "SELECT COUNT(p.id) as total FROM products p INNER JOIN product_metadata pm ON p.id = pm.product_id"
 
-        return [ProductEntry(**row) for row in rows] if rows else []
+        where_clauses = []
+        params = []
+
+        # Build WHERE clauses from filters
+        if filters.get('query'):
+            where_clauses.append("(p.name LIKE %s OR p.description LIKE %s)")
+            term = f"%{filters['query']}%"
+            params.extend([term, term])
+        if filters.get('category'):
+            where_clauses.append("p.category_id = %s")
+            params.append(filters['category'])
+        if filters.get('min_price') is not None:
+            where_clauses.append("p.price >= %s")
+            params.append(filters['min_price'])
+        if filters.get('max_price') is not None:
+            where_clauses.append("p.price <= %s")
+            params.append(filters['max_price'])
+        if filters.get('min_rating') is not None:
+            where_clauses.append("pm.rating_avg >= %s")
+            params.append(filters['min_rating'])
+
+        if where_clauses:
+            where_sql = " WHERE " + " AND ".join(where_clauses)
+            base_query += where_sql
+            count_query += where_sql
+
+        # Get total count for pagination
+        total_row = self.db.fetch_one(count_query, tuple(params))
+        total_products = total_row['total'] if total_row else 0
+
+        # --- Sorting Logic ---
+        sort_by = filters.get('sort_by')
+        order_clause = "ORDER BY p.created_at DESC" # Default sort
+        if sort_by == 'sold_count':
+            order_clause = "ORDER BY pm.sold_count DESC"
+        elif sort_by == 'price_asc':
+            order_clause = "ORDER BY p.price ASC"
+        elif sort_by == 'price_desc':
+            order_clause = "ORDER BY p.price DESC"
+        elif sort_by == 'ratings':
+            order_clause = "ORDER BY pm.rating_avg DESC"
+
+        # --- Pagination Logic ---
+        offset = (page - 1) * per_page
+        pagination_clause = "LIMIT %s OFFSET %s"
+
+        # --- Final Query ---
+        final_query = f"{base_query} {order_clause} {pagination_clause}"
+        final_params = tuple(params) + (per_page, offset)
+
+        rows = self.db.fetch_all(final_query, final_params)
+        
+        product_entries = [ProductEntry(**row) for row in rows] if rows else []
+
+        return product_entries, total_products
 
     def get_entries(self, limit: int, offset: int = 0, sort_by: str | None = None) -> list[ProductEntry]:
         """
