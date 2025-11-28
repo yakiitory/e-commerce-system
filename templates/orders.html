@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/orders.css') }}">
+<title>Your Orders</title>
+{% endblock %}
+
+<main class="content-wrapper">
+{% block body %}
+    <div class="orders-container">
+        <h3>Your Orders</h3>
+        <div class="order-filters">
+            <a href="{{ url_for('orders_page') }}" class="filter-btn {{ 'active' if not selected_status else '' }}">All</a>
+            <a href="{{ url_for('orders_page', status='PENDING') }}" class="filter-btn {{ 'active' if selected_status == 'PENDING' else '' }}">Pending</a>
+            <a href="{{ url_for('orders_page', status='SHIPPED') }}" class="filter-btn {{ 'active' if selected_status == 'SHIPPED' else '' }}">Shipped</a>
+            <a href="{{ url_for('orders_page', status='DELIVERED') }}" class="filter-btn {{ 'active' if selected_status == 'DELIVERED' else '' }}">Delivered</a>
+            <a href="{{ url_for('orders_page', status='CANCELLED') }}" class="filter-btn {{ 'active' if selected_status == 'CANCELLED' else '' }}">Cancelled</a>
+        </div>
+        <div class="orders-list">
+            {% if orders %}
+                {% for order in orders %}
+                <div class="order-card">
+                    <div class="order-header">
+                        <div class="header-group">
+                            <span>ORDER PLACED</span>
+                            <p>{{ order.order_created.strftime('%B %d, %Y') }}</p>
+                        </div>
+                        <div class="header-group">
+                            <span>TOTAL</span>
+                            <p>₱{{ "{:,.2f}".format(order.total_price) }}</p>
+                        </div>
+                        <div class="header-group">
+                            <span>STATUS</span>
+                            <p><span class="status-badge status-{{ order.status.name | lower }}">{{ order.status.name }}</span></p>
+                        </div>
+                        <div class="header-group">
+                            <span>ORDER #{{ order.id }}</span>
+                            <a href="{{ url_for('invoice_page', order_id=order.id) }}" class="invoice-link">View Invoice</a>
+                        </div>
+                    </div>
+                    <div class="order-body">
+                        {% for item in order.orders %}
+                        <div class="order-item">
+                            <img src="{{ item.product.images[0] if item.product.images else url_for('static', filename='img/placeholder.jpg') }}" alt="{{ item.product.name }}">
+                            <div class="item-details">
+                                <h4>{{ item.product.brand }} - {{ item.product.name }}</h4>
+                                <p>Qty: {{ item.product_quantity }}</p>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        <div class="order-actions">
+                            {% if order.status == Status.PENDING or order.status == Status.SHIPPED %}
+                                <form action="{{ url_for('cancel_order', order_id=order.id) }}" method="post" onsubmit="return confirm('Are you sure you want to cancel this order?');">
+                                    <button type="submit" class="action-btn cancel-btn">Cancel Order</button>
+                                </form>
+                            {% endif %}
+
+                            {% if order.status == Status.SHIPPED %}
+                                <form action="{{ url_for('confirm_delivery', order_id=order.id) }}" method="post">
+                                    <button type="submit" class="action-btn delivered-btn">Mark as Delivered</button>
+                                </form>
+                            {% elif order.status == Status.DELIVERED %}
+                                <button class="action-btn" disabled>Completed</button>
+                            {% elif order.status == Status.CANCELLED %}
+                                <button class="action-btn" disabled>Cancelled</button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p>You have not placed any orders yet.</p>
+            {% endif %}
+        </div>
+    </div>
+{% endblock %}
+</main>

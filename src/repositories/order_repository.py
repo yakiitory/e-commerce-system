@@ -1,5 +1,6 @@
 from typing import override, Any
-from models.orders import Order, OrderCreate, OrderItem, OrderItemCreate
+from types import SimpleNamespace
+from models.orders import Order, OrderCreate, OrderItem, OrderItemCreate, Invoice, InvoiceCreate
 from models.payments import VirtualCard
 from repositories.base_repository import BaseRepository
 from database.database import Database
@@ -274,6 +275,52 @@ class OrderRepository(BaseRepository):
             if order:
                 orders.append(order)
         return orders
+
+    def get_invoice_by_order_id(self, order_id: int) -> Invoice | None:
+        """
+        Retrieves an invoice by its associated order ID.
+
+        Args:
+            order_id (int): The ID of the order.
+
+        Returns:
+            Invoice | None: The Invoice object if found, otherwise None.
+        """
+        query = "SELECT * FROM invoices WHERE order_id = %s"
+        invoice_row = self.db.fetch_one(query, (order_id,))
+        if not invoice_row:
+            return None
+        
+        invoice_row['status'] = Status(invoice_row['status'])
+        return Invoice(**invoice_row)
+
+    def create_invoice(self, data: InvoiceCreate, order_id: int) -> tuple[int | None, str]:
+        """
+        Creates a new invoice for a given order.
+
+        Args:
+            data (InvoiceCreate): The data for the new invoice.
+            order_id (int): The ID of the order this invoice belongs to.
+
+        Returns:
+            tuple[int | None, str]: A tuple with the new invoice ID and a message.
+        """
+        invoice_fields = [
+            "order_id",
+            "address_id",
+            "issue_date",
+            "status",
+            "payment_summary"
+        ]
+
+        # Use SimpleNamespace to create an object that _create_record can use
+        invoice_data_for_db = SimpleNamespace(**data.__dict__)
+        setattr(invoice_data_for_db, 'order_id', order_id)
+        setattr(invoice_data_for_db, 'status', data.status.value)
+
+        return self._create_record(
+            data=invoice_data_for_db, fields=invoice_fields, table_name="invoices", db=self.db
+        )
 
     def read_all_by_merchant_id(self, merchant_id: int) -> list[Order]:
         """

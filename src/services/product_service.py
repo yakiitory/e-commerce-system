@@ -1,49 +1,95 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, Any
+from types import SimpleNamespace
 
 if TYPE_CHECKING:
     from repositories.product_repository import ProductRepository
     from database.database import Database
-    from models.products import ProductCreate, ProductMetadata, Product, ProductEntry
-
+    from models.products import ProductCreate, ProductMetadata, Product, ProductEntry, Category, Address
+    from services.media_service import MediaService
+    from werkzeug.datastructures import FileStorage
 
 class ProductService:
     """
     Handles the business logic for managing products.
     """
 
-    def __init__(self, db: Database, product_repo: ProductRepository):
+    def __init__(self, db: Database, product_repo: ProductRepository, media_service: MediaService):
         """
         Initializes the ProductService.
 
         Args:
             db (Database): The database instance for transaction management.
             product_repo (ProductRepository): The repository for product data.
+            media_service (MediaService): The service for handling media files.
         """
         self.db = db
         self.product_repo = product_repo
+        self.media_service = media_service
 
-    def create_product(self, product_data: ProductCreate, metadata: ProductMetadata) -> tuple[int | None, str]:
+    def create_product(self, product_data: ProductCreate, metadata: ProductMetadata, images: list[FileStorage]) -> tuple[int | None, str]:
         """
-        Creates a new product along with its metadata.
+        Creates a new product, saves its images, and links them.
 
         Args:
             product_data (ProductCreate): The data for the new product.
             metadata (ProductMetadata): The metadata for the new product.
+            images (list[FileStorage]): A list of uploaded image files.
 
         Returns:
             tuple[int | None, str]: A tuple containing the new product ID and a message.
         """
+        transaction_committed = False
         try:
+            self.db.begin_transaction()
+
+            # 1. Create the product record to get its ID.
+            # The product_data.images list is initially empty.
             new_product_id, message = self.product_repo.create(product_data, metadata)
             if not new_product_id:
+                self.db.rollback()
                 return (None, message)
-            return (new_product_id, message)
+
+            # 2. Process and save each uploaded image.
+            image_urls = []
+            is_first_image = True
+            for image_file in images:
+                # Create a placeholder in 'images' to get an ID
+                image_id, _ = self.product_repo._create_record(
+                    data=SimpleNamespace(url='placeholder'),
+                    fields=['url'], table_name='images', db=self.db
+                )
+                if not image_id:
+                    raise Exception("Failed to create placeholder image record.")
+
+                # Save the physical image file using the new ID
+                saved, path_or_none = self.media_service.save_product_image(image_file, image_id)
+                if not saved or not path_or_none:
+                    raise Exception(f"Failed to save image file for image ID {image_id}.")
+
+                # Update the image record with the actual file path
+                self.product_repo._update_by_id(image_id, {'url': path_or_none}, 'images', self.db, ['url'])
+                image_urls.append(path_or_none)
+
+                # Link image to product in the junction table
+                link_data = SimpleNamespace(product_id=new_product_id, image_id=image_id, is_thumbnail=is_first_image)
+                link_id, link_msg = self.product_repo._create_record(link_data, ['product_id', 'image_id', 'is_thumbnail'], 'product_images', self.db)
+                if not link_id:
+                    raise Exception(f"Failed to link image to product: {link_msg}")
+                
+                is_first_image = False # Only the first image is the thumbnail
+
+            self.db.commit()
+            transaction_committed = True
+            return (new_product_id, f"Product '{product_data.name}' created successfully.")
+
         except Exception as e:
-            print(f"[ProductService ERROR] An unexpected error occurred during product creation: {e}")
+            print(f"[ProductService ERROR] Product creation failed: {e}")
+            if not transaction_committed:
+                self.db.rollback()
             return (None, "An unexpected error occurred during product creation.")
 
-    def get_product(self, product_id: int) -> tuple[bool, str | Product | None]:
+    def get_product(self, product_id: int) -> tuple[bool, Product | None]:
         """
         Retrieves a single product by its ID.
 
@@ -51,15 +97,15 @@ class ProductService:
             product_id (int): The ID of the product to retrieve.
 
         Returns:
-            tuple[bool, str | Product | None]: A tuple indicating success, and either the
-                                               Product object or an error message.
+            tuple[bool, Product | None]: A tuple indicating success, and either the
+                                         Product object or `None` on failure.
         """
         product = self.product_repo.read(product_id)
         if not product:
-            return (False, f"Product with ID {product_id} not found.")
+            return (False, None)
         return (True, product)
 
-    def get_product_for_display(self, product_id: int) -> tuple[bool, str | ProductEntry | None]:
+    def get_product_for_display(self, product_id: int) -> tuple[bool, ProductEntry | None]:
         """
         Retrieves a simplified product entry for display purposes (e.g., on a product card).
 
@@ -67,63 +113,312 @@ class ProductService:
             product_id (int): The ID of the product.
 
         Returns:
-            tuple[bool, str | ProductEntry | None]: A tuple indicating success, and either the
-                                                    ProductEntry object or an error message.
+            tuple[bool, ProductEntry | None]: A tuple indicating success, and either the
+                                              ProductEntry object or `None` on failure.
         """
         product_entry = self.product_repo.get_product_entry(product_id)
         if not product_entry:
-            return (False, f"Could not retrieve display entry for product with ID {product_id}.")
+            return (False, None)
         return (True, product_entry)
 
-    def update_product(self, product_id: int, product_data: dict[str, Any] | None = None, metadata: dict[str, Any] | None = None) -> tuple[bool, str]:
+    def get_product_metadata(self, product_id: int) -> tuple[bool, ProductMetadata | None]:
         """
-        Updates a product's main data and/or its metadata.
+        Retrieves the metadata for a single product by its ID.
+
+        Args:
+            product_id (int): The ID of the product whose metadata is to be retrieved.
+
+        Returns:
+            tuple[bool, ProductMetadata | None]: A tuple indicating success, and either the
+                                                 ProductMetadata object or `None` on failure.
+        """
+        try:
+            # Assumes the product repository has a metadata_repo with a read method.
+            metadata = self.product_repo.metadata_repo.read(product_id)
+            if not metadata:
+                return (False, None)
+            return (True, metadata)
+        except Exception as e:
+            print(f"[ProductService ERROR] An unexpected error occurred while fetching metadata for product {product_id}: {e}")
+            return (False, None)
+
+    def update_product(self, product_id: int, merchant_id: int, product_data: dict[str, Any] | None = None, images: list[FileStorage] | None = None) -> tuple[bool, str]:
+        """
+        Updates a product's main data, and optionally its images.
 
         Args:
             product_id (int): The ID of the product to update.
+            merchant_id (int): The ID of the merchant performing the update, for ownership verification.
             product_data (dict | None): A dictionary of product fields to update.
-            metadata (dict | None): A dictionary of metadata fields to update.
+            images (list[FileStorage] | None): A list of new uploaded image files. If provided,
+                                              existing images will be replaced.
 
         Returns:
             tuple[bool, str]: A tuple indicating success and a message.
         """
-        if not self.product_repo.read(product_id):
+        product = self.product_repo.read(product_id)
+        if not product:
             return (False, f"Product with ID {product_id} not found.")
+        if product.merchant_id != merchant_id:
+            return (False, "You do not have permission to edit this product.")
 
-        success = self.product_repo.update(product_id, product_data, metadata)
-        if success:
+        transaction_committed = False
+        try:
+            self.db.begin_transaction()
+
+            # 1. Update main product data if provided
+            if product_data:
+                self.product_repo.update(product_id, product_data)
+
+            # 2. Handle image replacement if new images are uploaded
+            if images:
+                # Delete old images (both files and DB records)
+                self.product_repo.delete_images_for_product(product_id, self.db)
+
+                # Process and save new images
+                is_first_image = True
+                for image_file in images:
+                    # Create a placeholder in 'images' to get an ID
+                    image_id, _ = self.product_repo._create_record(
+                        data=SimpleNamespace(url='placeholder'),
+                        fields=['url'], table_name='images', db=self.db
+                    )
+                    if not image_id:
+                        raise Exception("Failed to create placeholder image record.")
+
+                    # Save the physical image file
+                    saved, path_or_none = self.media_service.save_product_image(image_file, image_id)
+                    if not saved or not path_or_none:
+                        raise Exception(f"Failed to save image file for image ID {image_id}.")
+
+                    # Update the image record with the actual path
+                    self.product_repo._update_by_id(image_id, {'url': path_or_none}, 'images', self.db, ['url'])
+
+                    # Link new image to product
+                    link_data = SimpleNamespace(product_id=product_id, image_id=image_id, is_thumbnail=is_first_image)
+                    link_id, link_msg = self.product_repo._create_record(link_data, ['product_id', 'image_id', 'is_thumbnail'], 'product_images', self.db)
+                    if not link_id:
+                        raise Exception(f"Failed to link new image to product: {link_msg}")
+                    
+                    is_first_image = False
+
+            self.db.commit()
+            transaction_committed = True
             return (True, f"Product {product_id} updated successfully.")
-        return (False, f"Failed to update product {product_id}.")
+        except Exception as e:
+            print(f"[ProductService ERROR] Product update failed: {e}")
+            if not transaction_committed:
+                self.db.rollback()
+            return (False, "An unexpected error occurred during product update.")
 
-    def delete_product(self, product_id: int) -> tuple[bool, str]:
+    def delete_product(self, product_id: int, merchant_id: int) -> tuple[bool, str]:
         """
-        Deletes a product and its associated metadata.
+        Deletes a product, its metadata, and all associated images (DB records and files).
 
         Args:
             product_id (int): The ID of the product to delete.
+            merchant_id (int): The ID of the merchant for ownership verification.
 
         Returns:
             tuple[bool, str]: A tuple indicating success and a message.
         """
-        if not self.product_repo.read(product_id):
+        product = self.product_repo.read(product_id)
+        if not product:
             return (False, f"Product with ID {product_id} not found.")
+        if product.merchant_id != merchant_id:
+            return (False, "You do not have permission to delete this product.")
 
-        return self.product_repo.delete(product_id)
+        transaction_committed = False
+        try:
+            self.db.begin_transaction()
 
-    def search_products(self, search_term: str) -> tuple[bool, str | list[ProductEntry]]:
+            # 1. Delete images from DB and get their URLs
+            image_urls_to_delete = self.product_repo.delete_images_for_product(product_id, self.db)
+
+            # 2. Delete the product record (cascades to metadata and product_images)
+            self.product_repo.delete(product_id)
+
+            self.db.commit()
+            transaction_committed = True
+
+            # 3. After transaction commits, delete physical files
+            for url in image_urls_to_delete:
+                self.media_service.delete_image(url)
+
+            return (True, f"Product '{product.name}' deleted successfully.")
+        except Exception as e:
+            print(f"[ProductService ERROR] Product deletion failed: {e}")
+            if not transaction_committed:
+                self.db.rollback()
+            return (False, "An unexpected error occurred during product deletion.")
+
+    def search_products(self, filters: dict[str, Any], page: int, per_page: int) -> tuple[bool, tuple[list[ProductEntry], int] | str]:
         """
-        Searches for products based on a search term.
+        Searches, filters, sorts, and paginates products.
 
         Args:
-            search_term (str): The term to search for in product names and descriptions.
+            filters (dict[str, Any]): A dictionary of filters like query, category, price, etc.
+            page (int): The current page number for pagination.
+            per_page (int): The number of items per page.
 
         Returns:
-            tuple[bool, str | list[ProductEntry]]: A tuple indicating success, and either a
-                                              list of products or an error message.
+            tuple[bool, tuple[list[ProductEntry], int] | str]: A tuple indicating success.
+                If successful, it returns a tuple containing the list of paginated
+                ProductEntry objects and the total number of products matching the criteria.
+                If it fails, it returns an error message string.
         """
         try:
-            products = self.product_repo.search(search_term)
-            return (True, products)
+            paginated_products, total_products = self.product_repo.search(filters, page, per_page)
+            return (True, (paginated_products, total_products))
         except Exception as e:
             print(f"[ProductService ERROR] An unexpected error occurred during product search: {e}")
-            return (False, "An unexpected error occurred during product search.")
+            return (False, "An error occurred while searching for products.")
+
+    def get_product_entries(self, limit: int, offset: int = 0, sort_by: str | None = None) -> tuple[bool, list[ProductEntry] | None]:
+        """
+        Retrieves a list of product entries for display, with sorting and pagination.
+
+        Args:
+            limit (int): The maximum number of product entries to retrieve.
+            offset (int): The number of entries to skip (for pagination).
+            sort_by (str | None): The criteria to sort by (e.g., 'sold_count', 'price_asc').
+
+        Returns:
+            tuple[bool, list[ProductEntry] | None]: A tuple indicating success, and either a
+                                                    list of product entries or `None` on failure.
+        """
+        try:
+            # This assumes a corresponding `get_entries` method exists in the repository
+            # that can handle limit, offset, and sorting.
+            product_entries = self.product_repo.get_entries(limit=limit, offset=offset, sort_by=sort_by)
+            return (True, product_entries)
+        except Exception as e:
+            print(f"[ProductService ERROR] An unexpected error occurred while fetching product entries: {e}")
+            return (False, None)
+
+    def get_trending_products(self, limit: int = 4) -> tuple[bool, list[ProductEntry] | None]:
+        """
+        Retrieves a list of trending products, sorted by sales count.
+
+        Args:
+            limit (int): The maximum number of products to retrieve.
+
+        Returns:
+            A tuple indicating success and a list of ProductEntry objects or None.
+        """
+        # "Trending" is often defined by recent sales volume. We'll use 'sold_count' for this.
+        return self.get_product_entries(limit=limit, sort_by='sold_count')
+
+    def get_new_arrivals(self, limit: int = 4) -> tuple[bool, list[ProductEntry] | None]:
+        """
+        Retrieves a list of the newest products, sorted by creation date.
+
+        Args:
+            limit (int): The maximum number of products to retrieve.
+
+        Returns:
+            A tuple indicating success and a list of ProductEntry objects or None.
+        """
+        # The default sort in get_entries is by creation date descending.
+        return self.get_product_entries(limit=limit, sort_by=None)
+
+    def get_top_rated_products(self, limit: int = 4) -> tuple[bool, list[ProductEntry] | None]:
+        """
+        Retrieves a list of top-rated products, sorted by average rating.
+
+        Args:
+            limit (int): The maximum number of products to retrieve.
+
+        Returns:
+            A tuple indicating success and a list of ProductEntry objects or None.
+        """
+        return self.get_product_entries(limit=limit, sort_by='ratings')
+
+    def get_best_selling_products(self, limit: int = 4) -> tuple[bool, list[ProductEntry] | None]:
+        """
+        Retrieves a list of best-selling products, sorted by sales count.
+
+        Args:
+            limit (int): The maximum number of products to retrieve.
+
+        Returns:
+            A tuple indicating success and a list of ProductEntry objects or None.
+        """
+        return self.get_product_entries(limit=limit, sort_by='sold_count')
+
+    def get_product_category(self, category_id: int) -> Category | None:
+        """
+        Retrieves a single product category by its ID.
+
+        Args:
+            category_id (int): The ID of the category to retrieve.
+
+        Returns:
+            Category | None: The Category object if found, otherwise None.
+        """
+        query = "SELECT id, name, parent_id, description FROM categories WHERE id = %s"
+        try:
+            category_data = self.db.fetch_one(query, (category_id,))
+            if category_data:
+                return Category(**category_data)
+            return None
+        except Exception as e:
+            print(f"[ProductService ERROR] An unexpected error occurred while fetching category {category_id}: {e}")
+            return None
+
+    def get_all_categories(self) -> list[Category] | None:
+        """
+        Retrieves all product categories.
+
+        Returns:
+            list[Category] | None: A list of Category objects, or None on failure.
+        """
+        query = "SELECT id, name, parent_id, description FROM categories ORDER BY name"
+        try:
+            category_data = self.db.fetch_all(query)
+            if category_data:
+                from models.products import Category
+                return [Category(**cat) for cat in category_data]
+            return []
+        except Exception as e:
+            print(f"[ProductService ERROR] An unexpected error occurred while fetching all categories: {e}")
+            return None
+
+    def get_address_by_id(self, address_id: int) -> Address | None:
+        """
+        Retrieves a single address by its ID.
+
+        Args:
+            address_id (int): The ID of the address to retrieve.
+
+        Returns:
+            Address | None: The Address object if found, otherwise None.
+        """
+        query = "SELECT id, user_id, address_line1, address_line2, city, state_province_region, postal_code, country, address_type, is_default FROM addresses WHERE id = %s"
+        try:
+            address_data = self.db.fetch_one(query, (address_id,))
+            if address_data:
+                return Address(**address_data)
+            return None
+        except Exception as e:
+            print(f"[ProductService ERROR] An unexpected error occurred while fetching address {address_id}: {e}")
+            return None
+
+    def get_products_by_merchant_id(self, merchant_id: int) -> tuple[bool, list[Product] | str]:
+        """
+        Retrieves all products for a specific merchant.
+
+        Args:
+            merchant_id (int): The ID of the merchant.
+
+        Returns:
+            tuple[bool, list[Product] | str]: A tuple containing a boolean for success,
+                                             and either a list of products or an error message.
+        """
+        try:
+            # Assuming the product repository has a method to fetch products by merchant ID.
+            products = self.product_repo.read_all_by_merchant_id(merchant_id)
+            return (True, products)
+        except Exception as e:
+            print(f"[ProductService ERROR] Failed to get products for merchant {merchant_id}: {e}")
+            return (False, "Could not retrieve products for the specified merchant.")

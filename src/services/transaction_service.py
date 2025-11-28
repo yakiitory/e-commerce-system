@@ -1,11 +1,13 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from models.payments import PaymentCreate
+from models.payments import PaymentCreate, VirtualCardCreate
 from models.status import Status
 
 if TYPE_CHECKING:
     from repositories.transaction_repository import VirtualCardRepository, PaymentRepository
+    from repositories.account_repository import UserRepository, MerchantRepository
+    from models.payments import VirtualCard, Payment
     from database.database import Database
 
 
@@ -14,17 +16,20 @@ class TransactionService:
     Handles the business logic for financial transactions like payments.
     """
 
-    def __init__(self, db: Database, virtual_card_repo: VirtualCardRepository, payment_repo: PaymentRepository):
+    def __init__(self, db: Database, virtual_card_repo: VirtualCardRepository, payment_repo: PaymentRepository, user_repo: UserRepository, merchant_repo: MerchantRepository):
         self.db = db
         self.virtual_card_repo = virtual_card_repo
         self.payment_repo = payment_repo
+        self.user_repo = user_repo
+        self.merchant_repo = merchant_repo
 
-    def cash_in(self, user_card_id: int, amount: float) -> tuple[bool, str]:
+    def cash_in(self, user_card_id: int, owner_id: int, amount: float) -> tuple[bool, str]:
         """
         Adds funds to a user's virtual card, simulating a "cash in" from an external source.
 
         Args:
             user_card_id (int): The ID of the user's virtual card to fund.
+            owner_id (int): The ID of the card's owner.
             amount (float): The amount to add. Must be positive.
 
         Returns:
@@ -37,9 +42,9 @@ class TransactionService:
         # id of 0 should represent the system, instead of a user or an external body
         payment_create = PaymentCreate(
             sender_id=0,
-            receiver_id=user_card_id,
+            receiver_id=owner_id,
             type="CASH_IN",
-            amount=amount,
+            amount=amount
         )
 
         transaction_committed = False
@@ -122,3 +127,66 @@ class TransactionService:
             # If there was an error or early return, this rolls back the transaction.
             if not in_transaction and not transaction_committed:
                 self.db.rollback()
+
+    def get_user_payment_details(self, user_id: int) -> tuple[bool, tuple[VirtualCard | None, list[Payment]] | str]:
+        """
+        Retrieves a user's virtual card and their enriched payment history.
+
+        Args:
+            user_id (int): The ID of the user.
+
+        Returns:
+            A tuple containing success status, and either a tuple of (VirtualCard, list[Payment])
+            or an error message string.
+        """
+        try:
+            virtual_card = self.virtual_card_repo.get_by_owner_id(user_id)
+            payment_history = self.payment_repo.get_payments_for_user(user_id)
+
+            # Enrich payment history with sender/receiver names
+            for payment in payment_history:
+                # Sender
+                if payment.sender_id == 0:
+                    sender_name = "System"
+                else:
+                    sender = self.user_repo.read(payment.sender_id) or self.merchant_repo.read(payment.sender_id)
+                    sender_name = sender.username if sender else "Unknown"
+                
+                # Receiver
+                if payment.receiver_id == 0:
+                    receiver_name = "System"
+                else:
+                    receiver = self.user_repo.read(payment.receiver_id) or self.merchant_repo.read(payment.receiver_id)
+                    receiver_name = receiver.username if receiver else "Unknown"
+
+                setattr(payment, 'sender_name', sender_name)
+                setattr(payment, 'receiver_name', receiver_name)
+
+            return (True, (virtual_card, payment_history))
+
+        except Exception as e:
+            print(f"[TransactionService ERROR] Failed to get payment details for user {user_id}: {e}")
+            return (False, "Could not retrieve payment details.")
+
+    def create_virtual_card(self, owner_id: int) -> tuple[bool, str]:
+        """
+        Creates a new virtual card for a user or merchant if they don't already have one.
+
+        Args:
+            owner_id (int): The ID of the user or merchant who will own the card.
+
+        Returns:
+            tuple[bool, str]: A tuple indicating success and a message.
+        """
+        # 1. Check if a card already exists for this owner
+        if self.virtual_card_repo.get_by_owner_id(owner_id):
+            return (False, "A virtual card already exists for this account.")
+
+        # 2. Create the new card
+        card_to_create = VirtualCardCreate(owner_id=owner_id, balance=0.0)
+        new_card_id, message = self.virtual_card_repo.create(card_to_create)
+
+        if new_card_id:
+            return (True, "Virtual card activated successfully!")
+        else:
+            return (False, f"Failed to activate virtual card: {message}")

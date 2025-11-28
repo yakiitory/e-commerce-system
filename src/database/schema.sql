@@ -171,6 +171,7 @@ CREATE TABLE IF NOT EXISTS `invoices` (
   `issue_date` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, 
   `status` TINYINT,
   `payment_summary` TEXT,
+  PRIMARY KEY(`id`),
   FOREIGN KEY (`address_id`) REFERENCES `addresses`(`id`)
     ON UPDATE CASCADE
     ON DELETE CASCADE
@@ -186,6 +187,7 @@ CREATE TABLE IF NOT EXISTS `orders` (
   `status` TINYINT NOT NULL,
   `order_date` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `invoice_id` INT,
+  PRIMARY KEY(`id`),
   FOREIGN KEY (`invoice_id`) REFERENCES `invoices`(`id`)
     ON UPDATE CASCADE
     ON DELETE CASCADE
@@ -235,7 +237,7 @@ CREATE TABLE IF NOT EXISTS `virtualcards` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `payments` (
-  `id` INT AUTO_INCREMENT NOT NULL UNIQUE,
+  `id` INT AUTO_INCREMENT NOT NULL,
   `sender_id` INT NOT NULL,
   `sender_type` ENUM('USER', 'MERCHANT') NOT NULL,
   `receiver_id` INT NOT NULL,
@@ -279,7 +281,7 @@ CREATE TABLE IF NOT EXISTS `product_images` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `product_metadata` (
-  `id` INT NOT NULL,
+  `id` INT AUTO_INCREMENT NOT NULL,
   `product_id` INT NOT NULL,
   `view_count` INT,
   `sold_count` INT,

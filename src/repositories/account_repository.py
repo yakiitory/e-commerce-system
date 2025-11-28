@@ -53,6 +53,20 @@ class AccountRepository(BaseRepository):
             print(f"[AccountRepository ERROR] Failed to find by username: {e}")
             return False
 
+    def update_hash(self, identifier: int, new_hash: str) -> bool:
+        """
+        Updates the password hash for a specific account.
+
+        Args:
+            identifier (int): The ID of the account to update.
+            new_hash (str): The new, already-hashed password.
+
+        Returns:
+            bool: True if the update was successful, False otherwise.
+        """
+        return self._update_by_id(identifier, {'hash': new_hash}, self.table_name, self.db, ['hash'])
+
+
 
 class UserRepository(AccountRepository):
     def __init__(self, db: Database):
@@ -64,7 +78,7 @@ class UserRepository(AccountRepository):
         super().__init__(db, "users")
 
     @override
-    def create(self, data: UserCreate) -> tuple[int, str]:
+    def create(self, data: UserCreate) -> tuple[bool, str]:
         """Creates a new user record in the database.
         Assumes data is pre-validated and password is pre-hashed.
 
@@ -238,7 +252,7 @@ class MerchantRepository(AccountRepository):
         super().__init__(db, "merchants")
 
     @override
-    def create(self, data: MerchantCreate) -> tuple[int, str]:
+    def create(self, data: MerchantCreate) -> tuple[bool, str]:
         """Creates a new merchant record in the database.
         Assumes data is pre-validated and password is pre-hashed.
         
@@ -363,7 +377,7 @@ class AdminRepository(AccountRepository):
         super().__init__(db, "admins")
 
     @override
-    def create(self, data: AdminCreate) -> tuple[int, str]:
+    def create(self, data: AdminCreate) -> tuple[bool, str]:
         """Creates a new admin record in the database.
         Assumes data is pre-validated and password is pre-hashed.
 

@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/invoice.css') }}">
+<title>Invoice #{{ invoice.id }}</title>
+{% endblock %}
+
+<main class="content-wrapper">
+{% block body %}
+    <div class="invoice-container">
+        <div class="invoice-header">
+            <div class="invoice-title">
+                <h1>Invoice</h1>
+                <p>Invoice #{{ invoice.id }}</p>
+            </div>
+            <div class="invoice-meta">
+                <p><strong>Date Issued:</strong> {{ invoice.issue_date.strftime('%B %d, %Y') }}</p>
+                <p><strong>Order ID:</strong> {{ order.id }}</p>
+                <p><strong>Status:</strong> <span class="status-badge status-{{ order.status.name | lower }}">{{ order.status.name }}</span></p>
+            </div>
+        </div>
+
+        <div class="party-details">
+            <div class="billed-from">
+                <h4>FleaMart</h4>
+                <p>123 Tech Avenue</p>
+                <p>Innovation City, 54321</p>
+                <p>contact@fleamart.com</p>
+            </div>
+            <div class="billed-to">
+                <h4>Bill To</h4>
+                <p><strong>{{ current_user.first_name }} {{ current_user.last_name }}</strong></p>
+                {% if address %}
+                <p>{{ address.house_no }} {{ address.street }}</p>
+                <p>{{ address.city }}, {{ address.postal_code }}</p>
+                {% endif %}
+                <p>{{ current_user.email }}</p>
+            </div>
+        </div>
+
+        <table class="items-table">
+            <thead>
+                <tr>
+                    <th>Item</th>
+                    <th>Quantity</th>
+                    <th>Unit Price</th>
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in order.orders %}
+                <tr>
+                    <td>{{ item.product.brand }} - {{ item.product.name }}</td>
+                    <td>{{ item.product_quantity }}</td>
+                    <td>₱{{ "{:,.2f}".format(item.product_price) }}</td>
+                    <td>₱{{ "{:,.2f}".format(item.total_price) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="invoice-summary">
+            <div class="summary-row">
+                <span>Subtotal</span>
+                <span>₱{{ "{:,.2f}".format(order.total_price) }}</span>
+            </div>
+            <div class="summary-row total">
+                <span>Grand Total</span>
+                <span>₱{{ "{:,.2f}".format(order.total_price) }}</span>
+            </div>
+        </div>
+
+        <div class="payment-summary">
+            <h4>Payment Summary</h4>
+            <p>{{ invoice.payment_summary }}</p>
+        </div>
+    </div>
+{% endblock %}
+</main>

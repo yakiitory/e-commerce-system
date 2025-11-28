@@ -1,13 +1,14 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
-from models.orders import Order, OrderCreate, OrderItemCreate
+from models.orders import Order, OrderCreate, OrderItemCreate, Invoice, InvoiceCreate
 from models.status import Status
 
 if TYPE_CHECKING:
     from repositories.order_repository import OrderRepository
     from repositories.product_repository import ProductRepository
     from services.transaction_service import TransactionService
+    from repositories.cart_repository import CartRepository
     from database.database import Database
 
 
@@ -16,11 +17,12 @@ class OrderService:
     Handles the business logic for creating and managing orders.
     """
 
-    def __init__(self, db: Database, order_repo: OrderRepository, product_repo: ProductRepository, transaction_service: TransactionService):
+    def __init__(self, db: Database, order_repo: OrderRepository, product_repo: ProductRepository, transaction_service: TransactionService, cart_repo: CartRepository):
         self.db = db
         self.order_repo = order_repo
         self.product_repo = product_repo
         self.transaction_service = transaction_service
+        self.cart_repo = cart_repo
 
     def create_order(
         self,
@@ -94,11 +96,22 @@ class OrderService:
                 # This is a critical failure. The transaction will be rolled back.
                 return (None, f"CRITICAL: Payment succeeded but order creation failed. Transaction rolled back. Reason: {order_message}")
 
-            # --- 4. Update Product Metadata ---
+            # --- 4. Create Invoice ---
+            invoice_to_create = InvoiceCreate(
+                address_id=shipping_address_id,
+                status=Status.PAID,
+                payment_summary=f"Paid via Virtual Card (User Card ID: {user_card_id})"
+            )
+            new_invoice_id, invoice_message = self.order_repo.create_invoice(invoice_to_create, new_order_id)
+            if not new_invoice_id:
+                # This is also a critical failure.
+                return (None, f"CRITICAL: Order created but invoice creation failed. Transaction rolled back. Reason: {invoice_message}")
+
+            # --- 5. Update Product Metadata ---
             for item in validated_items:
                 self.product_repo.metadata_repo.increment_field(item.product_id, 'sold_count', item.quantity)
 
-            # --- 5. Commit Transaction ---
+            # --- 6. Commit Transaction ---
             self.db.commit()
             transaction_committed = True
             return (new_order_id, f"Order created successfully with ID {new_order_id}.")
@@ -110,7 +123,7 @@ class OrderService:
             if not transaction_committed:
                 self.db.rollback()
 
-    def get_orders_for_user(self, user_id: int) -> tuple[bool, str | list[Order]]:
+    def get_orders_for_user(self, user_id: int) -> tuple[bool, list[Order] | None]:
         """
         Retrieves all orders placed by a specific user.
 
@@ -118,17 +131,17 @@ class OrderService:
             user_id (int): The ID of the user.
 
         Returns:
-            tuple[bool, str | list[Order]]: A tuple containing a boolean for success,
-                                            and either a list of orders or an error message.
+            tuple[bool, list[Order] | None]: A tuple containing a boolean for success,
+                                             and either a list of orders or `None` on failure.
         """
         try:
             orders = self.order_repo.read_all_by_user_id(user_id)
             return (True, orders)
         except Exception as e:
             print(f"[OrderService ERROR] An unexpected error occurred while fetching orders for user {user_id}: {e}")
-            return (False, "An unexpected error occurred while fetching orders.")
+            return (False, None)
 
-    def get_orders_for_merchant(self, merchant_id: int) -> tuple[bool, str | list[Order]]:
+    def get_orders_for_merchant(self, merchant_id: int) -> tuple[bool, list[Order] | None]:
         """
         Retrieves all orders for a specific merchant.
 
@@ -136,15 +149,15 @@ class OrderService:
             merchant_id (int): The ID of the merchant.
 
         Returns:
-            tuple[bool, str | list[Order]]: A tuple containing a boolean for success,
-                                            and either a list of orders or an error message.
+            tuple[bool, list[Order] | None]: A tuple containing a boolean for success,
+                                             and either a list of orders or `None` on failure.
         """
         try:
             orders = self.order_repo.read_all_by_merchant_id(merchant_id)
             return (True, orders)
         except Exception as e:
             print(f"[OrderService ERROR] An unexpected error occurred while fetching orders for merchant {merchant_id}: {e}")
-            return (False, "An unexpected error occurred while fetching orders.")
+            return (False, None)
 
     def cancel_order(self, order_id: int, user_id: int) -> tuple[bool, str]:
         """
@@ -210,3 +223,215 @@ class OrderService:
         finally:
             if not transaction_committed:
                 self.db.rollback()
+
+    def confirm_delivery(self, order_id: int, user_id: int) -> tuple[bool, str]:
+        """
+        Confirms that an order has been delivered by the user.
+
+        Args:
+            order_id (int): The ID of the order to confirm.
+            user_id (int): The ID of the user confirming the delivery.
+
+        Returns:
+            tuple[bool, str]: A tuple containing a boolean for success and a message.
+        """
+        # 1. Fetch the order and perform validations
+        order = self.order_repo.read(order_id)
+        if not order:
+            return (False, f"Order with ID {order_id} not found.")
+
+        if order.user_id != user_id:
+            return (False, "You are not authorized to confirm delivery for this order.")
+
+        if order.status != Status.SHIPPED:
+            return (False, f"Cannot confirm delivery. Order status is '{order.status.value}', not 'SHIPPED'.")
+
+        # 2. Update Order Status
+        success, message = self.order_repo.update_status(order_id, Status.DELIVERED)
+        return (success, "Delivery confirmed successfully! You can now review the product." if success else message)
+
+    def get_order_details(self, order_id: int, user_id: int) -> tuple[bool, str | tuple[Order, Invoice | None]]:
+        """
+        Retrieves the full details for an order, including the invoice,
+        and verifies user ownership.
+
+        Args:
+            order_id (int): The ID of the order to retrieve.
+            user_id (int): The ID of the user making the request.
+
+        Returns:
+            tuple[bool, str | tuple[Order, Invoice | None]]: A tuple containing success status,
+                and either an error message or a tuple of (Order, Invoice).
+        """
+        order = self.order_repo.read(order_id)
+        if not order:
+            return (False, f"Order with ID {order_id} not found.")
+
+        if order.user_id != user_id:
+            return (False, "You are not authorized to view this order.")
+
+        invoice = self.order_repo.get_invoice_by_order_id(order_id)
+        if not invoice:
+            # This is not a critical failure, an order might exist without an invoice yet.
+            print(f"[OrderService WARN] No invoice found for order {order_id}")
+
+        return (True, (order, invoice))
+
+    def ship_order(self, order_id: int, merchant_id: int) -> tuple[bool, str]:
+        """
+        Allows a merchant to mark an order as shipped.
+
+        Args:
+            order_id (int): The ID of the order to ship.
+            merchant_id (int): The ID of the merchant performing the action.
+
+        Returns:
+            tuple[bool, str]: A tuple containing a boolean for success and a message.
+        """
+        # 1. Fetch the order and perform validations
+        order = self.order_repo.read(order_id)
+        if not order:
+            return (False, f"Order with ID {order_id} not found.")
+
+        if order.merchant_id != merchant_id:
+            return (False, "You are not authorized to ship this order.")
+
+        if order.status != Status.PAID:
+            return (False, f"Order cannot be shipped. Current status: '{order.status.value}'.")
+
+        # 2. Update Order Status
+        success, message = self.order_repo.update_status(order_id, Status.SHIPPED)
+        return (success, "Order marked as shipped successfully." if success else message)
+
+    def merchant_cancel_order(self, order_id: int, merchant_id: int) -> tuple[bool, str]:
+        """
+        Allows a merchant to cancel an order, which refunds the customer.
+
+        Args:
+            order_id (int): The ID of the order to cancel.
+            merchant_id (int): The ID of the merchant performing the action.
+
+        Returns:
+            tuple[bool, str]: A tuple containing a boolean for success and a message.
+        """
+        transaction_committed = False
+        try:
+            self.db.begin_transaction()
+
+            # 1. Fetch the order and perform validations
+            order = self.order_repo.read(order_id)
+            if not order:
+                return (False, f"Order with ID {order_id} not found.")
+
+            if order.merchant_id != merchant_id:
+                return (False, "You are not authorized to cancel this order.")
+
+            if order.status != Status.PAID:
+                return (False, f"Only paid orders can be canceled. Current status: {order.status.value}.")
+
+            # 2. Process Refund (reusing logic from user cancellation)
+            user_card = self.order_repo.get_user_card_for_order(order_id)
+            merchant_card = self.order_repo.get_merchant_card_for_order(order_id)
+
+            if not user_card or not merchant_card:
+                return (False, "CRITICAL: Could not retrieve card details for refund. Cannot cancel order.")
+
+            refund_success, refund_message = self.transaction_service.transfer_funds(
+                sender_card_id=merchant_card.id, receiver_card_id=user_card.id,
+                amount=order.total_amount, payment_type="REFUND", in_transaction=True
+            )
+            if not refund_success:
+                return (False, f"Order cancellation failed: {refund_message}")
+
+            # 3. Update Order Status
+            self.order_repo.update_status(order_id, Status.CANCELLED)
+            self.db.commit()
+            transaction_committed = True
+            return (True, f"Order {order_id} has been successfully canceled and refunded.")
+        finally:
+            if not transaction_committed:
+                self.db.rollback()
+
+    def create_order_from_cart(self, user_id: int, address_id: int) -> tuple[int | None, str]:
+        """
+        Orchestrates the entire checkout process from a user's cart.
+        This is a transactional operation.
+
+        Args:
+            user_id (int): The ID of the user checking out.
+            address_id (int): The selected shipping and billing address ID.
+
+        Returns:
+            tuple[int | None, str]: A tuple containing the new order ID and a message.
+        """
+        transaction_committed = False
+        try:
+            self.db.begin_transaction()
+
+            # 1. Get cart contents
+            cart_items = self.cart_repo.get_cart_contents(user_id)
+            if not cart_items:
+                return (None, "Your cart is empty.")
+
+            # 2. Validate items and group by merchant
+            total_amount = 0.0
+            order_items_create = []
+            merchant_id = None
+
+            for item in cart_items:
+                product = self.product_repo.read(item.product_id)
+                if not product:
+                    raise Exception(f"Product '{item.product_name}' is no longer available.")
+                if product.quantity_available < item.quantity:
+                    raise Exception(f"Not enough stock for '{item.product_name}'. Only {product.quantity_available} left.")
+
+                # For this simplified example, assume all items are from the same merchant
+                if merchant_id is None:
+                    merchant_id = product.merchant_id
+                elif merchant_id != product.merchant_id:
+                    raise Exception("Checkout with items from multiple merchants is not yet supported.")
+
+                total_amount += item.total_price
+                order_items_create.append(OrderItemCreate(
+                    product_id=item.product_id,
+                    quantity=item.quantity,
+                    price_at_purchase=item.price
+                ))
+
+            if not merchant_id:
+                raise Exception("Could not determine the merchant for this order.")
+
+            # 3. Get card details for payment
+            user_card = self.transaction_service.virtual_card_repo.get_by_owner_id(user_id)
+            merchant_card = self.transaction_service.virtual_card_repo.get_by_owner_id(merchant_id)
+            if not user_card or not merchant_card:
+                raise Exception("Could not find virtual cards for payment processing.")
+
+            # 4. Create the full order (this includes payment transfer)
+            new_order_id, message = self.create_order(
+                user_id=user_id,
+                merchant_id=merchant_id,
+                shipping_address_id=address_id,
+                billing_address_id=address_id, # Assuming same for simplicity
+                items=order_items_create,
+                user_card_id=user_card.id,
+                merchant_card_id=merchant_card.id
+            )
+
+            if not new_order_id:
+                # create_order handles its own rollback, but we raise to trigger the outer rollback
+                raise Exception(message)
+
+            # 5. Clear the user's cart
+            self.cart_repo.clear_cart(user_id)
+
+            # 6. Commit the entire transaction
+            self.db.commit()
+            transaction_committed = True
+            return (new_order_id, "Order placed successfully!")
+
+        except Exception as e:
+            print(f"[OrderService ERROR] Checkout failed for user {user_id}: {e}")
+            if not transaction_committed:
+                self.db.rollback()
+            return (None, f"Checkout failed: {e}")

@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/user-addresses.css') }}">
+<script src="{{ url_for('static', filename='js/user-addresses.js') }}" defer></script>
+<title>Your Addresses</title>
+{% endblock %}
+
+<main class="content-wrapper">
+{% block body %}
+    <div class="address-container">
+        <h3>Your Addresses</h3>
+        <div class="addresses-list">
+            {% if addresses %}
+                {% for address in addresses %}
+                <div class="address-card">
+                    <div class="address-details">
+                        <p><strong>Address {{ loop.index }}</strong></p>
+                        <p>{{ address.house_no }} {{ address.street }}</p>
+                        <p>{{ address.city }}, {{ address.postal_code }}</p>
+                        {% if address.additional_notes %}<p><em>{{ address.additional_notes }}</em></p>{% endif %}
+                    </div>
+                    <div class="address-actions">
+                        <button class="edit-btn" onclick='openEditModal({{ address | tojson | safe }})'>Edit</button>
+                        <form action="{{ url_for('delete_address', address_id=address.id) }}" method="post" onsubmit="return confirm('Are you sure you want to delete this address?');">
+                            <button type="submit" class="remove-btn">Remove</button>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p>You have no saved addresses.</p>
+            {% endif %}
+        </div>
+        <button class="add-new-btn" onclick="openAddModal()">Add New Address</button>
+
+        <!-- Add/Edit Modal -->
+        <div id="address-modal" class="modal">
+            <div class="modal-content">
+                <span class="close-btn" onclick="closeModal()">&times;</span>
+                <h4 id="modal-title">Add New Address</h4>
+                <form id="address-form" method="post">
+                    <input type="text" name="house_no" placeholder="House Number" required>
+                    <input type="text" name="street" placeholder="Street" required>
+                    <div class="input-row">
+                        <input type="text" name="city" placeholder="City" required>
+                        <input type="text" name="postal_code" placeholder="Postal Code" required>
+                    </div>
+                    <input type="text" name="additional_notes" placeholder="Additional Notes (optional)">
+                    <button type="submit" class="submit-btn">Save Address</button>
+                </form>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+</main>

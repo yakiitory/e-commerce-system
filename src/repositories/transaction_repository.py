@@ -96,6 +96,22 @@ class VirtualCardRepository(BaseRepository):
         """
         return self._delete_by_id(identifier, self.table_name, self.db)
 
+    def get_by_owner_id(self, owner_id: int) -> VirtualCard | None:
+        """
+        Reads a virtual card record by its owner's ID.
+
+        Args:
+            owner_id (int): The ID of the card's owner.
+
+        Returns:
+            VirtualCard | None: The VirtualCard object if found, otherwise None.
+        """
+        query = f"SELECT * FROM {self.table_name} WHERE owner_id = %s"
+        row = self.db.fetch_one(query, (owner_id,))
+        if not row:
+            return None
+        return VirtualCard(**row)
+
 
 class PaymentRepository(BaseRepository):
     def __init__(self, db: Database):
@@ -169,6 +185,22 @@ class PaymentRepository(BaseRepository):
         To void a payment, update its status to CANCELLED or REFUNDED.
         """
         raise NotImplementedError("Payments cannot be deleted. Update status to CANCELLED or REFUNDED instead.")
+
+    def get_payments_for_user(self, user_id: int) -> list[Payment]:
+        """
+        Retrieves all payments where the user was the sender or receiver, sorted by creation date.
+
+        Args:
+            user_id (int): The ID of the user.
+
+        Returns:
+            list[Payment]: A list of Payment objects.
+        """
+        query = f"SELECT * FROM {self.table_name} WHERE sender_id = %s OR receiver_id = %s ORDER BY created_at DESC"
+        rows = self.db.fetch_all(query, (user_id, user_id))
+        if not rows:
+            return []
+        return [payment for row in rows if (payment := self._map_to_payment(row)) is not None]
 
     def _map_to_payment(self, row: dict) -> Payment | None:
         """

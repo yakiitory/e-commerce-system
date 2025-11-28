@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/products.css') }}">
+<script src="{{ url_for('static', filename='js/products.js') }}"></script>
+<title>Browse - FleaMart</title>
+{% endblock %}
+
+<main class="content-wrapper">
+{% block body %}
+    <div class="main-container">
+
+        <aside class="sidebar">
+            <form action="{{ url_for('products_page') }}" method="get">
+                <div class="filter-header">
+                    {% include "svg/filter.svg" %}
+                    SEARCH FILTER
+                </div>
+
+                <section class="filter-section">
+                    <h3>Search</h3>
+                    <input type="search" name="query" class="filter-search-input" placeholder="Search products..." value="{{ search_criteria.query or '' }}">
+                </section>
+
+                <section class="filter-section filter-by-price">
+                    <h3>Price Range</h3>
+                    <!-- Hidden inputs to preserve other filters -->
+                    {% if selected_category %}
+                    <input type="hidden" name="category" value="{{ selected_category.id }}">
+                    {% endif %}
+                    {% if sort_by %}
+                    <input type="hidden" name="sort_by" value="{{ sort_by }}">
+                    {% endif %}
+                    <div class="price-inputs">
+                        <input type="number" name="min_price" placeholder="₱ MIN" value="{{ filter_values.min_price or '' }}">
+                        {% include "svg/minus.svg" %}
+                        <input type="number" name="max_price" placeholder="₱ MAX" value="{{ filter_values.max_price or '' }}">
+                    </div>
+                    <button type="submit" class="apply-btn">APPLY</button>
+                </section>
+
+                <section class="filter-section filter-by-category">
+                    <h3>Categories</h3>
+                    <ul class="category-list">
+                        <li>
+                            <a href="{{ url_for('products_page') }}" class="{{ 'active' if not selected_category else '' }}">All Products</a>
+                        </li>
+                        {% for category in categories %}
+                            {% if category.parent_id is none %}
+                            <li class="has-submenu">
+                                <div class="category-item">
+                                    <a href="{{ url_for('products_page', category=category.id) }}" class="{{ 'active' if selected_category and selected_category.id == category.id else '' }}">{{ category.name }}</a>
+                                </div>
+                                <ul class="submenu">
+                                    {% for sub_category in categories %}
+                                        {% if sub_category.parent_id == category.id %}
+                                        <li><a href="{{ url_for('products_page', category=sub_category.id) }}" class="{{ 'active' if selected_category and selected_category.id == sub_category.id else '' }}">{{ sub_category.name }}</a></li>
+                                        {% endif %}
+                                    {% endfor %}
+                                </ul>
+                            </li>
+                            {% endif %}
+                        {% endfor %}
+                    </ul>
+                </section>
+
+                <section class="filter-section filter-by-ratings">
+                    <h3>Ratings</h3>
+                    <ul class="ratings-container">
+                        {% for i in [5, 4, 3, 2, 1] %}
+                        <li>
+                            <a href="{{ url_for('products_page', category=selected_category.id if selected_category else none, sort_by=sort_by, min_price=filter_values.min_price, max_price=filter_values.max_price, min_rating=i) }}" 
+                               class="star-ratings {{ 'active' if filter_values.min_rating == i }}">
+                                {% include "svg/star-filled.svg" %}
+                                <span>{{ i }} {% if i < 5 %}& Up{% endif %}</span>
+                            </a>
+                        </li>
+                        {% endfor %}
+                        {% if filter_values.min_rating %}
+                        <li>
+                            <a href="{{ url_for('products_page', category=selected_category.id if selected_category else none, sort_by=sort_by, min_price=filter_values.min_price, max_price=filter_values.max_price) }}" class="clear-rating-filter">
+                                Clear Rating
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </section>
+            </form>
+        </aside>
+
+        <div class="content-area">
+            <div class="search-result-container">
+                {% include "svg/search-plus.svg" %}
+                {% if selected_category %}
+                    <span>Showing products in: </span>
+                    <span>'{{ selected_category.name }}'</span>
+                {% elif search_criteria.query %}
+                    <span>Showing results for: </span>
+                    <span>'{{ search_criteria.query }}'</span>
+                {% else %}
+                    <span>Showing: </span>
+                    <span>'All Products'</span>
+                {% endif %}
+            </div>
+
+            <div class="sort-bar">
+                <div class="sort-options">
+                    <span>Sort by</span>
+                    <a href="{{ url_for('products_page', sort_by='sold') }}" class="sort-btn {{ 'sort-btn-active' if sort_by == 'sold' else '' }}">
+                        Sold
+                    </a>
+                    <a href="{{ url_for('products_page', category=selected_category.id if selected_category else none, min_price=filter_values.min_price, max_price=filter_values.max_price, min_rating=filter_values.min_rating, sort_by='ratings') }}" class="sort-btn {{ 'sort-btn-active' if sort_by == 'ratings' else '' }}">
+                        Ratings
+                    </a>
+                    <a href="{{ url_for('products_page', category=selected_category.id if selected_category else none, min_price=filter_values.min_price, max_price=filter_values.max_price, min_rating=filter_values.min_rating, sort_by='brand') }}" class="sort-btn {{ 'sort-btn-active' if sort_by == 'brand' else '' }}">
+                        Brand
+                    </a>
+
+                    <div class="price-dropdown-container">
+
+                        <div class="price-dropdown-trigger">
+                            <span>Price</span>
+                            <span class="toggle-icon">
+                                {% include "svg/arrow-right.svg" %}
+                            </span>
+                        </div>
+
+                        <ul class="sort-menu">
+                            <li>
+                                <a href="{{ url_for('products_page', category=selected_category.id if selected_category else none, min_price=filter_values.min_price, max_price=filter_values.max_price, min_rating=filter_values.min_rating, sort_by='price_asc') }}">Low to High</a>
+                            </li>
+                            <li>
+                                <a href="{{ url_for('products_page', category=selected_category.id if selected_category else none, min_price=filter_values.min_price, max_price=filter_values.max_price, min_rating=filter_values.min_rating, sort_by='price_desc') }}">High to Low</a>
+                            </li>
+                        </ul>
+
+                    </div>
+                </div>
+                <div class="pagination-controls">
+                    <span>Page {{ page }} of {{ total_pages }}</span>
+                    <div class="pagination-btn-group">
+                        {% if page > 1 %}
+                            <a href="{{ url_for('products_page', page=page-1, category=selected_category.id if selected_category else none, sort_by=sort_by, min_price=filter_values.min_price, max_price=filter_values.max_price, min_rating=filter_values.min_rating) }}" class="pagination-btn">
+                                {% include "svg/arrow-left.svg" %}
+                            </a>
+                        {% else %}
+                            <button class="pagination-btn" disabled>{% include "svg/arrow-left.svg" %}</button>
+                        {% endif %}
+                        {% if page < total_pages %}
+                            <a href="{{ url_for('products_page', page=page+1, category=selected_category.id if selected_category else none, sort_by=sort_by, min_price=filter_values.min_price, max_price=filter_values.max_price, min_rating=filter_values.min_rating) }}" class="pagination-btn">
+                                {% include "svg/arrow-right.svg" %}
+                            </a>
+                        {% else %}
+                            <button class="pagination-btn" disabled>{% include "svg/arrow-right.svg" %}</button>
+                        {% endif %}
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="main-product">
+                <div class="main-product-container">
+                    {% for product in products %}
+                    <a href="{{ url_for('product_page', product_id=product.id) }}" class="product-link">
+                        <div class="main-product-item">
+                            <div class="main-product-img">
+                                <img src="{{ product.images[0] if product.images else url_for('static', filename='img/placeholder.jpg') }}" alt="Image of {{ product.name }}">
+                            </div>
+                            <div class="main-product-details">
+                                <p>{{ product.category_name }}</p>
+                                <p>{{ product.brand }} - {{ product.name }}</p>
+                                <div class="small-star-ratings single-star">
+                                    {% include "svg/star-filled.svg" %} <span>{{ product.rating_avg }}</span>
+                                </div>
+                                <div class="main-product-price">
+                                    <span>₱{{ "{:,.2f}".format(product.price) }}</span>
+                                    {% if product.original_price > product.price %}
+                                    <span>₱{{ "{:,.2f}".format(product.original_price) }}</span>
+                                    {% endif %}
+                                </div>
+                                <div class="city-container">
+                                    <div class="city-icon">
+                                        {% include "svg/location.svg" %}
+                                    </div>
+                                    <p>{{ product.city }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </a>
+                    {% else %}
+                    <p>No products found matching your criteria.</p>
+                    {% endfor %}
+                </div>
+            </div>          
+        </div>
+    </div>
+{% endblock %}
+</main>

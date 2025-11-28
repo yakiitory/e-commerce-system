@@ -164,7 +164,27 @@ class ProductRepository(BaseRepository):
         if not metadata_deleted:
             return (False, f"Failed to delete product metadata for product ID {identifier}. Product not deleted.")
         return self._delete_by_id(identifier, self.table_name, self.db, id_field="id")
-    
+
+    def delete_images_for_product(self, product_id: int, db: Database) -> list[str]:
+        """
+        Deletes all image DB records and their junction table links for a specific product.
+        This method assumes it's being called within an existing transaction.
+        It returns the URLs of the deleted images so the physical files can be removed.
+        """
+        # Find all image IDs and URLs linked to the product
+        image_query = "SELECT i.id, i.url FROM images i JOIN product_images pi ON i.id = pi.image_id WHERE pi.product_id = %s"
+        image_rows = db.fetch_all(image_query, (product_id,))
+        
+        if image_rows:
+            image_ids = tuple(row['id'] for row in image_rows)
+            image_urls = [row['url'] for row in image_rows]
+            # The 'product_images' junction table has ON DELETE CASCADE for image_id,
+            # so we only need to delete from the 'images' table.
+            # Delete from the images table
+            db.execute_query(f"DELETE FROM images WHERE id IN ({','.join(['%s'] * len(image_ids))})", image_ids)
+            return image_urls
+        return []
+
     def _map_to_product(self, row: dict) -> Product | None:
         """
         Maps a database row (dictionary) to a Product dataclass object.
@@ -179,6 +199,42 @@ class ProductRepository(BaseRepository):
             return None
         return Product(**row)
     
+    def read_all_by_merchant_id(self, merchant_id: int) -> list[Product]:
+        """
+        Reads all products for a specific merchant, including their images.
+
+        Args:
+            merchant_id (int): The ID of the merchant whose products to retrieve.
+
+        Returns:
+            list[Product]: A list of Product objects, ordered by creation date.
+        """
+        products_query = f"SELECT * FROM {self.table_name} WHERE merchant_id = %s ORDER BY created_at DESC"
+        product_rows = self.db.fetch_all(products_query, (merchant_id,))
+
+        if not product_rows:
+            return []
+
+        products = []
+        for row in product_rows:
+            product_id = row['id']
+
+            # Fetch associated image URLs for the current product
+            images_query = """
+                SELECT i.url FROM images i
+                JOIN product_images pi ON i.id = pi.image_id
+                WHERE pi.product_id = %s
+                ORDER BY pi.is_thumbnail DESC, i.id
+            """
+            image_rows = self.db.fetch_all(images_query, (product_id,))
+            image_urls = [img_row['url'] for img_row in image_rows] if image_rows else []
+
+            # Add the list of image URLs to the product data before creating the object
+            row['images'] = image_urls
+            products.append(self._map_to_product(row))
+
+        return products
+
     def get_product_entry(self, identifier: int) -> ProductEntry | None:
         """
         Retrieves a 'product entry' for usage with the front end, such as a for you page entry.
@@ -191,7 +247,7 @@ class ProductRepository(BaseRepository):
             ProductEntry | None: A ProductEntry object if found, otherwise `None`.
         """
         from_products_query = f"""
-            SELECT id, merchant_id, category, id, name, brand, price, original_price, address_id 
+            SELECT id, merchant_id, category_id, name, brand, price, original_price, address_id 
             FROM {self.table_name}
             WHERE id = %s
         """
@@ -242,6 +298,7 @@ class ProductRepository(BaseRepository):
             product_id=products_dict["id"],
             merchant_id=products_dict["merchant_id"],
             category_id=products_dict["category_id"],
+            address_id=products_dict["address_id"],
             name=products_dict["name"],
             brand=products_dict["brand"],
             price=products_dict["price"],
@@ -252,22 +309,117 @@ class ProductRepository(BaseRepository):
             sold_count=metadata_dict["sold_count"]
         )
 
-    def search(self, search_term: str, limit: int = 20) -> list[ProductEntry]:
+    def search(self, filters: dict[str, Any], page: int, per_page: int) -> tuple[list[ProductEntry], int]:
         """
-        Searches for products by name or description and returns them as ProductEntry objects.
+        Searches, filters, sorts, and paginates products, returning them as ProductEntry objects.
 
         Args:
-            search_term (str): The term to search for.
-            limit (int): The maximum number of results to return.
+            filters (dict[str, Any]): A dictionary of filters (query, category, price, etc.).
+            page (int): The current page number for pagination.
+            per_page (int): The number of items per page.
 
         Returns:
-            list[ProductEntry]: A list of matching product entry objects.
+            tuple[list[ProductEntry], int]: A tuple containing the list of paginated
+                                            ProductEntry objects and the total number of
+                                            products matching the criteria.
         """
-        query = """
+        base_query = """
+            SELECT
+                p.id AS product_id,
+                p.merchant_id, p.category_id, p.address_id,
+                p.name, p.brand, p.price, p.original_price,
+                pm.rating_avg AS ratings,
+                a.city AS warehouse,
+                i.url AS thumbnail,
+                pm.sold_count
+            FROM
+                products p
+            INNER JOIN product_metadata pm ON p.id = pm.product_id
+            INNER JOIN addresses a ON p.address_id = a.id
+            LEFT JOIN (
+                SELECT pi.product_id, im.url
+                FROM product_images pi
+                JOIN images im ON pi.image_id = im.id
+                WHERE pi.is_thumbnail = TRUE
+            ) AS i ON p.id = i.product_id
+        """
+        count_query = "SELECT COUNT(p.id) as total FROM products p INNER JOIN product_metadata pm ON p.id = pm.product_id"
+
+        where_clauses = []
+        params = []
+
+        # Build WHERE clauses from filters
+        if filters.get('query'):
+            where_clauses.append("(p.name LIKE %s OR p.description LIKE %s)")
+            term = f"%{filters['query']}%"
+            params.extend([term, term])
+        if filters.get('category'):
+            where_clauses.append("p.category_id = %s")
+            params.append(filters['category'])
+        if filters.get('min_price') is not None:
+            where_clauses.append("p.price >= %s")
+            params.append(filters['min_price'])
+        if filters.get('max_price') is not None:
+            where_clauses.append("p.price <= %s")
+            params.append(filters['max_price'])
+        if filters.get('min_rating') is not None:
+            where_clauses.append("pm.rating_avg >= %s")
+            params.append(filters['min_rating'])
+
+        if where_clauses:
+            where_sql = " WHERE " + " AND ".join(where_clauses)
+            base_query += where_sql
+            count_query += where_sql
+
+        # Get total count for pagination
+        total_row = self.db.fetch_one(count_query, tuple(params))
+        total_products = total_row['total'] if total_row else 0
+
+        # --- Sorting Logic ---
+        sort_by = filters.get('sort_by')
+        order_clause = "ORDER BY p.created_at DESC" # Default sort
+        if sort_by == 'sold_count':
+            order_clause = "ORDER BY pm.sold_count DESC"
+        elif sort_by == 'price_asc':
+            order_clause = "ORDER BY p.price ASC"
+        elif sort_by == 'price_desc':
+            order_clause = "ORDER BY p.price DESC"
+        elif sort_by == 'ratings':
+            order_clause = "ORDER BY pm.rating_avg DESC"
+
+        # --- Pagination Logic ---
+        offset = (page - 1) * per_page
+        pagination_clause = "LIMIT %s OFFSET %s"
+
+        # --- Final Query ---
+        final_query = f"{base_query} {order_clause} {pagination_clause}"
+        final_params = tuple(params) + (per_page, offset)
+
+        rows = self.db.fetch_all(final_query, final_params)
+        
+        product_entries = [ProductEntry(**row) for row in rows] if rows else []
+
+        return product_entries, total_products
+
+    def get_entries(self, limit: int, offset: int = 0, sort_by: str | None = None) -> list[ProductEntry]:
+        """
+        Retrieves a list of product entries with sorting and pagination.
+
+        Args:
+            limit (int): The maximum number of entries to return.
+            offset (int): The number of entries to skip (for pagination).
+            sort_by (str | None): The sorting criteria. Supported values:
+                                  'sold_count', 'price_asc', 'price_desc', 'ratings'.
+
+        Returns:
+            list[ProductEntry]: A list of product entry objects.
+        """
+        base_query = """
             SELECT
                 p.id AS product_id,
                 p.merchant_id,
                 p.category_id,
+                p.address_id,
                 p.name,
                 p.brand,
                 p.price,
@@ -282,14 +434,27 @@ class ProductRepository(BaseRepository):
             JOIN addresses a ON p.address_id = a.id
             LEFT JOIN product_images pi ON p.id = pi.product_id AND pi.is_thumbnail = TRUE
             LEFT JOIN images i ON pi.image_id = i.id
-            WHERE
-                p.name LIKE %s OR p.description LIKE %s
-            LIMIT %s
         """
-        # Add wildcards for a 'contains' search
-        term = f"%{search_term}%"
-        rows = self.db.fetch_all(query, (term, term, limit))
 
+        # --- Sorting Logic ---
+        order_clause = "ORDER BY p.created_at DESC" # Default sort
+        if sort_by == 'sold_count':
+            order_clause = "ORDER BY pm.sold_count DESC"
+        elif sort_by == 'price_asc':
+            order_clause = "ORDER BY p.price ASC"
+        elif sort_by == 'price_desc':
+            order_clause = "ORDER BY p.price DESC"
+        elif sort_by == 'ratings':
+            order_clause = "ORDER BY pm.rating_avg DESC"
+
+        # --- Pagination Logic ---
+        pagination_clause = "LIMIT %s OFFSET %s"
+
+        # --- Final Query ---
+        final_query = f"{base_query} {order_clause} {pagination_clause}"
+        params = (limit, offset)
+
+        rows = self.db.fetch_all(final_query, params)
         return [ProductEntry(**row) for row in rows] if rows else []
 
         
