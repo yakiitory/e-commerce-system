@@ -46,15 +46,18 @@ class Order(OrderCreate):
 @dataclass
 class CartItemCreate:
     """Data needed to add an item to a cart."""
-    cart_id: int
     product_id: int
     quantity: int
+    price: float
+    total_price: float
 
 @dataclass
 class CartItem(CartItemCreate):
     """Represents a cart item record from the database."""
     id: int
     added_at: datetime
+    product_name: str
+    thumbnail_url: str
 
 # --- Cart Models ---
 # Represents a user's shopping cart.

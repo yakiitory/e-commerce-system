@@ -70,3 +70,26 @@ class MediaService:
         except Exception as e:
             print(f"[MediaService ERROR] Failed to save image {image_id}: {e}")
             return (False, None)
+
+    def delete_image(self, relative_path: str) -> bool:
+        """
+        Deletes an image file from the filesystem.
+
+        Args:
+            relative_path (str): The relative path to the image file, as stored in the DB.
+                                 e.g., 'db-images/products/123.jpg'
+
+        Returns:
+            bool: True if the file was deleted or did not exist, False on error.
+        """
+        try:
+            # Construct the full absolute path to the file
+            # Assumes the media_root is the parent of the first directory in relative_path
+            file_path = self.media_dir.parent / Path(relative_path)
+            if file_path.exists():
+                file_path.unlink()
+                return True
+            return True # File didn't exist, which is a success state for deletion
+        except Exception as e:
+            print(f"[MediaService ERROR] Failed to delete image at {relative_path}: {e}")
+            return False

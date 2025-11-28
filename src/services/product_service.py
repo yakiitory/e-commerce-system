@@ -142,58 +142,137 @@ class ProductService:
             print(f"[ProductService ERROR] An unexpected error occurred while fetching metadata for product {product_id}: {e}")
             return (False, None)
 
-    def update_product(self, product_id: int, product_data: dict[str, Any] | None = None, metadata: dict[str, Any] | None = None) -> tuple[bool, str]:
+    def update_product(self, product_id: int, merchant_id: int, product_data: dict[str, Any] | None = None, images: list[UploadFile] | None = None) -> tuple[bool, str]:
         """
-        Updates a product's main data and/or its metadata.
+        Updates a product's main data, and optionally its images.
 
         Args:
             product_id (int): The ID of the product to update.
+            merchant_id (int): The ID of the merchant performing the update, for ownership verification.
             product_data (dict | None): A dictionary of product fields to update.
-            metadata (dict | None): A dictionary of metadata fields to update.
+            images (list[UploadFile] | None): A list of new uploaded image files. If provided,
+                                              existing images will be replaced.
 
         Returns:
             tuple[bool, str]: A tuple indicating success and a message.
         """
-        if not self.product_repo.read(product_id):
+        product = self.product_repo.read(product_id)
+        if not product:
             return (False, f"Product with ID {product_id} not found.")
+        if product.merchant_id != merchant_id:
+            return (False, "You do not have permission to edit this product.")
 
-        success = self.product_repo.update(product_id, product_data, metadata)
-        if success:
+        transaction_committed = False
+        try:
+            self.db.begin_transaction()
+
+            # 1. Update main product data if provided
+            if product_data:
+                self.product_repo.update(product_id, product_data)
+
+            # 2. Handle image replacement if new images are uploaded
+            if images:
+                # Delete old images (both files and DB records)
+                self.product_repo.delete_images_for_product(product_id, self.db)
+
+                # Process and save new images
+                is_first_image = True
+                for image_file in images:
+                    # Create a placeholder in 'images' to get an ID
+                    image_id, _ = self.product_repo._create_record(
+                        data=SimpleNamespace(url='placeholder'),
+                        fields=['url'], table_name='images', db=self.db
+                    )
+                    if not image_id:
+                        raise Exception("Failed to create placeholder image record.")
+
+                    # Save the physical image file
+                    saved, path_or_none = self.media_service.save_image(image_file, image_id)
+                    if not saved or not path_or_none:
+                        raise Exception(f"Failed to save image file for image ID {image_id}.")
+
+                    # Update the image record with the actual path
+                    self.product_repo._update_by_id(image_id, {'url': path_or_none}, 'images', self.db, ['url'])
+
+                    # Link new image to product
+                    link_data = SimpleNamespace(product_id=product_id, image_id=image_id, is_thumbnail=is_first_image)
+                    link_id, link_msg = self.product_repo._create_record(link_data, ['product_id', 'image_id', 'is_thumbnail'], 'product_images', self.db)
+                    if not link_id:
+                        raise Exception(f"Failed to link new image to product: {link_msg}")
+                    
+                    is_first_image = False
+
+            self.db.commit()
+            transaction_committed = True
             return (True, f"Product {product_id} updated successfully.")
-        return (False, f"Failed to update product {product_id}.")
+        except Exception as e:
+            print(f"[ProductService ERROR] Product update failed: {e}")
+            if not transaction_committed:
+                self.db.rollback()
+            return (False, "An unexpected error occurred during product update.")
 
-    def delete_product(self, product_id: int) -> tuple[bool, str]:
+    def delete_product(self, product_id: int, merchant_id: int) -> tuple[bool, str]:
         """
-        Deletes a product and its associated metadata.
+        Deletes a product, its metadata, and all associated images (DB records and files).
 
         Args:
             product_id (int): The ID of the product to delete.
+            merchant_id (int): The ID of the merchant for ownership verification.
 
         Returns:
             tuple[bool, str]: A tuple indicating success and a message.
         """
-        if not self.product_repo.read(product_id):
+        product = self.product_repo.read(product_id)
+        if not product:
             return (False, f"Product with ID {product_id} not found.")
+        if product.merchant_id != merchant_id:
+            return (False, "You do not have permission to delete this product.")
 
-        return self.product_repo.delete(product_id)
+        transaction_committed = False
+        try:
+            self.db.begin_transaction()
 
-    def search_products(self, search_term: str) -> tuple[bool, list[ProductEntry] | None]:
+            # 1. Delete images from DB and get their URLs
+            image_urls_to_delete = self.product_repo.delete_images_for_product(product_id, self.db)
+
+            # 2. Delete the product record (cascades to metadata and product_images)
+            self.product_repo.delete(product_id)
+
+            self.db.commit()
+            transaction_committed = True
+
+            # 3. After transaction commits, delete physical files
+            for url in image_urls_to_delete:
+                self.media_service.delete_image(url)
+
+            return (True, f"Product '{product.name}' deleted successfully.")
+        except Exception as e:
+            print(f"[ProductService ERROR] Product deletion failed: {e}")
+            if not transaction_committed:
+                self.db.rollback()
+            return (False, "An unexpected error occurred during product deletion.")
+
+    def search_products(self, filters: dict[str, Any], page: int, per_page: int) -> tuple[bool, tuple[list[ProductEntry], int] | str]:
         """
-        Searches for products based on a search term.
+        Searches, filters, sorts, and paginates products.
 
         Args:
-            search_term (str): The term to search for in product names and descriptions.
+            filters (dict[str, Any]): A dictionary of filters like query, category, price, etc.
+            page (int): The current page number for pagination.
+            per_page (int): The number of items per page.
 
         Returns:
-            tuple[bool, list[ProductEntry] | None]: A tuple indicating success, and either a
-                                                    list of products or `None` on failure.
+            tuple[bool, tuple[list[ProductEntry], int] | str]: A tuple indicating success.
+                If successful, it returns a tuple containing the list of paginated
+                ProductEntry objects and the total number of products matching the criteria.
+                If it fails, it returns an error message string.
         """
         try:
-            products = self.product_repo.search(search_term)
-            return (True, products)
+            paginated_products, total_products = self.product_repo.search(filters, page, per_page)
+            return (True, (paginated_products, total_products))
         except Exception as e:
             print(f"[ProductService ERROR] An unexpected error occurred during product search: {e}")
-            return (False, None)
+            return (False, "An error occurred while searching for products.")
 
     def get_product_entries(self, limit: int, offset: int = 0, sort_by: str | None = None) -> tuple[bool, list[ProductEntry] | None]:
         """

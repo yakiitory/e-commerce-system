@@ -8,6 +8,7 @@ if TYPE_CHECKING:
     from repositories.order_repository import OrderRepository
     from repositories.product_repository import ProductRepository
     from services.transaction_service import TransactionService
+    from repositories.cart_repository import CartRepository
     from database.database import Database
 
 
@@ -16,11 +17,12 @@ class OrderService:
     Handles the business logic for creating and managing orders.
     """
 
-    def __init__(self, db: Database, order_repo: OrderRepository, product_repo: ProductRepository, transaction_service: TransactionService):
+    def __init__(self, db: Database, order_repo: OrderRepository, product_repo: ProductRepository, transaction_service: TransactionService, cart_repo: CartRepository):
         self.db = db
         self.order_repo = order_repo
         self.product_repo = product_repo
         self.transaction_service = transaction_service
+        self.cart_repo = cart_repo
 
     def create_order(
         self,
@@ -349,3 +351,87 @@ class OrderService:
         finally:
             if not transaction_committed:
                 self.db.rollback()
+
+    def create_order_from_cart(self, user_id: int, address_id: int) -> tuple[int | None, str]:
+        """
+        Orchestrates the entire checkout process from a user's cart.
+        This is a transactional operation.
+
+        Args:
+            user_id (int): The ID of the user checking out.
+            address_id (int): The selected shipping and billing address ID.
+
+        Returns:
+            tuple[int | None, str]: A tuple containing the new order ID and a message.
+        """
+        transaction_committed = False
+        try:
+            self.db.begin_transaction()
+
+            # 1. Get cart contents
+            cart_items = self.cart_repo.get_cart_contents(user_id)
+            if not cart_items:
+                return (None, "Your cart is empty.")
+
+            # 2. Validate items and group by merchant
+            total_amount = 0.0
+            order_items_create = []
+            merchant_id = None
+
+            for item in cart_items:
+                product = self.product_repo.read(item.product_id)
+                if not product:
+                    raise Exception(f"Product '{item.product_name}' is no longer available.")
+                if product.quantity_available < item.quantity:
+                    raise Exception(f"Not enough stock for '{item.product_name}'. Only {product.quantity_available} left.")
+
+                # For this simplified example, assume all items are from the same merchant
+                if merchant_id is None:
+                    merchant_id = product.merchant_id
+                elif merchant_id != product.merchant_id:
+                    raise Exception("Checkout with items from multiple merchants is not yet supported.")
+
+                total_amount += item.total_price
+                order_items_create.append(OrderItemCreate(
+                    product_id=item.product_id,
+                    quantity=item.quantity,
+                    price_at_purchase=item.price
+                ))
+
+            if not merchant_id:
+                raise Exception("Could not determine the merchant for this order.")
+
+            # 3. Get card details for payment
+            user_card = self.transaction_service.virtual_card_repo.get_by_owner_id(user_id)
+            merchant_card = self.transaction_service.virtual_card_repo.get_by_owner_id(merchant_id)
+            if not user_card or not merchant_card:
+                raise Exception("Could not find virtual cards for payment processing.")
+
+            # 4. Create the full order (this includes payment transfer)
+            new_order_id, message = self.create_order(
+                user_id=user_id,
+                merchant_id=merchant_id,
+                shipping_address_id=address_id,
+                billing_address_id=address_id, # Assuming same for simplicity
+                items=order_items_create,
+                user_card_id=user_card.id,
+                merchant_card_id=merchant_card.id
+            )
+
+            if not new_order_id:
+                # create_order handles its own rollback, but we raise to trigger the outer rollback
+                raise Exception(message)
+
+            # 5. Clear the user's cart
+            self.cart_repo.clear_cart(user_id)
+
+            # 6. Commit the entire transaction
+            self.db.commit()
+            transaction_committed = True
+            return (new_order_id, "Order placed successfully!")
+
+        except Exception as e:
+            print(f"[OrderService ERROR] Checkout failed for user {user_id}: {e}")
+            if not transaction_committed:
+                self.db.rollback()
+            return (None, f"Checkout failed: {e}")

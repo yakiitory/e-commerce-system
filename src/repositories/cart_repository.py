@@ -1,11 +1,13 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
+from models.orders import CartItem
 from repositories.base_repository import BaseRepository
 
 if TYPE_CHECKING:
     from database.database import Database
     from repositories.product_repository import ProductMetadataRepository
+    
 
 
 class CartRepository(BaseRepository):
@@ -123,6 +125,127 @@ class CartRepository(BaseRepository):
         except Exception as e:
             print(f"[CartRepository ERROR] Failed to add/update item: {e}")
             return (False, "An internal error occurred while updating the cart.")
+        finally:
+            if not transaction_committed:
+                self.db.rollback()
+
+    def get_cart_contents(self, user_id: int) -> list[CartItem]:
+        """
+        Retrieves all items in a user's cart, enriched with product details.
+
+        Args:
+            user_id: The ID of the user.
+
+        Returns:
+            A list of CartItem objects with additional product info.
+        """
+        query = """
+            SELECT
+                i.id,
+                i.product_id,
+                i.product_quantity as quantity,
+                i.product_price as price,
+                i.total_price,
+                i.added_at,
+                p.name as product_name,
+                img.url as thumbnail_url
+            FROM items i
+            JOIN cart_items ci ON i.id = ci.item_id
+            JOIN carts c ON ci.cart_id = c.id
+            JOIN products p ON i.product_id = p.id
+            LEFT JOIN (
+                SELECT pi.product_id, im.url
+                FROM product_images pi
+                JOIN images im ON pi.image_id = im.id
+                WHERE pi.is_thumbnail = TRUE
+            ) AS img ON p.id = img.product_id
+            WHERE c.user_id = %s
+            ORDER BY i.added_at DESC
+        """
+        rows = self.db.fetch_all(query, (user_id,))
+        return [CartItem(**row) for row in rows] if rows else []
+
+    def update_item_quantity(self, user_id: int, item_id: int, quantity: int) -> tuple[bool, str]:
+        """
+        Updates the quantity of an item in the user's cart. Deletes if quantity is 0.
+        """
+        if quantity < 0:
+            return (False, "Quantity cannot be negative.")
+        if quantity == 0:
+            return self.remove_item(user_id, item_id)
+
+        transaction_committed = False
+        try:
+            self.db.begin_transaction()
+            # Verify item belongs to user's cart and get price
+            item_query = """
+                SELECT i.product_price FROM items i
+                JOIN cart_items ci ON i.id = ci.item_id
+                JOIN carts c ON ci.cart_id = c.id
+                WHERE i.id = %s AND c.user_id = %s
+            """
+            item_row = self.db.fetch_one(item_query, (item_id, user_id))
+            if not item_row:
+                return (False, "Item not found in your cart.")
+
+            price = item_row['product_price']
+            new_total_price = quantity * price
+
+            update_query = "UPDATE items SET product_quantity = %s, total_price = %s WHERE id = %s"
+            self.db.execute_query(update_query, (quantity, new_total_price, item_id))
+
+            self.db.commit()
+            transaction_committed = True
+            return (True, "Cart updated successfully.")
+        except Exception as e:
+            print(f"[CartRepository ERROR] Failed to update item quantity: {e}")
+            return (False, "An internal error occurred while updating the cart.")
+        finally:
+            if not transaction_committed:
+                self.db.rollback()
+
+    def remove_item(self, user_id: int, item_id: int) -> tuple[bool, str]:
+        """Removes an item completely from the user's cart."""
+        transaction_committed = False
+        try:
+            self.db.begin_transaction()
+            # Verify item belongs to user's cart before deleting
+            delete_query = """
+                DELETE i FROM items i
+                JOIN cart_items ci ON i.id = ci.item_id
+                JOIN carts c ON ci.cart_id = c.id
+                WHERE i.id = %s AND c.user_id = %s
+            """
+            affected_rows = self.db.execute_query(delete_query, (item_id, user_id))
+            self.db.commit()
+            transaction_committed = True
+            return (True, "Item removed from cart.") if affected_rows > 0 else (False, "Item not found in your cart.")
+        except Exception as e:
+            print(f"[CartRepository ERROR] Failed to remove item: {e}")
+            return (False, "An internal error occurred while removing the item.")
+        finally:
+            if not transaction_committed:
+                self.db.rollback()
+
+    def clear_cart(self, user_id: int) -> tuple[bool, str]:
+        """
+        Removes all items from a user's cart. This is typically called after a successful checkout.
+        """
+        transaction_committed = False
+        try:
+            self.db.begin_transaction()
+            # This query deletes from the 'items' table, and the ON DELETE CASCADE
+            # on 'cart_items' will automatically remove the linking records.
+            delete_query = """
+                DELETE i FROM items i
+                JOIN cart_items ci ON i.id = ci.item_id
+                JOIN carts c ON ci.cart_id = c.id
+                WHERE c.user_id = %s
+            """
+            self.db.execute_query(delete_query, (user_id,))
+            self.db.commit()
+            transaction_committed = True
+            return (True, "Cart cleared successfully.")
         finally:
             if not transaction_committed:
                 self.db.rollback()

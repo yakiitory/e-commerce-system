@@ -55,7 +55,9 @@ interaction_service = InteractionService(
 transaction_service = TransactionService(
     db=db,
     payment_repo=payment_repository,
-    virtual_card_repo=virtual_card_repository
+    virtual_card_repo=virtual_card_repository,
+    user_repo=user_repository,
+    merchant_repo=merchant_repository
 )
 media_service = MediaService(media_root="src/static/db-images")
 product_service = ProductService(
@@ -67,7 +69,8 @@ order_service = OrderService(
     db=db,
     order_repo=order_repository,
     product_repo=product_repository,
-    transaction_service=transaction_service
+    transaction_service=transaction_service,
+    cart_repo=cart_repository
 )
 review_service = ReviewService(
     db=db,
@@ -655,7 +658,7 @@ def edit_product_page(product_id: int):
             return redirect(url_for('edit_product_page', product_id=product_id))
 
         # Call the service to update the product
-        success, message = product_service.update_product(product_id, user.id, update_data, images)
+        success, message = product_service.update_product(product_id=product_id, merchant_id=user.id, product_data=update_data, images=images)
         flash(message, 'success' if success else 'error')
 
         return redirect(url_for('merchant_dashboard_page'))
@@ -663,6 +666,24 @@ def edit_product_page(product_id: int):
     # For GET request
     categories = product_service.get_all_categories()
     return render_template('edit-product.html', product=product, categories=categories)
+
+@app.route('/delete-product/<int:product_id>', methods=['POST'])
+def delete_product(product_id: int):
+    """Handles the deletion of a product by a merchant."""
+    if 'username' not in session:
+        flash("Please log in to perform this action.", "error")
+        return redirect(url_for('login_page'))
+
+    user = merchant_repository.get_by_username(session['username'])
+    if not user or user.role != 'merchant':
+        flash("You do not have permission to perform this action.", "error")
+        return redirect(url_for('index'))
+
+    # Call the service to delete the product
+    success, message = product_service.delete_product(product_id=product_id, merchant_id=user.id)
+    flash(message, 'success' if success else 'error')
+
+    return redirect(url_for('merchant_dashboard_page'))
 
 
 @app.route('/payments')
@@ -672,16 +693,19 @@ def payments_page():
         flash("Please log in to view your payment information.", "error")
         return redirect(url_for('login_page'))
 
-    user = backend.mock_get_user_by_username(session['username'])
-    virtual_card = backend.mock_get_virtual_card_by_owner_id(user.id)
-    payment_history = backend.mock_get_user_payments(user.id)
+    user = user_repository.get_by_username(session['username'])
+    if not user:
+        flash("User not found. Please log in again.", "error")
+        session.pop('username', None)
+        return redirect(url_for('login_page'))
 
-    # payment history with sender/receiver names
-    for payment in payment_history:
-        sender = next((u for u in backend.mock_users.values() if u.id == payment.sender_id), None)
-        receiver = next((u for u in backend.mock_users.values() if u.id == payment.receiver_id), None)
-        payment.sender_name = sender.username if sender else "N/A"
-        payment.receiver_name = receiver.username if receiver else "N/A"
+    success, result = transaction_service.get_user_payment_details(user.id)
+
+    if not success:
+        flash(str(result), "error")
+        return render_template('payments.html', virtual_card=None, payment_history=[])
+
+    virtual_card, payment_history = result
 
     return render_template('payments.html', virtual_card=virtual_card, payment_history=payment_history)
 
@@ -692,9 +716,16 @@ def activate_card():
         flash("Please log in to activate a card.", "error")
         return redirect(url_for('login_page'))
 
-    user = backend.mock_get_user_by_username(session['username'])
-    result = backend.mock_create_virtual_card(user.id)
-    flash(result['message'], 'success' if result['status'] else 'error')
+    # A card can be owned by a user or a merchant
+    owner = user_repository.get_by_username(session['username']) or merchant_repository.get_by_username(session['username'])
+
+    if not owner:
+        flash("Could not identify your account. Please log in again.", "error")
+        session.pop('username', None)
+        return redirect(url_for('login_page'))
+
+    success, message = transaction_service.create_virtual_card(owner.id)
+    flash(message, 'success' if success else 'error')
     return redirect(url_for('payments_page'))
 
 @app.route('/deposit-to-card', methods=['POST'])
@@ -704,20 +735,28 @@ def deposit_to_card():
         flash("Please log in to make a deposit.", "error")
         return redirect(url_for('login_page'))
 
-    user = backend.mock_get_user_by_username(session['username'])
-    virtual_card = backend.mock_get_virtual_card_by_owner_id(user.id)
+    owner = user_repository.get_by_username(session['username']) or merchant_repository.get_by_username(session['username'])
+    if not owner:
+        flash("Could not identify your account. Please log in again.", "error")
+        session.pop('username', None)
+        return redirect(url_for('login_page'))
+
+    virtual_card = virtual_card_repository.get_by_owner_id(owner.id)
 
     if not virtual_card:
         flash("You don't have an active virtual card.", "error")
         return redirect(url_for('payments_page'))
 
-    amount = request.form.get('amount', type=float)
-    if not amount or amount <= 0:
-        flash("Please enter a valid deposit amount.", "error")
+    try:
+        amount = float(request.form.get('amount', '0'))
+        if amount <= 0:
+            raise ValueError("Deposit amount must be positive.")
+    except (ValueError, TypeError):
+        flash("Please enter a valid, positive deposit amount.", "error")
         return redirect(url_for('payments_page'))
 
-    result = backend.mock_deposit_to_virtual_card(virtual_card.id, amount)
-    flash(result['message'], 'success' if result['status'] else 'error')
+    success, message = transaction_service.cash_in(user_card_id=virtual_card.id, owner_id=owner.id, amount=amount)
+    flash(message, 'success' if success else 'error')
     return redirect(url_for('payments_page'))
 
 @app.route('/cart')
@@ -727,15 +766,22 @@ def cart_page():
         flash("Please log in to view your cart.", "error")
         return redirect(url_for('login_page'))
 
-    user = backend.mock_get_user_by_username(session['username'])
-    cart = backend.mock_get_cart_by_user_id(user.id)
-    
-    total_price = 0
-    for item in cart.items:
-        item.product = backend.mock_get_product_by_id(item.product_id)
-        total_price += item.product_price * item.product_quantity
+    user = user_repository.get_by_username(session['username'])
+    if not user:
+        flash("User not found. Please log in again.", "error")
+        session.pop('username', None)
+        return redirect(url_for('login_page'))
 
-    return render_template('cart.html', cart_items=cart.items, total_price=total_price)
+    success, result = interaction_service.get_cart(user.id)
+    if not success:
+        flash(str(result), "error")
+        cart_items = []
+    else:
+        cart_items = result
+
+    total_price = sum(item.total_price for item in cart_items) # type: ignore
+
+    return render_template('cart.html', cart_items=cart_items, total_price=total_price)
 
 @app.route('/checkout', methods=['GET', 'POST'])
 def checkout_page():
@@ -744,12 +790,18 @@ def checkout_page():
         flash("Please log in to proceed to checkout.", "error")
         return redirect(url_for('login_page'))
 
-    user = backend.mock_get_user_by_username(session['username'])
-    cart = backend.mock_get_cart_by_user_id(user.id)
+    user = user_repository.get_by_username(session['username'])
+    if not user:
+        flash("User not found. Please log in again.", "error")
+        return redirect(url_for('login_page'))
 
-    if not cart.items:
+    # Fetch cart contents for both GET and POST
+    cart_success, cart_result = interaction_service.get_cart(user.id)
+    if not cart_success or not cart_result:
         flash("Your cart is empty.", "error")
         return redirect(url_for('cart_page'))
+    
+    cart_items = cart_result
 
     if request.method == 'POST':
         address_id = request.form.get('address_id', type=int)
@@ -757,48 +809,30 @@ def checkout_page():
             flash("Please select a shipping address.", "error")
             return redirect(url_for('checkout_page'))
 
-        # Process payment first 
-        first_product_id = cart.items[0].product_id
-        product = backend.mock_get_product_by_id(first_product_id)
-        if not product:
-            flash("An item in your cart could not be found.", "error")
-            return redirect(url_for('cart_page'))
+        # The service layer now handles the entire checkout process
+        order_id, message = order_service.create_order_from_cart(user.id, address_id)
 
-        total_price = sum(item.product_price * item.product_quantity for item in cart.items)
-        payment_data = {"sender_id": user.id, "receiver_id": product.merchant_id, "amount": total_price, "type": "ORDER"}
-        payment_result = backend.mock_process_payment(payment_data)
-
-        # If payment fails, stop everything and return the user to the checkout page.
-        if not payment_result['status']:
-            flash(f"Payment failed: {payment_result['message']}", "error")
+        if order_id:
+            flash(message, "success")
+            return redirect(url_for('orders_page'))
+        else:
+            flash(message, "error")
             return redirect(url_for('checkout_page'))
 
-        # If payment was successful, create the order
-        order_result = backend.mock_create_order_from_cart(cart.id, {"payment_type": "VirtualCard"})
-        if not order_result['status']:
-            flash(f"Payment succeeded, but failed to create order: {order_result['message']}", "error")
-            # In a real app, you would refund the payment here.
-            return redirect(url_for('cart_page'))
-        
-        order_id = order_result['order_id']
-
-        # Create the invoice for the new order
-        backend.mock_create_invoice(order_id, address_id)
-
-        # Clear the user's cart
-        backend.mock_clear_cart(cart.id)
-
-        flash("Your order has been placed successfully!", "success")
-        return redirect(url_for('account_details_page'))
-
     # For GET request
-    addresses = backend.mock_get_addresses_by_user_id(user.id)
-    virtual_card = backend.mock_get_virtual_card_by_owner_id(user.id)
-    total_price = sum(item.product_price * item.product_quantity for item in cart.items)
-    for item in cart.items:
-        item.product = backend.mock_get_product_by_id(item.product_id)
+    addr_success, addr_result = address_service.get_user_addresses(user.id)
+    if not addr_success:
+        flash(str(addr_result), "error")
+    addresses = addr_result if addr_success else []
 
-    return render_template('checkout.html', cart_items=cart.items, total_price=total_price, addresses=addresses, virtual_card=virtual_card)
+    vc_success, vc_result = transaction_service.get_user_payment_details(user.id)
+    if not vc_success:
+        flash(str(vc_result), "error")
+    virtual_card = vc_result[0] if vc_success else None # type: ignore
+
+    total_price = sum(item.total_price for item in cart_items) # type: ignore
+
+    return render_template('checkout.html', cart_items=cart_items, total_price=total_price, addresses=addresses, virtual_card=virtual_card)
 
 @app.route('/products-page')
 def products_page(): 
@@ -808,92 +842,43 @@ def products_page():
         str: The rendered HTML of the products page with a list of all
         products.
     """
-    all_products = backend.mock_get_all_products()
-    categories = backend.mock_get_all_categories()
+    PRODUCTS_PER_PAGE = 12
 
     # Capturing all user input
     search_criteria = {
         'query': request.args.get('query'),
         'category': request.args.get('category', type=int),
-        'min_price': request.args.get('min_price', type=float),
-        'max_price': request.args.get('max_price', type=float),
-        'min_rating': request.args.get('min_rating', type=float),
+        'min_price': request.args.get('min_price', type=float, default=None),
+        'max_price': request.args.get('max_price', type=float, default=None),
+        'min_rating': request.args.get('min_rating', type=float, default=None),
         'sort_by': request.args.get('sort_by'),
         'page': request.args.get('page', 1, type=int)
     }
 
-    # Apply filters
-    filtered_products = all_products
+    categories = product_service.get_all_categories()
+    if categories is None:
+        flash("Could not load categories.", "error")
+        categories = []
 
-    # Search filter
-    if search_criteria['query']:
-        query = search_criteria['query'].lower()
-        
-        def product_matches_query(product):
-            category = backend.mock_get_category_by_id(product.category_id)
-            return (query in product.name.lower() or
-                    query in product.brand.lower() or
-                    (category and query in category.name.lower()))
+    # Use product_service to get filtered, sorted, and paginated products
+    success, result = product_service.search_products(
+        filters=search_criteria,
+        page=search_criteria['page'],
+        per_page=PRODUCTS_PER_PAGE
+    )
 
-        filtered_products = [p for p in filtered_products if product_matches_query(p)]
-
-    # Category filter
-    if search_criteria['category']:
-        selected_category_id = search_criteria['category']
-        subcategory_ids = [c.id for c in categories if c.parent_id == selected_category_id]
-        all_category_ids = [selected_category_id] + subcategory_ids
-        filtered_products = [p for p in filtered_products if p.category_id in all_category_ids]
-
-    # Price filter
-    if search_criteria['min_price'] is not None:
-        filtered_products = [p for p in filtered_products if p.price >= search_criteria['min_price']]
-    if search_criteria['max_price'] is not None:
-        filtered_products = [p for p in filtered_products if p.price <= search_criteria['max_price']]
-
-    # Rating filter
-    if search_criteria['min_rating'] is not None:
-        filtered_products = [
-            p for p in filtered_products
-            if (meta := backend.mock_get_product_metadata(p.id)) and meta.rating_avg >= search_criteria['min_rating']
-        ]
-
-    # Enrich product data before sorting
-    for product in filtered_products:
-        category = backend.mock_get_category_by_id(product.category_id)
-        address = backend.mock_get_address_by_id(product.address_id)
-        metadata = backend.mock_get_product_metadata(product.id)
-        
-        product.category_name = category.name if category else "Uncategorized"
-        product.city = address.city if address else "N/A"
-        product.sold_count = metadata.sold_count if metadata else 0
-        product.rating_avg = metadata.rating_avg if metadata else 0
-
-    # Apply sorting
-    if search_criteria['sort_by'] == 'sold':
-        filtered_products.sort(
-            key=lambda p: p.sold_count,
-            reverse=True
-        )
-    elif search_criteria['sort_by'] == 'price_asc':
-        filtered_products.sort(key=lambda p: p.price)
-    elif search_criteria['sort_by'] == 'price_desc':
-        filtered_products.sort(key=lambda p: p.price, reverse=True)
-    elif search_criteria['sort_by'] == 'ratings':
-        filtered_products.sort(key=lambda p: p.rating_avg, reverse=True)
-    elif search_criteria['sort_by'] == 'brand':
-        filtered_products.sort(key=lambda p: p.brand)
+    if not success:
+        flash(str(result), "error")
+        paginated_products = []
+        total_products = 0
+    else:
+        paginated_products, total_products = result
 
     # Pagination logic
-    PRODUCTS_PER_PAGE = 12
-    total_products = len(filtered_products)
-    total_pages = (total_products + PRODUCTS_PER_PAGE - 1) // PRODUCTS_PER_PAGE
+    total_pages = (int(total_products) + PRODUCTS_PER_PAGE - 1) // PRODUCTS_PER_PAGE
     page = search_criteria['page']
 
-    start_index = (page - 1) * PRODUCTS_PER_PAGE
-    end_index = start_index + PRODUCTS_PER_PAGE
-    paginated_products = filtered_products[start_index:end_index]
-
-    selected_category = backend.mock_get_category_by_id(search_criteria['category']) if search_criteria['category'] else None
+    selected_category = product_service.get_product_category(search_criteria['category']) if search_criteria['category'] else None
 
     return render_template('products.html', products=paginated_products, categories=categories, 
                            selected_category=selected_category, sort_by=search_criteria['sort_by'],
@@ -968,50 +953,58 @@ def add_to_cart():
         flash("Please log in to add items to your cart.", "error")
         return redirect(url_for('login_page'))
 
-    user = backend.mock_get_user_by_username(session['username'])
-    cart = backend.mock_get_cart_by_user_id(user.id) 
-    product_id = int(request.form.get('product_id'))
-    quantity = int(request.form.get('quantity', 1))
+    user = user_repository.get_by_username(session['username'])
+    if not user:
+        flash("User not found. Please log in again.", "error")
+        return redirect(url_for('login_page'))
 
-    result = backend.mock_add_item_to_cart(cart.id, {'product_id': product_id, 'product_quantity': quantity})
-    flash(result['message'], 'success' if result['status'] else 'error')
+    try:
+        product_id = int(request.form.get('product_id'))
+        quantity = int(request.form.get('quantity', 1))
+    except (ValueError, TypeError):
+        flash("Invalid product data provided.", "error")
+        return redirect(request.referrer or url_for('index'))
+
+    success, message = interaction_service.add_to_cart(user.id, product_id, quantity)
+    flash(message, 'success' if success else 'error')
     return redirect(url_for('product_page', product_id=product_id))
 
 @app.route('/update-cart-item/<int:item_id>', methods=['POST'])
 def update_cart_item(item_id: int):
     """Updates the quantity of an item in the user's cart."""
     if 'username' not in session:
-        flash("Please log in to modify your cart.", "error")
+        flash("Please log in to update your cart.", "error")
         return redirect(url_for('cart_page'))
 
-    user = backend.mock_get_user_by_username(session['username'])
-    cart = backend.mock_get_cart_by_user_id(user.id)
-    
+    user = user_repository.get_by_username(session['username'])
+    if not user:
+        flash("User not found. Please log in again.", "error")
+        return redirect(url_for('login_page'))
+
     try:
         quantity = int(request.form.get('quantity'))
-        if quantity < 1:
-            flash("Quantity must be at least 1.", "error")
-            return redirect(url_for('cart_page'))
     except (ValueError, TypeError):
         flash("Invalid quantity specified.", "error")
         return redirect(url_for('cart_page'))
 
-    result = backend.mock_update_cart_item_quantity(cart.id, item_id, quantity)
-    flash(result['message'], 'success' if result['status'] else 'error')
+    success, message = interaction_service.update_cart_item(user.id, item_id, quantity)
+    flash(message, 'success' if success else 'error')
     return redirect(url_for('cart_page'))
 
 @app.route('/remove-from-cart/<int:item_id>', methods=['POST'])
 def remove_from_cart(item_id: int):
     """Removes an item from the user's cart."""
     if 'username' not in session:
-        flash("Please log in to modify your cart.", "error")
+        flash("Please log in to update your cart.", "error")
         return redirect(url_for('login_page'))
 
-    user = backend.mock_get_user_by_username(session['username'])
-    cart = backend.mock_get_cart_by_user_id(user.id)
+    user = user_repository.get_by_username(session['username'])
+    if not user:
+        flash("User not found. Please log in again.", "error")
+        return redirect(url_for('login_page'))
 
-    result = backend.mock_remove_item_from_cart(cart.id, item_id)
-    flash(result['message'], 'success' if result['status'] else 'error')
+    success, message = interaction_service.remove_cart_item(user.id, item_id)
+    flash(message, 'success' if success else 'error')
     return redirect(url_for('cart_page'))
 
 @app.route('/add-review/<int:product_id>', methods=['POST'])

@@ -1,6 +1,8 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
+from models.orders import CartItem
+
 if TYPE_CHECKING:
     from repositories.account_repository import UserRepository
     from repositories.product_repository import ProductRepository, ProductMetadataRepository
@@ -104,3 +106,47 @@ class InteractionService:
         )
 
         return (success, message)
+
+    def get_cart(self, user_id: int) -> tuple[bool, list[CartItem] | str]:
+        """
+        Retrieves the contents of a user's cart.
+
+        Args:
+            user_id (int): The ID of the user.
+
+        Returns:
+            A tuple containing success status, and either a list of CartItem objects or an error message.
+        """
+        try:
+            cart_items = self.cart_repo.get_cart_contents(user_id)
+            return (True, cart_items)
+        except Exception as e:
+            print(f"[InteractionService ERROR] Failed to get cart for user {user_id}: {e}")
+            return (False, "Could not retrieve cart contents.")
+
+    def update_cart_item(self, user_id: int, item_id: int, quantity: int) -> tuple[bool, str]:
+        """
+        Updates the quantity of an item in the user's cart.
+
+        Args:
+            user_id (int): The ID of the user.
+            item_id (int): The ID of the item to update.
+            quantity (int): The new quantity. If 0, the item is removed.
+
+        Returns:
+            A tuple containing a boolean for success and a status message.
+        """
+        return self.cart_repo.update_item_quantity(user_id, item_id, quantity)
+
+    def remove_cart_item(self, user_id: int, item_id: int) -> tuple[bool, str]:
+        """
+        Removes an item from the user's cart.
+
+        Args:
+            user_id (int): The ID of the user.
+            item_id (int): The ID of the item to remove.
+
+        Returns:
+            A tuple containing a boolean for success and a status message.
+        """
+        return self.cart_repo.remove_item(user_id, item_id)

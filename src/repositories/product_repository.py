@@ -164,22 +164,26 @@ class ProductRepository(BaseRepository):
         if not metadata_deleted:
             return (False, f"Failed to delete product metadata for product ID {identifier}. Product not deleted.")
         return self._delete_by_id(identifier, self.table_name, self.db, id_field="id")
-    
-    def delete_images_for_product(self, product_id: int, db: Database) -> None:
+
+    def delete_images_for_product(self, product_id: int, db: Database) -> list[str]:
         """
-        Deletes all images and their junction table links for a specific product.
+        Deletes all image DB records and their junction table links for a specific product.
         This method assumes it's being called within an existing transaction.
-        Note: This does not delete the physical files, only the DB records.
+        It returns the URLs of the deleted images so the physical files can be removed.
         """
-        # Find all image IDs linked to the product
-        image_ids_query = "SELECT image_id FROM product_images WHERE product_id = %s"
-        image_id_rows = db.fetch_all(image_ids_query, (product_id,))
+        # Find all image IDs and URLs linked to the product
+        image_query = "SELECT i.id, i.url FROM images i JOIN product_images pi ON i.id = pi.image_id WHERE pi.product_id = %s"
+        image_rows = db.fetch_all(image_query, (product_id,))
         
-        if image_id_rows:
-            image_ids = tuple(row['image_id'] for row in image_id_rows)
-            # Delete from the junction table (handled by cascade on images table)
+        if image_rows:
+            image_ids = tuple(row['id'] for row in image_rows)
+            image_urls = [row['url'] for row in image_rows]
+            # The 'product_images' junction table has ON DELETE CASCADE for image_id,
+            # so we only need to delete from the 'images' table.
             # Delete from the images table
-            db.execute_query(f"DELETE FROM images WHERE id IN ({',%s' * len(image_ids)})", image_ids)
+            db.execute_query(f"DELETE FROM images WHERE id IN ({','.join(['%s'] * len(image_ids))})", image_ids)
+            return image_urls
+        return []
 
     def _map_to_product(self, row: dict) -> Product | None:
         """
