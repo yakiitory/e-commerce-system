@@ -7,7 +7,7 @@ if TYPE_CHECKING:
     from database.database import Database
     from models.products import ProductCreate, ProductMetadata, Product, ProductEntry, Category, Address
     from services.media_service import MediaService
-    from fastapi import UploadFile
+    from werkzeug.datastructures import FileStorage
 
 class ProductService:
     """
@@ -27,14 +27,14 @@ class ProductService:
         self.product_repo = product_repo
         self.media_service = media_service
 
-    def create_product(self, product_data: ProductCreate, metadata: ProductMetadata, images: list[UploadFile]) -> tuple[int | None, str]:
+    def create_product(self, product_data: ProductCreate, metadata: ProductMetadata, images: list[FileStorage]) -> tuple[int | None, str]:
         """
         Creates a new product, saves its images, and links them.
 
         Args:
             product_data (ProductCreate): The data for the new product.
             metadata (ProductMetadata): The metadata for the new product.
-            images (list[UploadFile]): A list of uploaded image files.
+            images (list[FileStorage]): A list of uploaded image files.
 
         Returns:
             tuple[int | None, str]: A tuple containing the new product ID and a message.
@@ -142,7 +142,7 @@ class ProductService:
             print(f"[ProductService ERROR] An unexpected error occurred while fetching metadata for product {product_id}: {e}")
             return (False, None)
 
-    def update_product(self, product_id: int, merchant_id: int, product_data: dict[str, Any] | None = None, images: list[UploadFile] | None = None) -> tuple[bool, str]:
+    def update_product(self, product_id: int, merchant_id: int, product_data: dict[str, Any] | None = None, images: list[FileStorage] | None = None) -> tuple[bool, str]:
         """
         Updates a product's main data, and optionally its images.
 
@@ -150,7 +150,7 @@ class ProductService:
             product_id (int): The ID of the product to update.
             merchant_id (int): The ID of the merchant performing the update, for ownership verification.
             product_data (dict | None): A dictionary of product fields to update.
-            images (list[UploadFile] | None): A list of new uploaded image files. If provided,
+            images (list[FileStorage] | None): A list of new uploaded image files. If provided,
                                               existing images will be replaced.
 
         Returns:

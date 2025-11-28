@@ -2,9 +2,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 import bcrypt
 
+from models.accounts import UserCreate, MerchantCreate
+
 if TYPE_CHECKING:
-    from models.accounts import Account, User, UserCreate, Merchant, MerchantCreate, Admin, AdminCreate
-    from repositories.account_repository import UserRepository, MerchantRepository, AdminRepository
+    from models.accounts import Account, User, Merchant, Admin, AdminCreate
+    from repositories.account_repository import AdminRepository, MerchantRepository, UserRepository
 
 
 class AuthService:
@@ -47,7 +49,7 @@ class AuthService:
         data.hash = hashed_pw.decode('utf-8')
         return self.user_repo.create(data)
 
-    def register(self, form_data: dict) -> tuple[bool, str]:
+    def register(self, form_data: dict, account_type: str = '') -> tuple[bool, str]:
         """
         Registers a new account, dispatching to the correct type (user or merchant).
 
@@ -60,9 +62,8 @@ class AuthService:
         Returns:
             tuple[bool, str]: A tuple indicating success/failure and a message.
         """
-        account_type = form_data.get('account_type')
-        password = form_data.get('password', '')
-        confirm_password = form_data.get('confirm_password', '')
+        password = form_data.get('password', '') # This comes from the auth page
+        confirm_password = form_data.get('re_password', '')
 
         # --- Common Validations ---
         if not all([form_data.get('username'), password]):
@@ -82,7 +83,7 @@ class AuthService:
                     last_name=form_data['last_name'],
                     phone_number=form_data.get('phone_number', ''),
                     gender=form_data.get('gender', ''),
-                    age=int(form_data['age']) if form_data.get('age') else 0,
+                    age=int(form_data['age'])
                 )
                 return self.register_user(user_create)
             elif account_type == 'merchant':

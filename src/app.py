@@ -1,13 +1,12 @@
 from flask import Flask, render_template, url_for, jsonify, request, abort, flash, redirect, session
-from dataclasses import asdict
 from typing import cast
 from models.status import Status
-from datetime import datetime
 import os
-from services import AddressService, AuthService, InteractionService, ProductService, OrderService, MediaService, ReviewService, TransactionService
+from services import AddressService, AuthService, CategoryService, InteractionService, ProductService, OrderService, MediaService, ReviewService, TransactionService
 from repositories import (
     AdminRepository,
     CartRepository,
+    CategoryRepository,
     MerchantRepository,
     AddressRepository,
     OrderRepository,
@@ -21,12 +20,12 @@ from repositories import (
 )
 from database.database import Database
 from models.products import ProductCreate, ProductMetadata
-import backend
 
 db = Database()
 admin_repository            = AdminRepository(db)
 address_repository          = AddressRepository(db)
 merchant_repository         = MerchantRepository(db)
+category_repository         = CategoryRepository(db)
 order_repository            = OrderRepository(db)
 payment_repository          = PaymentRepository(db)
 product_metadata_repository = ProductMetadataRepository(db)
@@ -40,6 +39,9 @@ cart_repository             = CartRepository(db, product_metadata_repository)
 address_service = AddressService(
     db=db,
     address_repo=address_repository
+)
+category_service = CategoryService(
+    category_repo=category_repository
 )
 auth_service = AuthService(
     user_repo=user_repository,
@@ -87,6 +89,9 @@ def create_app():
 
 app = create_app()
 
+with app.app_context():
+    category_service.seed_categories()
+
 @app.context_processor
 def inject_user():
     """Injects user information into the template context.
@@ -115,14 +120,14 @@ def index():
         if user and user.role == 'merchant':
             return redirect(url_for('merchant_dashboard_page'))
 
-    categories = backend.mock_get_all_categories()
-
     # Fetch specific product lists using the new service methods
     _, trending_products = product_service.get_trending_products(limit=4)
     _, new_arrivals = product_service.get_new_arrivals(limit=4)
     _, top_rated = product_service.get_top_rated_products(limit=4)
     _, best_sellers = product_service.get_best_selling_products(limit=8) # Example: fetch more for this section
     _, popular_lately = product_service.get_trending_products(limit=8)
+
+    categories = product_service.get_all_categories() or []
 
     # Ensure lists are empty on failure to prevent template errors
     trending_products = trending_products or []
@@ -194,7 +199,8 @@ def register_page():
     """
     if request.method == 'POST':
         form_data = request.form.to_dict()
-        success, message = auth_service.register(form_data)
+        account_type = form_data.get('account_type', '') # Get account type from form
+        success, message = auth_service.register(form_data, account_type)
 
         flash(message, "success" if success else "error")
         if success:
@@ -218,6 +224,7 @@ def register_user_page():
     """
     if request.method == 'POST':
         session['registration_data'] = request.form.to_dict()
+        session['account_type'] = 'user'
         return redirect(url_for('register_auth_page'))
     return render_template('register-user.html')
 
@@ -234,6 +241,7 @@ def register_merchant_page():
     """
     if request.method == 'POST':
         session['registration_data'] = request.form.to_dict()
+        session['account_type'] = 'merchant'
         return redirect(url_for('register_auth_page'))
     return render_template('register-merchant.html')
 
@@ -256,8 +264,8 @@ def register_auth_page():
     if request.method == 'POST':
         full_form_data = session.get('registration_data', {}).copy()
         full_form_data.update(request.form.to_dict())
-
-        success, message = auth_service.register(full_form_data)
+        account_type = session.get('account_type', '')
+        success, message = auth_service.register(full_form_data, account_type)
 
         if success:
             session.pop('registration_data', None)

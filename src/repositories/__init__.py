@@ -4,6 +4,7 @@ from .account_repository import (
     UserRepository,
 )
 from .cart_repository import CartRepository
+from .category_repository import CategoryRepository
 from .metadata_repository import (
     ProductMetadataRepository,
     UserMetadataRepository,
@@ -21,6 +22,7 @@ __all__ = [
     "AdminRepository",
     "AddressRepository",
     "CartRepository",
+    "CategoryRepository",
     "MerchantRepository",
     "OrderRepository",
     "PaymentRepository",
