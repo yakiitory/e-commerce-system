@@ -31,7 +31,7 @@ class AuthService:
         self.admin_repo = admin_repo
 
     # --- User Specific Methods ---
-    def register_user(self, data: UserCreate) -> tuple[int, str]:
+    def register_user(self, data: UserCreate) -> tuple[bool, str]:
         """
         Registers a new user.
 
@@ -46,6 +46,60 @@ class AuthService:
         hashed_pw = bcrypt.hashpw(data.hash.encode(), bcrypt.gensalt())
         data.hash = hashed_pw.decode('utf-8')
         return self.user_repo.create(data)
+
+    def register(self, form_data: dict) -> tuple[bool, str]:
+        """
+        Registers a new account, dispatching to the correct type (user or merchant).
+
+        This method expects a dictionary of form data that includes an 'account_type'
+        field to determine whether to register a user or a merchant.
+
+        Args:
+            form_data (dict): A dictionary containing all necessary fields for registration.
+
+        Returns:
+            tuple[bool, str]: A tuple indicating success/failure and a message.
+        """
+        account_type = form_data.get('account_type')
+        password = form_data.get('password', '')
+        confirm_password = form_data.get('confirm_password', '')
+
+        # --- Common Validations ---
+        if not all([form_data.get('username'), password]):
+            return (False, "Username and password are required.")
+        if password != confirm_password:
+            return (False, "Passwords do not match.")
+        if len(password) < 6:
+            return (False, "Password must be at least 6 characters long.")
+
+        try:
+            if account_type == 'user':
+                user_create = UserCreate(
+                    username=form_data['username'],
+                    email=form_data['email'],
+                    hash=password,
+                    first_name=form_data['first_name'],
+                    last_name=form_data['last_name'],
+                    phone_number=form_data.get('phone_number', ''),
+                    gender=form_data.get('gender', ''),
+                    age=int(form_data['age']) if form_data.get('age') else 0,
+                )
+                return self.register_user(user_create)
+            elif account_type == 'merchant':
+                merchant_create = MerchantCreate(
+                    first_name=form_data['first_name'],
+                    last_name=form_data['last_name'],
+                    username=form_data['username'],
+                    email=form_data['email'],
+                    phone_number=form_data['phone_number'],
+                    hash=password,
+                    store_name=form_data['store_name'],
+                )
+                return self.register_merchant(merchant_create)
+            else:
+                return (False, "Invalid account type specified.")
+        except (KeyError, ValueError) as e:
+            return (False, f"Missing or invalid required field: {e}")
 
     def login(self, username: str, password: str) -> tuple[bool, Account | None]:
         """
@@ -161,7 +215,7 @@ class AuthService:
             return (False, None)
 
     # --- Merchant Specific Methods ---
-    def register_merchant(self, data: MerchantCreate) -> tuple[int, str]:
+    def register_merchant(self, data: MerchantCreate) -> tuple[bool, str]:
         """
         Registers a new merchant.
 
@@ -211,7 +265,7 @@ class AuthService:
             return (False, None)
 
     # --- Admin Specific Methods ---
-    def register_admin(self, data: AdminCreate) -> tuple[int, str]:
+    def register_admin(self, data: AdminCreate) -> tuple[bool, str]:
         """
         Registers a new admin.
 

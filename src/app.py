@@ -193,13 +193,15 @@ def register_page():
         str: The rendered HTML of the registration page.
     """
     if request.method == 'POST':
-        full_form_data = session.get('registration_data', {})
-        full_form_data.update(request.form.to_dict())
-        
-        result = backend.mock_register(full_form_data)
-            
-        flash(result["message"], "success" if result["status"] else "error")
-        return redirect(url_for('login_page'))
+        form_data = request.form.to_dict()
+        success, message = auth_service.register(form_data)
+
+        flash(message, "success" if success else "error")
+        if success:
+            session.pop('registration_data', None) # Clean up session data
+            return redirect(url_for('login_page'))
+        else:
+            return redirect(url_for('register_page'))
 
     return render_template('register.html')
 
@@ -246,17 +248,23 @@ def register_auth_page():
         response or str: A redirect to the login page on
         successful registration, otherwise the rendered registration auth page.
     """
+    # Ensure there's data from the first step
+    if 'registration_data' not in session:
+        flash("Please complete the first step of registration.", "error")
+        return redirect(url_for('register_user_page')) # Or a generic start page
+
     if request.method == 'POST':
-        full_form_data = session.get('registration_data', {}).copy() 
+        full_form_data = session.get('registration_data', {}).copy()
         full_form_data.update(request.form.to_dict())
-        
-        result = backend.mock_register(full_form_data)
-        if result["status"]:
+
+        success, message = auth_service.register(full_form_data)
+
+        if success:
             session.pop('registration_data', None)
-            flash(result["message"], "success")
+            flash(message, "success")
             return redirect(url_for('login_page'))
         else:
-            flash(result["message"], "error")
+            flash(message, "error")
 
     return render_template('register-auth.html')
 
