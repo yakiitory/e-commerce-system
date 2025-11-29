@@ -880,7 +880,7 @@ def deposit_to_card():
         flash("Please enter a valid, positive deposit amount.", "error")
         return redirect(url_for('payments_page'))
 
-    success, message = transaction_service.cash_in(user_card_id=virtual_card.id, owner_id=owner.id, amount=amount)
+    success, message = transaction_service.cash_in(card_id=virtual_card.id, amount=amount)
     flash(message, 'success' if success else 'error')
     return redirect(url_for('payments_page'))
 

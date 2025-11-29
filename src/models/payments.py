@@ -15,10 +15,10 @@ class VirtualCard(VirtualCardCreate):
 class PaymentCreate:
     """Data needed to create a new payment."""
     sender_id: int
+    sender_type: str
     receiver_id: int
-    type: str
+    receiver_type: str
     amount: float
-    status: Status = Status.PENDING
 
 @dataclass
 class Payment(PaymentCreate, DateMixin):

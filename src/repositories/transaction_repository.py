@@ -97,54 +97,24 @@ class VirtualCardRepository(BaseRepository):
         return self._delete_by_id(identifier, self.table_name, self.db)
 
     def get_by_user_id(self, user_id: int) -> VirtualCard | None:
+        query = """
+            SELECT vc.*
+            FROM virtualcards vc
+            JOIN user_virtualcards uvc ON vc.id = uvc.virtualcard_id
+            WHERE uvc.user_id = %s
         """
-        Reads a virtual card record by a user's ID.
-
-        Args:
-            user_id (int): The ID of the card's owner.
-
-        Returns:
-            VirtualCard | None: The VirtualCard object if found, otherwise None.
-        """
-
-        # Find virtual card ID first from junction table user_virtualcards
-        junc_query = "SELECT virtualcard_id FROM user_virtualcards WHERE user_id = %s"
-        junc_result = self.db.fetch_one(junc_query, (user_id,))
-        if not junc_result:
-            return None
-        card_id = junc_result['virtualcard_id'] 
-        # Obtain virtual card info from DB using ID
-        card_query = "SELECT * FROM virtualcards WHERE id = %s"
-        card_result = self.db.fetch_one(card_query, (card_id,))
-        if not card_result:
-            return None
-        # Return virtual card
-        return VirtualCard(**card_result)
+        result = self.db.fetch_one(query, (user_id,))
+        return VirtualCard(**result) if result else None
     
     def get_by_merchant_id(self, merchant_id: int) -> VirtualCard | None:
+        query = """
+            SELECT vc.*
+            FROM virtualcards vc
+            JOIN merchant_virtualcards mvc ON vc.id = mvc.virtualcard_id
+            WHERE mvc.merchant_id = %s
         """
-        Reads a virtual card record by a user's ID.
-
-        Args:
-            merchant_id (int): The ID of the card's owner.
-
-        Returns:
-            VirtualCard | None: The VirtualCard object if found, otherwise None.
-        """
-
-        # Find virtual card ID first from junction table user_virtualcards
-        junc_query = "SELECT virtualcard_id FROM merchant_virtualcards WHERE merchant_id = %s"
-        junc_result = self.db.fetch_one(junc_query, (merchant_id,))
-        if not junc_result:
-            return None
-        card_id = junc_result['virtualcard_id'] 
-        # Obtain virtual card info from DB using ID
-        card_query = "SELECT * FROM virtualcards WHERE id = %s"
-        card_result = self.db.fetch_one(card_query, (card_id,))
-        if not card_result:
-            return None
-        # Return virtual card
-        return VirtualCard(**card_result)
+        result = self.db.fetch_one(query, (merchant_id,))
+        return VirtualCard(**result) if result else None
 
 
 
@@ -165,13 +135,9 @@ class PaymentRepository(BaseRepository):
         Returns:
             tuple[int | None, str]: A tuple with the new ID and a message.
         """
-        fields = ["sender_id", "receiver_id", "type", "amount", "status"]
-        
-        # Prepare data for DB, converting Status enum to its value
-        payment_data_for_db = data.__dict__.copy()
-        payment_data_for_db['status'] = data.status.value
+        fields = ["sender_id", "sender_type", "receiver_id", "receiver_type", "amount"]
 
-        new_id, message = self._create_record(payment_data_for_db, fields, self.table_name, self.db)
+        new_id, message = self._create_record(data, fields, self.table_name, self.db)
         return (new_id, message)
 
     @override
@@ -231,7 +197,7 @@ class PaymentRepository(BaseRepository):
         Returns:
             list[Payment]: A list of Payment objects.
         """
-        query = f"SELECT * FROM {self.table_name} WHERE sender_id = %s OR receiver_id = %s ORDER BY created_at DESC"
+        query = f"SELECT * FROM {self.table_name} WHERE sender_id = %s OR receiver_id = %s"
         query = f"SELECT * FROM {self.table_name} WHERE sender_id = %s OR receiver_id = %s"
         rows = self.db.fetch_all(query, (user_id, user_id))
         if not rows:
@@ -248,7 +214,7 @@ class PaymentRepository(BaseRepository):
         Returns:
             list[Payment]: A list of Payment objects.
         """
-        query = f"SELECT * FROM {self.table_name} WHERE sender_id = %s OR receiver_id = %s ORDER BY created_at DESC"
+        query = f"SELECT * FROM {self.table_name} WHERE sender_id = %s OR receiver_id = %s"
         query = f"SELECT * FROM {self.table_name} WHERE sender_id = %s OR receiver_id = %s"
         rows = self.db.fetch_all(query, (merchant_id, merchant_id))
         if not rows:
