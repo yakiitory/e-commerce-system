@@ -103,8 +103,17 @@ def inject_user():
         dict: A dictionary containing the current_user, or None if not logged in.
     """
     current_user = None
-    if 'username' in session:
-        current_user = user_repository.get_by_username(session['username'])
+    if 'username' in session and 'role' in session:
+        username = session['username']
+        role = session['role']
+
+        # Use the stored role to query the correct repository
+        if role == 'user':
+            current_user = user_repository.get_by_username(username)
+        elif role == 'merchant':
+            current_user = merchant_repository.get_by_username(username)
+        elif role in ['admin', 'superadmin']: # Assuming admin roles
+            current_user = admin_repository.get_by_username(username)
     return dict(current_user=current_user)
 
 @app.route('/')
@@ -116,7 +125,7 @@ def index():
     """
     # If a merchant is logged in, redirect them to their dashboard.
     if 'username' in session:
-        user = user_repository.get_by_username(session['username'])
+        user = merchant_repository.get_by_username(session['username'])
         if user and user.role == 'merchant':
             return redirect(url_for('merchant_dashboard_page'))
 
@@ -166,6 +175,7 @@ def login_page():
 
         if is_success and account_or_message:
             session['username'] = username
+            session['role'] = account_or_message.role
             flash(f"Welcome back, {username}!", "success")
             
             # Redirect merchants to their dashboard, others to index.
@@ -493,7 +503,7 @@ def merchant_dashboard_page():
         flash("Please log in to view this page.", "error")
         return redirect(url_for('login_page'))
     
-    user = user_repository.get_by_username(session['username'])
+    user = merchant_repository.get_by_username(session['username'])
     if not user or user.role != 'merchant':
         flash("You do not have permission to access this page.", "error")
         return redirect(url_for('index'))
