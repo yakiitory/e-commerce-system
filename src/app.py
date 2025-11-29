@@ -282,7 +282,9 @@ def register_auth_page():
             flash(message, "success")
             return redirect(url_for('login_page'))
         else:
+            session.pop('registration_data', None)
             flash(message, "error")
+            return redirect(url_for('register_page'))
 
     return render_template('register-auth.html')
 
