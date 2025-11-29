@@ -230,21 +230,41 @@ CREATE TABLE IF NOT EXISTS `user_orders` (
 
 CREATE TABLE IF NOT EXISTS `virtualcards` (
   `id` INT AUTO_INCREMENT NOT NULL,
-  `owner_id` INT NOT NULL,
-  `owner_type` ENUM('USER', 'MERCHANT') NOT NULL,
   `balance` DECIMAL(18,2) DEFAULT 0.00,
   PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `user_virtualcards` (
+  `user_id` INT NOT NULL,
+  `virtualcard_id` INT NOT NULL,
+  PRIMARY KEY (`user_id`, `virtualcard_id`),
+  FOREIGN KEY (`user_id`) REFERENCES `users`(`id`)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE,
+  FOREIGN KEY (`virtualcard_id`) REFERENCES `virtualcards`(`id`)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `merchant_virtualcards` (
+  `merchant_id` INT NOT NULL,
+  `virtualcard_id` INT NOT NULL,
+  PRIMARY KEY (`merchant_id`, `virtualcard_id`),
+  FOREIGN KEY (`merchant_id`) REFERENCES `merchants`(`id`)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE,
+  FOREIGN KEY (`virtualcard_id`) REFERENCES `virtualcards`(`id`)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `payments` (
   `id` INT AUTO_INCREMENT NOT NULL,
   `sender_id` INT NOT NULL,
-  `sender_type` ENUM('USER', 'MERCHANT') NOT NULL,
+  `sender_type` VARCHAR(50) NOT NULL,
   `receiver_id` INT NOT NULL,
-  `receiver_type` ENUM('USER', 'MERCHANT') NOT NULL,
-  `type` VARCHAR(50) NOT NULL,
+  `receiver_type` VARCHAR(50) NOT NULL,
   `amount` DECIMAL(18,2) NOT NULL,
-  `status` TINYINT NOT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
