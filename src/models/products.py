@@ -20,6 +20,8 @@ class ProductCreate:
     images: list[str] = field(default_factory=list)
 
     price: float = 0.0
+    rating_count: int = 0
+    rating_score: float = 0
     original_price: float = 0.0
     discount_rate: float = 0.0
     quantity_available: int = 0
@@ -42,7 +44,8 @@ class ProductEntry:
     brand: str
     price: float
     original_price: float
-    ratings: float
+    rating_score: float
+    rating_count: int
     warehouse: str
     thumbnail: str
     sold_count: int
@@ -50,22 +53,25 @@ class ProductEntry:
     category_name: str | None = None
     city: str | None = None
 
+
 @dataclass
-class ProductMetadata:
-    product_id: int
+class ProductMetadataCreate:
+    product_id: int = 0
     view_count: int = 0
     sold_count: int = 0
     add_to_cart_count: int = 0
     wishlist_count: int = 0
-    click_through_rate: float = 0
-    rating_avg: float = 0
-    rating_count: int = 0
-    popularity_score: float = 0
+    click_through_rate: float = 0.0
+    popularity_score: float = 0.0
     demographics_fit: dict[str, float] = field(default_factory=dict)
     seasonal_relevance: list[str] = field(default_factory=list)
     embedding_vector: list[float] = field(default_factory=list)
     keywords: list[str] = field(default_factory=list)
     tags: list[str] = field(default_factory=list)
+
+@dataclass
+class ProductMetadata(ProductMetadataCreate):
+    id: int = 0
 
 @dataclass
 class CategoryCreate:

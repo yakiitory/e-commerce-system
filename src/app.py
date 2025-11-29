@@ -36,60 +36,61 @@ virtual_card_repository     = VirtualCardRepository(db)
 product_repository          = ProductRepository(db)
 cart_repository             = CartRepository(db, product_metadata_repository)
 
-address_service = AddressService(
-    db=db,
-    address_repo=address_repository
-)
-category_service = CategoryService(
-    category_repo=category_repository
-)
-auth_service = AuthService(
-    user_repo=user_repository,
-    merchant_repo=merchant_repository,
-    admin_repo=admin_repository
-)
-interaction_service = InteractionService(
-    db=db, 
-    user_repo=user_repository, 
-    product_repo=product_repository, 
-    cart_repo=cart_repository
-)
-transaction_service = TransactionService(
-    db=db,
-    payment_repo=payment_repository,
-    virtual_card_repo=virtual_card_repository,
-    user_repo=user_repository,
-    merchant_repo=merchant_repository
-)
-media_service = MediaService(media_root="src/static/db-images")
-product_service = ProductService(
-    db=db,
-    product_repo=product_repository,
-    media_service=media_service
-)
-order_service = OrderService(
-    db=db,
-    order_repo=order_repository,
-    product_repo=product_repository,
-    transaction_service=transaction_service,
-    cart_repo=cart_repository
-)
-review_service = ReviewService(
-    db=db,
-    review_repo=review_repository,
-    order_repo=order_repository,
-    media_service=media_service,
-    product_meta_repo=product_metadata_repository
-)
-
 def create_app():
     app = Flask(__name__, template_folder='../templates', static_folder='../static')
     app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'yo_mama_gay')
+    app.config['UPLOAD_FOLDER'] = '../static/db-images'
     return app
 
 app = create_app()
 
 with app.app_context():
+    # Initialize services within the application context
+    address_service = AddressService(
+        db=db,
+        address_repo=address_repository
+    )
+    category_service = CategoryService(
+        category_repo=category_repository
+    )
+    auth_service = AuthService(
+        user_repo=user_repository,
+        merchant_repo=merchant_repository,
+        admin_repo=admin_repository
+    )
+    interaction_service = InteractionService(
+        db=db, 
+        user_repo=user_repository, 
+        product_repo=product_repository, 
+        cart_repo=cart_repository
+    )
+    transaction_service = TransactionService(
+        db=db,
+        payment_repo=payment_repository,
+        virtual_card_repo=virtual_card_repository,
+        user_repo=user_repository,
+        merchant_repo=merchant_repository
+    )
+    media_service = MediaService(media_root="db-images")
+    product_service = ProductService(
+        db=db,
+        product_repo=product_repository,
+        media_service=media_service
+    )
+    order_service = OrderService(
+        db=db,
+        order_repo=order_repository,
+        product_repo=product_repository,
+        transaction_service=transaction_service,
+        cart_repo=cart_repository
+    )
+    review_service = ReviewService(
+        db=db,
+        review_repo=review_repository,
+        order_repo=order_repository,
+        media_service=media_service,
+        product_meta_repo=product_metadata_repository
+    )
     category_service.seed_categories()
 
 @app.context_processor
@@ -103,8 +104,17 @@ def inject_user():
         dict: A dictionary containing the current_user, or None if not logged in.
     """
     current_user = None
-    if 'username' in session:
-        current_user = user_repository.get_by_username(session['username'])
+    if 'username' in session and 'role' in session:
+        username = session['username']
+        role = session['role']
+
+        # Use the stored role to query the correct repository
+        if role == 'user':
+            current_user = user_repository.get_by_username(username)
+        elif role == 'merchant':
+            current_user = merchant_repository.get_by_username(username)
+        elif role in ['admin', 'superadmin']: # Assuming admin roles
+            current_user = admin_repository.get_by_username(username)
     return dict(current_user=current_user)
 
 @app.route('/')
@@ -116,7 +126,7 @@ def index():
     """
     # If a merchant is logged in, redirect them to their dashboard.
     if 'username' in session:
-        user = user_repository.get_by_username(session['username'])
+        user = merchant_repository.get_by_username(session['username'])
         if user and user.role == 'merchant':
             return redirect(url_for('merchant_dashboard_page'))
 
@@ -124,8 +134,7 @@ def index():
     _, trending_products = product_service.get_trending_products(limit=4)
     _, new_arrivals = product_service.get_new_arrivals(limit=4)
     _, top_rated = product_service.get_top_rated_products(limit=4)
-    _, best_sellers = product_service.get_best_selling_products(limit=8) # Example: fetch more for this section
-    _, popular_lately = product_service.get_trending_products(limit=8)
+    _, best_sellers = product_service.get_best_selling_products(limit=8)
 
     categories = product_service.get_all_categories() or []
 
@@ -134,17 +143,21 @@ def index():
     new_arrivals = new_arrivals or []
     top_rated = top_rated or []
     best_sellers = best_sellers or []
-    popular_lately = popular_lately or []
 
-    # Deal of the day can be the top trending product
+    # "Deal of the Day" is the first trending product
     deal_of_the_day = trending_products[0] if trending_products else None
     deal_of_the_day_total_stock = 0
     if deal_of_the_day:
         deal_of_the_day_total_stock = 50
+        # Calculate rating_avg for the template
+        rating_avg = (deal_of_the_day.rating_score / deal_of_the_day.rating_count) if deal_of_the_day.rating_count > 0 else 0
+        setattr(deal_of_the_day, 'rating_avg', rating_avg)
 
+    popular_lately_products = best_sellers
+    popular_lately_products = best_sellers[:8] # Use the first 8 best-sellers
     return render_template('index.html', categories=categories, trending_products=trending_products,
                            new_arrivals=new_arrivals, top_rated=top_rated, best_sellers=best_sellers,
-                           deal_of_the_day=deal_of_the_day, deal_of_the_day_total_stock=deal_of_the_day_total_stock, popular_lately=popular_lately)
+                           deal_of_the_day=deal_of_the_day, deal_of_the_day_total_stock=deal_of_the_day_total_stock, popular_lately=popular_lately_products)
 
 
 @app.route('/login-page', methods=['GET', 'POST'])
@@ -166,6 +179,7 @@ def login_page():
 
         if is_success and account_or_message:
             session['username'] = username
+            session['role'] = account_or_message.role
             flash(f"Welcome back, {username}!", "success")
             
             # Redirect merchants to their dashboard, others to index.
@@ -420,21 +434,29 @@ def change_password_page():
 
 @app.route('/user-addresses')
 def user_addresses_page():
-    """Renders the page that displays the user's saved addresses."""
+    """Renders the page that displays a client's saved addresses."""
     if 'username' not in session:
         flash("Please log in to view this page.", "error")
         return redirect(url_for('login_page'))
-    
-    user = user_repository.get_by_username(session['username'])
+
+    username = session['username']
+    role = session['role']
+    user = None
+
+    if role == 'user':
+        user = user_repository.get_by_username(username)
+        get_addresses_func = address_service.get_user_addresses
+    elif role == 'merchant':
+        user = merchant_repository.get_by_username(username)
+        get_addresses_func = address_service.get_merchant_addresses
+
     if not user:
         flash("User not found. Please log in again.", "error")
+        session.pop('username', None)
         return redirect(url_for('login_page'))
 
-    success, result = address_service.get_user_addresses(user.id)
+    success, result = get_addresses_func(user.id)
     addresses = result if success else []
-    if not success:
-        flash(str(result), "error")
-
     return render_template('user-addresses.html', addresses=addresses)
 
 @app.route('/add-address', methods=['POST'])
@@ -443,14 +465,26 @@ def add_address():
     if 'username' not in session:
         flash("Please log in to add an address.", "error")
         return redirect(url_for('login_page'))
+    
+    username = session['username']
+    role = session.get('role')
+    account = None
+    add_address_func = None
 
-    user = user_repository.get_by_username(session['username'])
-    if not user:
+    if role == 'user':
+        account = user_repository.get_by_username(username)
+        add_address_func = address_service.add_address_for_user
+    elif role == 'merchant':
+        account = merchant_repository.get_by_username(username)
+        add_address_func = address_service.add_address_for_merchant
+
+    if not account or not add_address_func:
         flash("User not found. Please log in again.", "error")
+        session.pop('username', None)
         return redirect(url_for('login_page'))
 
     address_data = request.form.to_dict()
-    success, message = address_service.add_address_for_user(user.id, address_data)
+    success, message = add_address_func(account.id, address_data)
     flash(message, 'success' if success else 'error')
     return redirect(url_for('user_addresses_page'))
 
@@ -460,13 +494,26 @@ def edit_address(address_id: int):
     if 'username' not in session:
         flash("Please log in to edit an address.", "error")
         return redirect(url_for('login_page'))
+    
+    username = session['username']
+    role = session.get('role')
+    account = None
+    update_address_func = None
 
-    user = user_repository.get_by_username(session['username'])
-    if not user:
+    if role == 'user':
+        account = user_repository.get_by_username(username)
+        update_address_func = address_service.update_user_address
+    elif role == 'merchant':
+        account = merchant_repository.get_by_username(username)
+        update_address_func = address_service.update_merchant_address
+
+    if not account or not update_address_func:
         flash("User not found. Please log in again.", "error")
+        session.pop('username', None)
         return redirect(url_for('login_page'))
 
-    success, message = address_service.update_user_address(user.id, address_id, request.form.to_dict())
+    address_data = request.form.to_dict()
+    success, message = update_address_func(account.id, address_id, address_data)
     flash(message, 'success' if success else 'error')
     return redirect(url_for('user_addresses_page'))
 
@@ -476,13 +523,25 @@ def delete_address(address_id: int):
     if 'username' not in session:
         flash("Please log in to delete an address.", "error")
         return redirect(url_for('login_page'))
+    
+    username = session['username']
+    role = session.get('role')
+    account = None
+    delete_address_func = None
 
-    user = user_repository.get_by_username(session['username'])
-    if not user:
+    if role == 'user':
+        account = user_repository.get_by_username(username)
+        delete_address_func = address_service.delete_user_address
+    elif role == 'merchant':
+        account = merchant_repository.get_by_username(username)
+        delete_address_func = address_service.delete_merchant_address
+
+    if not account or not delete_address_func:
         flash("User not found. Please log in again.", "error")
+        session.pop('username', None)
         return redirect(url_for('login_page'))
 
-    success, message = address_service.delete_user_address(user.id, address_id)
+    success, message = delete_address_func(account.id, address_id)
     flash(message, 'success' if success else 'error')
     return redirect(url_for('user_addresses_page'))
 
@@ -493,7 +552,7 @@ def merchant_dashboard_page():
         flash("Please log in to view this page.", "error")
         return redirect(url_for('login_page'))
     
-    user = user_repository.get_by_username(session['username'])
+    user = merchant_repository.get_by_username(session['username'])
     if not user or user.role != 'merchant':
         flash("You do not have permission to access this page.", "error")
         return redirect(url_for('index'))
@@ -584,7 +643,7 @@ def add_product_page():
 
     if request.method == 'POST':
         form_data = request.form.to_dict()
-        images = request.files.getlist('images')
+        images = request.files.getlist('file-input')
 
         # --- Data Validation and Preparation ---
         success, merchant_addresses_or_msg = address_service.get_merchant_addresses(user.id)
@@ -602,18 +661,18 @@ def add_product_page():
                 price=float(form_data.get('price', 0)),
                 original_price=float(form_data.get('original_price') or form_data.get('price', 0)),
                 quantity_available=int(form_data.get('quantity_available', 0)),
+                rating_count=0,
                 merchant_id=user.id,
                 address_id=merchant_addresses[0].id, # type: ignore
-                images=[] # Will be populated after product creation
+                images=[]
             )
-            metadata = ProductMetadata(product_id=0)
 
         except (ValueError, TypeError) as e:
             flash(f"Invalid data provided: {e}", "error")
             return redirect(url_for('add_product_page'))
 
         # --- Service Call ---
-        new_product_id, message = product_service.create_product(product_data, metadata, images)
+        new_product_id, message = product_service.create_product(product_data, images)
 
         flash(message, 'success' if new_product_id else 'error')
         if not new_product_id:
@@ -947,7 +1006,8 @@ def product_page(product_id: int):
         # Fetch and attach metadata to the product object
         _, metadata = product_service.get_product_metadata(product.id)
         setattr(product, 'sold_count', metadata.sold_count if metadata else 0)
-        setattr(product, 'rating_avg', metadata.rating_avg if metadata else 0)
+        rating_avg = (product.rating_score / product.rating_count) if product.rating_count > 0 else 0
+        setattr(product, 'rating_avg', rating_avg)
 
     return render_template('product_detail.html', product=product, reviews=reviews, merchant=merchant, can_review=can_review, is_liked=is_liked)
 

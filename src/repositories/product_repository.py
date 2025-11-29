@@ -1,6 +1,6 @@
 from typing import override, Any
 from types import SimpleNamespace
-from models.products import ProductCreate, Product, ProductMetadata, ProductEntry
+from models.products import ProductCreate, Product, ProductMetadataCreate, ProductMetadata, ProductEntry
 from repositories.base_repository import BaseRepository
 from repositories.metadata_repository import ProductMetadataRepository
 from database.database import Database
@@ -12,13 +12,12 @@ class ProductRepository(BaseRepository):
         self.metadata_repo = ProductMetadataRepository(db)
 
     @override
-    def create(self, data: ProductCreate, metadata: ProductMetadata) -> tuple[int, str]:
+    def create(self, data: ProductCreate) -> tuple[int, str]:
         """
         Creates a new product.
 
         Args:
             data (ProductCreate): The ProductCreate object containing the new product's data.
-            metadata (ProductMetadata): The ProductMetadata object containing the product's metadata.
 
         Returns:
             tuple[bool, str]: A tuple indicating success/failure and a message.
@@ -47,45 +46,6 @@ class ProductRepository(BaseRepository):
         if not new_product_id:
             return (0, message) # Return failure message from _create_record
         
-        # Handle image record creation and its junction table
-        if data.images:
-            is_first_image = False
-            for image_url in data.images:
-                # Insert into 'images' table
-                image_id, img_msg = self._create_record(
-                    data=SimpleNamespace(url=image_url),
-                    fields=['url'],
-                    table_name='images',
-                    db=self.db
-                )
-                if not image_id:
-                    return (0, f"Product created, but failed to save image: {img_msg}")
-                
-                # Checks if thumbnail or not
-                if is_first_image:
-                    is_thumbnail = True
-                    is_first_image = False
-                else:
-                    is_thumbnail = False
-                # Link in 'product_images' junction table
-                link_data = SimpleNamespace(
-                    product_id=new_product_id, 
-                    image_id=image_id, 
-                    is_thumbnail=is_thumbnail
-                )
-                link_id, link_msg = self._create_record(link_data, ['product_id', 'image_id', 'is_thumbnail'], 'product_images', self.db)
-                if not link_id:
-                    return (0, f"Product and image created, but failed to link them: {link_msg}")
-                
-        if metadata:
-            # Use the metadata repository to create the metadata record
-            setattr(metadata, 'product_id', new_product_id) # Set the foreign key
-            new_metadata_id, metadata_msg = self.metadata_repo.create(metadata)
-            if not new_metadata_id:
-                # Rollback: Delete the product that was just created
-                self._delete_by_id(new_product_id, self.table_name, self.db)
-                return (0, f"Product created, but failed to save metadata: {metadata_msg}")
-
         return (new_product_id, f"Product '{data.name}' created successfully with ID {new_product_id}.")
 
     @override
@@ -247,11 +207,11 @@ class ProductRepository(BaseRepository):
             ProductEntry | None: A ProductEntry object if found, otherwise `None`.
         """
         from_products_query = f"""
-            SELECT id, merchant_id, category_id, name, brand, price, original_price, address_id 
+            SELECT id, merchant_id, category_id, name, brand, price, original_price, address_id, rating_score, rating_count 
             FROM {self.table_name}
             WHERE id = %s
         """
-        from_product_images_query = f"""
+        from_product_images_query = """
             SELECT image_id FROM product_images 
             WHERE product_id = %s
             AND is_thumbnail = 1
@@ -259,7 +219,7 @@ class ProductRepository(BaseRepository):
         """
         from_product_metadata_query = f"""
             SELECT sold_count, rating_avg 
-            FROM product_metadata
+            FROM product_metadata 
             WHERE product_id = %s
         """
         from_images_query = f"""
@@ -303,7 +263,8 @@ class ProductRepository(BaseRepository):
             brand=products_dict["brand"],
             price=products_dict["price"],
             original_price=products_dict["original_price"],
-            ratings=metadata_dict["rating_avg"],
+            rating_score=products_dict["rating_score"],
+            rating_count=products_dict["rating_count"],
             warehouse=address_dict["city"],
             thumbnail=image_dict["url"],
             sold_count=metadata_dict["sold_count"]
@@ -328,7 +289,8 @@ class ProductRepository(BaseRepository):
                 p.id AS product_id,
                 p.merchant_id, p.category_id, p.address_id,
                 p.name, p.brand, p.price, p.original_price,
-                pm.rating_avg AS ratings,
+                p.rating_score,
+                p.rating_count,
                 a.city AS warehouse,
                 i.url AS thumbnail,
                 pm.sold_count
@@ -362,8 +324,8 @@ class ProductRepository(BaseRepository):
         if filters.get('max_price') is not None:
             where_clauses.append("p.price <= %s")
             params.append(filters['max_price'])
-        if filters.get('min_rating') is not None:
-            where_clauses.append("pm.rating_avg >= %s")
+        if filters.get('min_rating') is not None: # rating_avg is now calculated
+            where_clauses.append("(p.rating_score / p.rating_count) >= %s")
             params.append(filters['min_rating'])
 
         if where_clauses:
@@ -385,7 +347,7 @@ class ProductRepository(BaseRepository):
         elif sort_by == 'price_desc':
             order_clause = "ORDER BY p.price DESC"
         elif sort_by == 'ratings':
-            order_clause = "ORDER BY pm.rating_avg DESC"
+            order_clause = "ORDER BY (p.rating_score / p.rating_count) DESC"
 
         # --- Pagination Logic ---
         offset = (page - 1) * per_page
@@ -424,7 +386,8 @@ class ProductRepository(BaseRepository):
                 p.brand,
                 p.price,
                 p.original_price,
-                pm.rating_avg AS ratings,
+                p.rating_score,
+                p.rating_count,
                 a.city AS warehouse,
                 i.url AS thumbnail,
                 pm.sold_count
@@ -445,7 +408,7 @@ class ProductRepository(BaseRepository):
         elif sort_by == 'price_desc':
             order_clause = "ORDER BY p.price DESC"
         elif sort_by == 'ratings':
-            order_clause = "ORDER BY pm.rating_avg DESC"
+            order_clause = "ORDER BY (p.rating_score / p.rating_count) DESC"
 
         # --- Pagination Logic ---
         pagination_clause = "LIMIT %s OFFSET %s"
@@ -457,4 +420,65 @@ class ProductRepository(BaseRepository):
         rows = self.db.fetch_all(final_query, params)
         return [ProductEntry(**row) for row in rows] if rows else []
 
+    def get_full_products(self, limit: int, offset: int = 0, sort_by: str | None = None) -> list[Product]:
+        """
+        Retrieves a list of full product objects with sorting and pagination.
+
+        Args:
+            limit (int): The maximum number of products to return.
+            offset (int): The number of products to skip (for pagination).
+            sort_by (str | None): The sorting criteria. Supported values:
+                                  'sold_count', 'price_asc', 'price_desc', 'ratings'.
+
+        Returns:
+            list[Product]: A list of full Product objects.
+        """
+        base_query = f"SELECT p.* FROM {self.table_name} p"
+        params = []
+
+        # --- Sorting Logic ---
+        # Default sort is by creation date
+        order_clause = "ORDER BY p.id DESC"
+        if sort_by == 'sold_count' or sort_by == 'ratings':
+            # Join with metadata for sorting by sold_count or ratings
+            base_query += " JOIN product_metadata pm ON p.id = pm.product_id"
+            if sort_by == 'sold_count':
+                order_clause = "ORDER BY pm.sold_count DESC"
+            else: # 'ratings'
+                # Avoid division by zero if rating_count is 0. Also, join products table.
+                order_clause = "ORDER BY (CASE WHEN p.rating_count > 0 THEN p.rating_score / p.rating_count ELSE 0 END) DESC"
+        elif sort_by == 'price_asc':
+            order_clause = "ORDER BY p.price ASC"
+        elif sort_by == 'price_desc':
+            order_clause = "ORDER BY p.price DESC"
+
+        # --- Pagination Logic ---
+        pagination_clause = "LIMIT %s OFFSET %s"
+        params.extend([limit, offset])
+
+        # --- Final Query to get main product data ---
+        final_query = f"{base_query} {order_clause} {pagination_clause}"
+        product_rows = self.db.fetch_all(final_query, tuple(params))
+
+        if not product_rows:
+            return []
+
+        # Fetch images for all retrieved products in a single query to avoid N+1 problem
+        product_ids = tuple(row['id'] for row in product_rows)
+        if not product_ids:
+            image_rows = []
+        else:
+            placeholders = ', '.join(['%s'] * len(product_ids))
+            images_query = f"""
+                SELECT pi.product_id, i.url
+                FROM product_images pi JOIN images i ON pi.image_id = i.id
+                WHERE pi.product_id IN ({placeholders}) ORDER BY pi.product_id, pi.is_thumbnail DESC, i.id
+            """
+            image_rows = self.db.fetch_all(images_query, product_ids)
+
+        # Map images to their respective products
+        for p_row in product_rows:
+            p_row['images'] = [i_row['url'] for i_row in image_rows if i_row['product_id'] == p_row['id']]
+
+        return [product for row in product_rows if (product := self._map_to_product(row)) is not None]
         
