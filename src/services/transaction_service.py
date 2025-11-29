@@ -128,9 +128,9 @@ class TransactionService:
             if not in_transaction and not transaction_committed:
                 self.db.rollback()
 
-    def get_user_payment_details(self, user_id: int) -> tuple[bool, tuple[VirtualCard | None, list[Payment]] | str]:
+    def get_user_payment_history(self, user_id: int) -> list[Payment] | None:
         """
-        Retrieves a user's virtual card and their enriched payment history.
+        Retrieves a user's enriched payment history.
 
         Args:
             user_id (int): The ID of the user.
@@ -140,7 +140,6 @@ class TransactionService:
             or an error message string.
         """
         try:
-            virtual_card = self.virtual_card_repo.get_by_owner_id(user_id)
             payment_history = self.payment_repo.get_payments_for_user(user_id)
 
             # Enrich payment history with sender/receiver names
@@ -162,29 +161,73 @@ class TransactionService:
                 setattr(payment, 'sender_name', sender_name)
                 setattr(payment, 'receiver_name', receiver_name)
 
-            return (True, (virtual_card, payment_history))
+            return payment_history
 
         except Exception as e:
             print(f"[TransactionService ERROR] Failed to get payment details for user {user_id}: {e}")
-            return (False, "Could not retrieve payment details.")
+            return None
+        
+    def get_merchant_payment_history(self, merchant_id: int) -> list[Payment] | None:
+        """
+        Retrieves a user's enriched payment history.
 
-    def create_virtual_card(self, owner_id: int) -> tuple[bool, str]:
+        Args:
+            merchant_id (int): The ID of the merchant.
+
+        Returns:
+            A tuple containing success status, and either a tuple of (VirtualCard, list[Payment])
+            or an error message string.
+        """
+        try:
+            payment_history = self.payment_repo.get_payments_for_merchant(merchant_id)
+
+            # Enrich payment history with sender/receiver names
+            for payment in payment_history:
+                # Sender
+                if payment.sender_id == 0:
+                    sender_name = "System"
+                else:
+                    sender = self.user_repo.read(payment.sender_id) or self.merchant_repo.read(payment.sender_id)
+                    sender_name = sender.username if sender else "Unknown"
+                
+                # Receiver
+                if payment.receiver_id == 0:
+                    receiver_name = "System"
+                else:
+                    receiver = self.user_repo.read(payment.receiver_id) or self.merchant_repo.read(payment.receiver_id)
+                    receiver_name = receiver.username if receiver else "Unknown"
+
+                setattr(payment, 'sender_name', sender_name)
+                setattr(payment, 'receiver_name', receiver_name)
+
+            return payment_history
+
+        except Exception as e:
+            print(f"[TransactionService ERROR] Failed to get payment details for user {user_id}: {e}")
+            return None
+
+    def create_virtual_card(self, owner_id: int, account_type: str) -> tuple[bool, str]:
         """
         Creates a new virtual card for a user or merchant if they don't already have one.
 
         Args:
             owner_id (int): The ID of the user or merchant who will own the card.
+            account_type (str): The type of account ('user' or 'merchant').
 
         Returns:
             tuple[bool, str]: A tuple indicating success and a message.
         """
         # 1. Check if a card already exists for this owner
-        if self.virtual_card_repo.get_by_owner_id(owner_id):
+        if self.virtual_card_repo.get_by_user_id(owner_id) or self.virtual_card_repo.get_by_merchant_id(owner_id):
             return (False, "A virtual card already exists for this account.")
 
-        # 2. Create the new card
-        card_to_create = VirtualCardCreate(owner_id=owner_id, balance=0.0)
-        new_card_id, message = self.virtual_card_repo.create(card_to_create)
+        # 2. If user, create card for user, if not, for merchant
+        if account_type == 'user':
+            new_card_id, message = self.virtual_card_repo.create(VirtualCardCreate(balance=0))
+            self.db.execute_query("INSERT INTO user_virtualcards (user_id, virtualcard_id) VALUES (%s, %s)", (owner_id, new_card_id))
+        else:
+            new_card_id, message = self.virtual_card_repo.create(VirtualCardCreate(balance=0))
+            self.db.execute_query("INSERT INTO merchant_virtualcards (merchant_id, virtualcard_id) VALUES (%s, %s)", (owner_id, new_card_id))
 
         if new_card_id:
             return (True, "Virtual card activated successfully!")

@@ -91,6 +91,39 @@ app = create_app()
 
 with app.app_context():
     category_service.seed_categories()
+    # Create dummy accounts if they don't exist
+    if not user_repository.get_by_username("JohnDoe"):
+        user_data = {
+            'first_name': 'John',
+            'last_name': 'Doe',
+            'username': 'JohnDoe',
+            'email': 'johndoe@example.com',
+            'password': 'password',
+            're_password': 'password',
+            'age': 30
+        }
+        success, message = auth_service.register(user_data, 'user')
+        if success:
+            print("Successfully created dummy user 'JohnDoe'")
+        else:
+            print(f"Failed to create dummy user: {message}")
+
+    if not merchant_repository.get_by_username("JaneDoe"):
+        merchant_data = {
+            'first_name': 'Jane',
+            'last_name': 'Doe',
+            'store_name': 'Jane\'s Wares',
+            'username': 'JaneDoe',
+            'email': 'janedoe@example.com',
+            'password': 'password',
+            're_password': 'password',
+            'phone_number': '09123456789'
+        }
+        success, message = auth_service.register(merchant_data, 'merchant')
+        if success:
+            print("Successfully created dummy merchant 'JaneDoe'")
+        else:
+            print(f"Failed to create dummy merchant: {message}")
 
 @app.context_processor
 def inject_user():
@@ -753,7 +786,6 @@ def delete_product(product_id: int):
 
     return redirect(url_for('merchant_dashboard_page'))
 
-
 @app.route('/payments')
 def payments_page():
     """Renders the user's payments page, showing virtual card and history."""
@@ -761,21 +793,29 @@ def payments_page():
         flash("Please log in to view your payment information.", "error")
         return redirect(url_for('login_page'))
 
-    user = user_repository.get_by_username(session['username'])
-    if not user:
-        flash("User not found. Please log in again.", "error")
+    # Get the current logged-in user (can be a user or merchant)
+    client = None
+    if session.get('role') == 'user':
+        client = user_repository.get_by_username(session['username'])
+    elif session.get('role') == 'merchant':
+        client = merchant_repository.get_by_username(session['username'])
+    if not client:
+        flash("Could not find your account. Please log in again.", "error")
         session.pop('username', None)
         return redirect(url_for('login_page'))
 
-    success, result = transaction_service.get_user_payment_details(user.id)
+    if client.role == 'user':
+        result = transaction_service.get_user_payment_history(client.id)
+        virtual_card = virtual_card_repository.get_by_user_id(client.id)
+    elif client.role == 'merchant':
+        result = transaction_service.get_merchant_payment_history(client.id)
+        virtual_card = virtual_card_repository.get_by_merchant_id(client.id)
 
-    if not success:
+    if not result:
         flash(str(result), "error")
-        return render_template('payments.html', virtual_card=None, payment_history=[])
+        return render_template('payments.html', virtual_card=virtual_card, payment_history=[])
 
-    virtual_card, payment_history = result
-
-    return render_template('payments.html', virtual_card=virtual_card, payment_history=payment_history)
+    return render_template('payments.html', virtual_card=virtual_card, payment_history=result)
 
 @app.route('/activate-card', methods=['POST'])
 def activate_card():
@@ -784,17 +824,25 @@ def activate_card():
         flash("Please log in to activate a card.", "error")
         return redirect(url_for('login_page'))
 
-    # A card can be owned by a user or a merchant
-    owner = user_repository.get_by_username(session['username']) or merchant_repository.get_by_username(session['username'])
-
+    owner = None
+    if session['role'] == 'user':
+        owner = user_repository.get_by_username(session['username'])
+        account_type = 'user'
+    elif session['role'] == 'merchant':
+        owner = merchant_repository.get_by_username(session['username'])
+        account_type = 'merchant'
     if not owner:
         flash("Could not identify your account. Please log in again.", "error")
         session.pop('username', None)
         return redirect(url_for('login_page'))
 
-    success, message = transaction_service.create_virtual_card(owner.id)
+    success, message = transaction_service.create_virtual_card(owner.id, account_type)
     flash(message, 'success' if success else 'error')
-    return redirect(url_for('payments_page'))
+
+    if account_type == 'merchant':
+        return redirect(url_for('merchant_dashboard_page'))
+    else:
+        return redirect(url_for('payments_page'))
 
 @app.route('/deposit-to-card', methods=['POST'])
 def deposit_to_card():
@@ -803,13 +851,22 @@ def deposit_to_card():
         flash("Please log in to make a deposit.", "error")
         return redirect(url_for('login_page'))
 
-    owner = user_repository.get_by_username(session['username']) or merchant_repository.get_by_username(session['username'])
+    owner = None
+    if session['role'] == 'user':
+        owner = user_repository.get_by_username(session['username'])
+        account_type = 'user'
+    elif session['role'] == 'merchant':
+        owner = merchant_repository.get_by_username(session['username'])
+        account_type = 'merchant'
     if not owner:
         flash("Could not identify your account. Please log in again.", "error")
         session.pop('username', None)
         return redirect(url_for('login_page'))
 
-    virtual_card = virtual_card_repository.get_by_owner_id(owner.id)
+    if account_type == 'user':
+        virtual_card = virtual_card_repository.get_by_user_id(owner.id)
+    else:
+        virtual_card = virtual_card_repository.get_by_merchant_id(owner.id)
 
     if not virtual_card:
         flash("You don't have an active virtual card.", "error")
