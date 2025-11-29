@@ -432,17 +432,27 @@ def change_password_page():
 
 @app.route('/user-addresses')
 def user_addresses_page():
-    """Renders the page that displays the user's saved addresses."""
+    """Renders the page that displays the client's saved addresses."""
     if 'username' not in session:
         flash("Please log in to view this page.", "error")
         return redirect(url_for('login_page'))
     
-    user = user_repository.get_by_username(session['username'])
-    if not user:
+    client = None
+    if session['role'] == 'user':
+        client = user_repository.get_by_username(session['username'])
+    elif session['role'] == 'merchant':
+        client = merchant_repository.get_by_username(session['username'])
+    if not client:
         flash("User not found. Please log in again.", "error")
         return redirect(url_for('login_page'))
 
-    success, result = address_service.get_user_addresses(user.id)
+    if session['role'] == 'user':
+        success, result = address_service.get_user_addresses(client.id)
+    elif session['role'] == 'merchant':
+        success, result = address_service.get_merchant_addresses(client.id)
+    else:
+        success, result = False, "Invalid account role."
+
     addresses = result if success else []
     if not success:
         flash(str(result), "error")
@@ -456,13 +466,24 @@ def add_address():
         flash("Please log in to add an address.", "error")
         return redirect(url_for('login_page'))
 
-    user = user_repository.get_by_username(session['username'])
-    if not user:
+    client = None
+    if session['role'] == 'user':
+        client = user_repository.get_by_username(session['username'])
+    elif session['role'] == 'merchant':
+        client = merchant_repository.get_by_username(session['username'])
+
+    if not client:
         flash("User not found. Please log in again.", "error")
         return redirect(url_for('login_page'))
 
     address_data = request.form.to_dict()
-    success, message = address_service.add_address_for_user(user.id, address_data)
+    if session['role'] == 'user':
+        success, message = address_service.add_address_for_user(client.id, address_data)
+    elif session['role'] == 'merchant':
+        success, message = address_service.add_address_for_merchant(client.id, address_data)
+    else:
+        success, message = False, "Invalid account role."
+
     flash(message, 'success' if success else 'error')
     return redirect(url_for('user_addresses_page'))
 
@@ -473,12 +494,23 @@ def edit_address(address_id: int):
         flash("Please log in to edit an address.", "error")
         return redirect(url_for('login_page'))
 
-    user = user_repository.get_by_username(session['username'])
-    if not user:
+    client = None
+    if session['role'] == 'user':
+        client = user_repository.get_by_username(session['username'])
+    elif session['role'] == 'merchant':
+        client = merchant_repository.get_by_username(session['username'])
+
+    if not client:
         flash("User not found. Please log in again.", "error")
         return redirect(url_for('login_page'))
 
-    success, message = address_service.update_user_address(user.id, address_id, request.form.to_dict())
+    if session['role'] == 'user':
+        success, message = address_service.update_user_address(client.id, address_id, request.form.to_dict())
+    elif session['role'] == 'merchant':
+        success, message = address_service.update_merchant_address(client.id, address_id, request.form.to_dict())
+    else:
+        success, message = False, "Invalid account role."
+
     flash(message, 'success' if success else 'error')
     return redirect(url_for('user_addresses_page'))
 
@@ -489,12 +521,23 @@ def delete_address(address_id: int):
         flash("Please log in to delete an address.", "error")
         return redirect(url_for('login_page'))
 
-    user = user_repository.get_by_username(session['username'])
-    if not user:
+    client = None
+    if session['role'] == 'user':
+        client = user_repository.get_by_username(session['username'])
+    elif session['role'] == 'merchant':
+        client = merchant_repository.get_by_username(session['username'])
+
+    if not client:
         flash("User not found. Please log in again.", "error")
         return redirect(url_for('login_page'))
 
-    success, message = address_service.delete_user_address(user.id, address_id)
+    if session['role'] == 'user':
+        success, message = address_service.delete_user_address(client.id, address_id)
+    elif session['role'] == 'merchant':
+        success, message = address_service.delete_merchant_address(client.id, address_id)
+    else:
+        success, message = False, "Invalid account role."
+
     flash(message, 'success' if success else 'error')
     return redirect(url_for('user_addresses_page'))
 
