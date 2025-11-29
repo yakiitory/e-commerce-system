@@ -4,6 +4,3 @@ bcrypt
 Pillow
 mysql-connector-python
 pydantic
-Flask
-Flask-Reuploaded
-Flask-WTF

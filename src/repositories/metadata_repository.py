@@ -2,9 +2,7 @@ from typing import override, Any, Literal
 from repositories.base_repository import BaseRepository
 from database.database import Database
 from models.accounts import UserMetadata
-from models.products import ProductMetadata, ProductMetadataCreate
-import json
-from types import SimpleNamespace
+from models.products import ProductMetadata
 import dataclasses
 
 
@@ -91,38 +89,24 @@ class ProductMetadataRepository(BaseRepository):
         self.table_name = "product_metadata"
 
     @override
-    def create(self, data: ProductMetadataCreate) -> tuple[int | None, str]:
+    def create(self, data: ProductMetadata) -> tuple[int | None, str]:
         """
         Creates a new product metadata record.
 
         Args:
-            data (ProductMetadataCreate): The ProductMetadataCreate object to create.
+            data (ProductMetadata): The ProductMetadata object to create.
 
         Returns:
             tuple[int | None, str]: A tuple with the new ID and a message.
         """
-        # Create a mutable copy of the data to avoid altering the original object
-        data_for_db = SimpleNamespace(**vars(data))
-
-        # Serialize complex types to JSON strings
-        if isinstance(data_for_db.demographics_fit, dict):
-            data_for_db.demographics_fit = json.dumps(data_for_db.demographics_fit)
-        if isinstance(data_for_db.seasonal_relevance, list):
-            data_for_db.seasonal_relevance = json.dumps(data_for_db.seasonal_relevance)
-        if isinstance(data_for_db.embedding_vector, list):
-            data_for_db.embedding_vector = json.dumps(data_for_db.embedding_vector)
-        if isinstance(data_for_db.keywords, list):
-            data_for_db.keywords = json.dumps(data_for_db.keywords)
-        if isinstance(data_for_db.tags, list):
-            data_for_db.tags = json.dumps(data_for_db.tags)
-
         fields = [
-            "product_id", "view_count", "sold_count", "add_to_cart_count",
-            "wishlist_count", "click_through_rate", "popularity_score",
-            "demographics_fit", "seasonal_relevance", "embedding_vector",
-            "keywords", "tags"
+            "view_count", "sold_count", "add_to_cart_count", "wishlist_count",
+            "click_through_rate", "rating_avg", "rating_count",
+            "popularity_score", "demographics_fit", "seasonal_relevance",
+            "embedding_vector", "keywords", "tags"
         ]
-        return self._create_record(data_for_db, fields, self.table_name, self.db)
+        new_id, message = self._create_record(data, fields, self.table_name, self.db)
+        return (new_id, message)
 
     @override
     def read(self, identifier: int) -> ProductMetadata | None:
@@ -139,7 +123,7 @@ class ProductMetadataRepository(BaseRepository):
             identifier=identifier,
             table_name=self.table_name,
             db=self.db,
-            map_func=self._map_to_product_metadata,
+            map_func=lambda row: ProductMetadata(**row) if row else None,
             id_field="product_id"
         )
 
@@ -157,7 +141,7 @@ class ProductMetadataRepository(BaseRepository):
         """
         allowed_fields = [
             "view_count", "sold_count", "add_to_cart_count", "wishlist_count",
-            "click_through_rate",
+            "click_through_rate", "rating_avg", "rating_count",
             "popularity_score", "demographics_fit", "seasonal_relevance",
             "embedding_vector", "keywords", "tags"
         ]
@@ -176,7 +160,7 @@ class ProductMetadataRepository(BaseRepository):
         """
         return self._delete_by_id(identifier, self.table_name, self.db, id_field="product_id")
 
-    def increment_field(self, product_id: int, field: Literal["view_count", "sold_count", "add_to_cart_count", "wishlist_count"], value: int = 1) -> bool:
+    def increment_field(self, product_id: int, field: Literal["view_count", "sold_count", "add_to_cart_count", "wishlist_count", "rating_count"], value: int = 1) -> bool:
         """
         Atomically increments a numeric field for a product's metadata.
 
@@ -202,7 +186,7 @@ class ProductMetadataRepository(BaseRepository):
             print(f"[{self.__class__.__name__} ERROR] Failed to increment {field} for product {product_id}: {e}")
             return False
 
-    def decrement_field(self, product_id: int, field: Literal["view_count", "sold_count", "add_to_cart_count", "wishlist_count"], value: int = 1) -> bool:
+    def decrement_field(self, product_id: int, field: Literal["view_count", "sold_count", "add_to_cart_count", "wishlist_count", "rating_count"], value: int = 1) -> bool:
         """
         Atomically decrements a numeric field for a product's metadata.
 
@@ -227,30 +211,28 @@ class ProductMetadataRepository(BaseRepository):
             print(f"[{self.__class__.__name__} ERROR] Failed to decrement {field} for product {product_id}: {e}")
             return False
 
-    def _map_to_product_metadata(self, row: dict) -> ProductMetadata | None:
+    def update_average_rating(self, product_id: int, new_rating: float) -> bool:
         """
-        Maps a database row to a ProductMetadata object, deserializing JSON fields.
+        Atomically updates the average rating and rating count for a product.
+
+        Args:
+            product_id (int): The ID of the product to update.
+            new_rating (float): The new rating score to incorporate.
+
+        Returns:
+            bool: True if the update was successful, False otherwise.
         """
-        if not row:
-            return None
-
-        # Create a mutable copy to work with
-        data = row.copy()
-
-        # List of fields that are stored as JSON strings
-        json_fields = [
-            'demographics_fit', 'seasonal_relevance', 'embedding_vector',
-            'keywords', 'tags'
-        ]
-
-        for field in json_fields:
-            if data.get(field) and isinstance(data[field], str):
-                try:
-                    data[field] = json.loads(data[field])
-                except (json.JSONDecodeError, TypeError):
-                    # If deserialization fails, default to an empty list/dict
-                    # based on the dataclass definition to prevent errors.
-                    field_type = ProductMetadata.__annotations__.get(field)
-                    data[field] = {} if 'dict' in str(field_type) else []
-
-        return ProductMetadata(**data)
+        query = f"""
+            UPDATE {self.table_name}
+            SET
+                rating_avg = ((rating_avg * rating_count) + %s) / (rating_count + 1),
+                rating_count = rating_count + 1
+            WHERE product_id = %s
+        """
+        try:
+            self.db.execute_query(query, (new_rating, product_id))
+            return True
+        except Exception as e:
+            print(f"[{self.__class__.__name__} ERROR] Failed to update average rating for product {product_id}: {e}")
+            return False
+ 

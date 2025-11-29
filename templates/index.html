@@ -120,7 +120,7 @@
                                 <p>{{ product.brand }} - {{ product.name }}</p>
                                 <div class="star-ratings single-star">
                                     {% include "svg/star-filled.svg" %} <span>{{ product.rating_avg }}</span>
-                                </div> 
+                                </div>
                                 <div class="main-product-price">
                                     <span>₱{{ "%.2f"|format(product.price) }}</span>
                                     {% if product.original_price > product.price %}

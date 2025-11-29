@@ -113,15 +113,12 @@ class BaseRepository(ABC):
         query = f"UPDATE {table_name} SET {set_clause} WHERE {id_field} = %s"
 
         try:
-            affected_rows = db.execute_query(query, tuple(values))
-            if affected_rows is not None and affected_rows > 0:
-                print(f"[{caller_name}] {table_name} ID {identifier} updated successfully.")
-                return True
-            # If no rows were affected, it's not a success.
-            return False
+            db.execute_query(query, tuple(values))
+            print(f"[{caller_name}] {table_name} ID {identifier} updated successfully.")
+            return True
         except Exception as e:
             print(f"[{caller_name} ERROR] Failed to update {table_name}: {e}")
-            raise e # Re-raise the exception to trigger transaction rollback
+            return False
         
     def _delete_by_id(self, identifier: int, table_name: str, db: Database, id_field: str = "id") -> tuple[bool, str]:
         """Generic delete method for any table by its ID.
