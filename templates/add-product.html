@@ -8,44 +8,39 @@
 
 <main class="content-wrapper">
 {% block body %}
-    <div class="add-product-container">
+    <form class="add-product-container" action="{{ url_for('add_product_page') }}" method="post" id="product-form" enctype="multipart/form-data">
         <div class="form-section">
             <h3>Add a New Product</h3>
-            <form action="{{ url_for('add_product_page') }}" method="post" id="product-form">
-                <div class="form-group">
-                    <label for="name">Product Name</label>
-                    <input type="text" id="name" name="name" required>
-                </div>
-                <div class="form-group">
-                    <label for="brand">Brand</label>
-                    <input type="text" id="brand" name="brand" required>
-                </div>
-                <div class="form-group">
-                    <label for="category_id">Category</label>
-                    <select id="category_id" name="category_id" required>
-                        <option value="" disabled selected>Select a category</option>
-                        {% for category in categories %}
-                        <option value="{{ category.id }}">{{ category.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="description">Description</label>
-                    <textarea id="description" name="description" rows="5" required></textarea>
-                </div>
-                <div class="form-row">
-                    <div class="form-group"><label for="price">Price</label><input type="number" id="price" name="price" step="0.01" required></div>
-                    <div class="form-group"><label for="quantity_available">Quantity</label><input type="number" id="quantity_available" name="quantity_available" required></div>
-                </div>
-                <!-- This hidden input will be populated by JavaScript -->
-                <input type="hidden" id="images" name="images">
-                <button type="submit" class="submit-btn">Add Product</button>
-            </form>
+            <div class="form-group">
+                <label for="name">Product Name</label>
+                <input type="text" id="name" name="name" required>
+            </div>
+            <div class="form-group">
+                <label for="brand">Brand</label>
+                <input type="text" id="brand" name="brand" required>
+            </div>
+            <div class="form-group">
+                <label for="category_id">Category</label>
+                <select id="category_id" name="category_id" required>
+                    <option value="" disabled selected>Select a category</option>
+                    {% for category in categories %}
+                    <option value="{{ category.id }}">{{ category.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="description">Description</label>
+                <textarea id="description" name="description" rows="5" required></textarea>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label for="price">Price</label><input type="number" id="price" name="price" step="0.01" required></div>
+                <div class="form-group"><label for="quantity_available">Quantity</label><input type="number" id="quantity_available" name="quantity_available" required></div>
+            </div>
         </div>
         <div class="image-upload-section">
             <h4>Product Images</h4>
             <div class="image-uploader" id="image-uploader">
-                <input type="file" id="file-input" multiple accept="image/*" style="display: none;">
+                <input type="file" id="file-input" name="images" multiple accept="image/*" style="display: none;">
                 <div class="upload-area" id="upload-area">
                     <p><strong>Drag & drop images here</strong></p>
                     <p>or</p>
@@ -54,7 +49,8 @@
                 </div>
             </div>
             <div class="image-preview-grid" id="image-preview-grid"></div>
+            <button type="submit" class="submit-btn">Add Product</button>
         </div>
-    </div>
+    </form>
 {% endblock %}
 </main>

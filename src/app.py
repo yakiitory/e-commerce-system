@@ -3,7 +3,12 @@ from dataclasses import asdict
 from datetime import datetime
 import os
 
+from werkzeug.utils import secure_filename
+from PIL import Image
+
 import backend
+
+from models.products import ProductCreate
 
 app = Flask(__name__, template_folder='../templates', static_folder='../static')
 
@@ -450,35 +455,69 @@ def add_product_page():
         flash("Please log in to add a product.", "error")
         return redirect(url_for('login_page'))
 
-    user = backend.mock_get_user_by_username(session['username'])
-    if user.role != 'merchant':
+    # Use mock backend to get merchant
+    user = backend.mock_get_user_by_username(session.get('username'))
+    if not user or user.role != 'merchant':
         flash("You do not have permission to perform this action.", "error")
         return redirect(url_for('index'))
 
     if request.method == 'POST':
+        # Image Processing: Save files and get their URLs
+        upload_folder = os.path.join(app.static_folder, 'img', 'uploads')
         form_data = request.form.to_dict()
-        
-        form_data['merchant_id'] = user.id
-        form_data['price'] = float(form_data.get('price', 0))
-        form_data['original_price'] = float(form_data.get('original_price', form_data['price']))
-        form_data['quantity_available'] = int(form_data.get('quantity_available', 0))
-        form_data['category_id'] = int(form_data.get('category_id'))
-        
+        image_files = request.files.getlist('images')
+        image_urls = []
+        os.makedirs(upload_folder, exist_ok=True)
+
+        for image_file in image_files:
+            if image_file and image_file.filename:
+                filename = secure_filename(image_file.filename)
+                unique_filename = f"{os.urandom(8).hex()}_{filename}"
+                save_path = os.path.join(upload_folder, unique_filename)
+                try:
+                    img = Image.open(image_file.stream)
+                    if img.mode in ('RGBA', 'P'):
+                        img = img.convert('RGB')
+                    img.save(save_path, 'jpeg', quality=85, optimize=True)
+                    # Construct the web-accessible URL for the saved image
+                    web_path = f'img/uploads/{unique_filename}'
+                    image_urls.append(url_for('static', filename=web_path))
+                except Exception as e:
+                    flash(f"Error processing image {filename}: {e}", "error")
+                    return redirect(url_for('add_product_page'))
+
+        # Data Validationd
         merchant_addresses = backend.mock_get_addresses_by_user_id(user.id)
         if not merchant_addresses:
             flash("You must have a saved address to add a product.", "error")
             return redirect(url_for('user_addresses_page'))
-        form_data['address_id'] = merchant_addresses[0].id
 
-        form_data['images'] = [img.strip() for img in form_data.get('images', '').split(',') if img.strip()]
+        try:
+            # Create the ProductCreate object
+            product_data = ProductCreate(
+                name=form_data.get('name', 'Unnamed Product'),
+                brand=form_data.get('brand', 'Unbranded'),
+                category_id=int(form_data.get('category_id', 0)),
+                description=form_data.get('description', ''),
+                price=float(form_data.get('price', 0)),
+                original_price=float(form_data.get('original_price') or form_data.get('price', 0)), # type: ignore
+                quantity_available=int(form_data.get('quantity_available', 0)),
+                merchant_id=user.id,
+                address_id=merchant_addresses[0].id,
+                images=image_urls # Pass the generated URLs to be persisted
+            )
+        except (ValueError, TypeError) as e:
+            flash(f"Invalid data provided: {e}", "error")
+            return redirect(url_for('add_product_page'))
 
-        result = backend.mock_create_product(form_data)
+        result = backend.mock_create_product(product_data)
+
         flash(result['message'], 'success' if result['status'] else 'error')
-        return redirect(url_for('merchant_dashboard_page'))
+        return redirect(url_for('merchant_dashboard_page') if result['status'] else url_for('add_product_page'))
 
-    # For GET request
+    # For GET request, use the mock backend
     categories = backend.mock_get_all_categories()
-    return render_template('add-product.html', categories=categories)
+    return render_template('add-product.html', categories=categories or [])
 
 @app.route('/edit-product/<int:product_id>', methods=['GET', 'POST'])
 def edit_product_page(product_id: int):

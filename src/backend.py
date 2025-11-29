@@ -374,20 +374,26 @@ def mock_get_product_by_id(product_id: int) -> Product | None:
     product = next((p for p in mock_products if p.id == product_id), None)
     return product
 
-def mock_create_product(form_data: dict) -> dict: 
+def mock_create_product(product_data: ProductCreate) -> dict:
     """Creates a new product.
 
+    This mock function is designed to accept a ProductCreate object,
+    mirroring the behavior of the real product_service. This allows it
+    to correctly handle complex data like the list of image URLs.
+
     Args:
-        form_data (dict): A dictionary containing the product details.
+        product_data (ProductCreate): A dataclass object containing the product details.
 
     Returns:
         dict: A dictionary with status, message, and the new product's ID.
     """
     try:
         new_id = max(p.id for p in mock_products) + 1 if mock_products else 1
-        product_create = ProductCreate(**form_data)
-        new_product = Product(id=new_id, **asdict(product_create))
+        # Convert the ProductCreate object to a dictionary to create the full Product
+        new_product = Product(id=new_id, **asdict(product_data))
         mock_products.append(new_product)
+        # Also create a corresponding metadata entry for the new product
+        mock_product_metadata.append(ProductMetadata(product_id=new_id))
         return {"status": True, "message": "Product created successfully.", "product_id": new_id}
     except TypeError as e:
         return {"status": False, "message": f"Invalid product data: {e}"}
@@ -849,15 +855,19 @@ def mock_get_invoice_by_order_id(order_id: int) -> Invoice | None:
 
 
 def mock_get_addresses_by_user_id(user_id: int) -> list[Address]:
-    """Retrieves all addresses associated with a user via the junction table.
+    """Retrieves all addresses associated with a user OR merchant.
+
+    This function checks both user and merchant address link tables to
+    find all addresses associated with a given ID.
 
     Args:
-        user_id (int): The ID of the user.
+        user_id (int): The ID of the user or merchant.
 
     Returns:
         list[Address]: A list of the user's Address objects.
     """
     address_ids = [addr_id for u_id, addr_id in mock_user_addresses if u_id == user_id]
+    address_ids.extend([addr_id for m_id, addr_id in mock_merchant_addresses if m_id == user_id])
     return [addr for addr in mock_addresses if addr.id in address_ids]
 
 # Address Management
