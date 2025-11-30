@@ -6,7 +6,6 @@ class ReviewCreate():
     product_id: int
     rating: float
     description: str
-    attached: list[str]
 
 @dataclass
 class Review(ReviewCreate):

@@ -12,12 +12,12 @@
     <section class="product-header">
         <div class="product-images">
             <div class="main-image">
-                <img src="{{ product.images[0] if product.images else url_for('static', filename='img/placeholder.jpg') }}" alt="{{ product.name }}">
+                <img id="main-product-image" src="{{ product.images[0] if product.images else url_for('static', filename='img/placeholder.jpg') }}" alt="{{ product.name }}">
             </div>
             {% if product.images|length > 1 %}
             <div class="thumbnail-images">
                 {% for image in product.images %}
-                <img src="{{ image }}" alt="Thumbnail of {{ product.name }}">
+                <img class="thumbnail-image" src="{{ image }}" alt="Thumbnail of {{ product.name }}">
                 {% endfor %}
             </div>
             {% endif %}
@@ -27,7 +27,7 @@
             <h2>{{ product.brand }} - {{ product.name }}</h2>
             <div class="info-row">
                 <div class="product-rating single-star">
-                    {% include "svg/star-filled.svg" %} <span>{{ product.rating_avg }}</span>
+                    {% include "svg/star-filled.svg" %} <span>{{ average }}</span>
                 </div>
                 <span>|
                 </span>

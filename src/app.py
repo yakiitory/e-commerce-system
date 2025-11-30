@@ -75,12 +75,12 @@ order_service = OrderService(
     transaction_service=transaction_service,
     cart_repo=cart_repository
 )
-#review_service = ReviewService(
- #   db=db,
- #   review_repo=review_repository,
- #   order_repo=order_repository,
- #   product_meta_repo=product_metadata_repository
-#)
+review_service = ReviewService(
+    db=db,
+    review_repo=review_repository,
+    order_repo=order_repository,
+    product_repo=product_repository
+)
 
 def create_app():
     app = Flask(__name__, template_folder='../templates', static_folder='../static')
@@ -1101,9 +1101,13 @@ def product_page(product_id: int):
         # Fetch and attach metadata to the product object
         _, metadata = product_service.get_product_metadata(product.id)
         setattr(product, 'sold_count', metadata.sold_count if metadata else 0)
-        setattr(product, 'rating_avg', metadata.rating_avg if metadata else 0)
 
-    return render_template('product_detail.html', product=product, reviews=reviews, merchant=merchant, can_review=can_review, is_liked=is_liked)
+        if product.rating_score and product.rating_count:
+            average = product.rating_score / product.rating_count
+        else:
+            average = 0
+
+    return render_template('product_detail.html', product=product, average=average, reviews=reviews, merchant=merchant, can_review=can_review, is_liked=is_liked)
 
 @app.route('/add-to-cart', methods=['POST'])
 def add_to_cart():

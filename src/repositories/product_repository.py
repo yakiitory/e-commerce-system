@@ -501,5 +501,16 @@ class ProductRepository(BaseRepository):
         ]
 
         return product_entry_list
+    
+    def update_ratings(self, product_id: int, new_rating: float) -> bool:
+        query = """
+            UPDATE products
+            SET rating_count = rating_count + 1,
+                rating_score = rating_score + %s
+            WHERE id = %s
+        """
+        params = (new_rating, product_id)
+        self.db.execute_query(query, params)
+        return True
 
         
