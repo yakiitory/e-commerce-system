@@ -939,12 +939,12 @@ def cart_page():
         session.pop('username', None)
         return redirect(url_for('login_page'))
 
-    success, result = interaction_service.get_cart(user.id)
-    if not success:
-        flash(str(result), "error")
+    cart = cart_repository.get_cart(user.id)
+    if not cart:
+        flash(str("Failed to get cart!"), "error")
         cart_items = []
     else:
-        cart_items = result
+        cart_items = cart.items
 
     total_price = sum(item.total_price for item in cart_items) # type: ignore
 

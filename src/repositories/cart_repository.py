@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
-from models.orders import CartItem
+from models.orders import CartItem, Cart
 from repositories.base_repository import BaseRepository
 
 if TYPE_CHECKING:
@@ -129,6 +129,13 @@ class CartRepository(BaseRepository):
             if not transaction_committed:
                 self.db.rollback()
 
+    def get_cart(self, user_id: int) -> Cart | None:
+        cart_id = self.get_or_create_active_cart_id(user_id)
+        if not cart_id:
+            return None
+        cart_items = self.get_cart_contents(user_id)
+        user_cart = Cart(id=cart_id, user_id=user_id, items=cart_items)
+        return user_cart
     def get_cart_contents(self, user_id: int) -> list[CartItem]:
         """
         Retrieves all items in a user's cart, enriched with product details.
@@ -146,8 +153,8 @@ class CartRepository(BaseRepository):
                 i.product_quantity as quantity,
                 i.product_price as price,
                 i.total_price,
-                i.added_at,
                 p.name as product_name,
+                p.brand as product_brand,
                 img.url as thumbnail_url
             FROM items i
             JOIN cart_items ci ON i.id = ci.item_id
@@ -160,7 +167,6 @@ class CartRepository(BaseRepository):
                 WHERE pi.is_thumbnail = TRUE
             ) AS img ON p.id = img.product_id
             WHERE c.user_id = %s
-            ORDER BY i.added_at DESC
         """
         rows = self.db.fetch_all(query, (user_id,))
         return [CartItem(**row) for row in rows] if rows else []

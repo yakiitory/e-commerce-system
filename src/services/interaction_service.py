@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
-from models.orders import CartItem
+from models.orders import CartItem, Cart
 
 if TYPE_CHECKING:
     from repositories.account_repository import UserRepository
@@ -107,7 +107,7 @@ class InteractionService:
 
         return (success, message)
 
-    def get_cart(self, user_id: int) -> tuple[bool, list[CartItem] | str]:
+    def get_cart(self, user_id: int) -> tuple[bool, list[Cart] | str]:
         """
         Retrieves the contents of a user's cart.
 
@@ -118,8 +118,8 @@ class InteractionService:
             A tuple containing success status, and either a list of CartItem objects or an error message.
         """
         try:
-            cart_items = self.cart_repo.get_cart_contents(user_id)
-            return (True, cart_items)
+            cart = self.cart_repo.read(user_id)
+            return (True, cart)
         except Exception as e:
             print(f"[InteractionService ERROR] Failed to get cart for user {user_id}: {e}")
             return (False, "Could not retrieve cart contents.")

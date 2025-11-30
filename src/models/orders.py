@@ -55,7 +55,7 @@ class CartItemCreate:
 class CartItem(CartItemCreate):
     """Represents a cart item record from the database."""
     id: int
-    added_at: datetime
+    product_brand: str
     product_name: str
     thumbnail_url: str
 
