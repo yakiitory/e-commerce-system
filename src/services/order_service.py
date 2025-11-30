@@ -355,84 +355,102 @@ class OrderService:
             if not transaction_committed:
                 self.db.rollback()
 
-    def create_order_from_cart(self, user_id: int, address_id: int) -> tuple[int | None, str]:
+    def create_order_from_cart(self, user_id: int, address_id: int) -> tuple[list[int] | None, str]:
         """
         Orchestrates the entire checkout process from a user's cart.
+        Supports multiple merchants by creating separate orders for each.
         This is a transactional operation.
-
+        
         Args:
             user_id (int): The ID of the user checking out.
             address_id (int): The selected shipping and billing address ID.
-
+        
         Returns:
-            tuple[int | None, str]: A tuple containing the new order ID and a message.
+            tuple[list[int] | None, str]: A tuple containing a list of new order IDs and a message.
         """
         transaction_committed = False
+        created_order_ids = []
+        
         try:
             self.db.begin_transaction()
-
+            
             # 1. Get cart contents
             cart_items = self.cart_repo.get_cart_contents(user_id)
             if not cart_items:
                 return (None, "Your cart is empty.")
-
-            # 2. Validate items and group by merchant
-            total_amount = 0.0
-            order_items_create = []
-            merchant_id = None
-
+            
+            # 2. Group cart items by merchant
+            merchant_groups = {}
             for item in cart_items:
                 product = self.product_repo.read(item.product_id)
                 if not product:
                     raise Exception(f"Product '{item.product_name}' is no longer available.")
+                
                 if product.quantity_available < item.quantity:
-                    raise Exception(f"Not enough stock for '{item.product_name}'. Only {product.quantity_available} left.")
-
-                # For this simplified example, assume all items are from the same merchant
-                if merchant_id is None:
-                    merchant_id = product.merchant_id
-                elif merchant_id != product.merchant_id:
-                    raise Exception("Checkout with items from multiple merchants is not yet supported.")
-
-                total_amount += item.total_price
-                order_items_create.append(OrderItemCreate(
+                    raise Exception(
+                        f"Not enough stock for '{item.product_name}'. "
+                        f"Only {product.quantity_available} left."
+                    )
+                
+                merchant_id = product.merchant_id
+                if merchant_id not in merchant_groups:
+                    merchant_groups[merchant_id] = {
+                        'items': [],
+                        'total_amount': 0.0
+                    }
+                
+                merchant_groups[merchant_id]['items'].append(OrderItemCreate(
                     product_id=item.product_id,
                     product_quantity=item.quantity,
                     product_price=item.price
                 ))
-
-            if not merchant_id:
-                raise Exception("Could not determine the merchant for this order.")
-
-            # 3. Get card details for payment
+                merchant_groups[merchant_id]['total_amount'] += item.total_price
+            
+            # 3. Get user's card (needed for all orders)
             user_card = self.transaction_service.virtual_card_repo.get_by_user_id(user_id)
-            merchant_card = self.transaction_service.virtual_card_repo.get_by_merchant_id(merchant_id)
-            if not user_card or not merchant_card:
-                raise Exception("Could not find virtual cards for payment processing.")
-
-            # 4. Create the full order (this includes payment transfer)
-            new_order_id, message = self.create_order(
-                user_id=user_id,
-                merchant_id=merchant_id,
-                shipping_address_id=address_id,
-                billing_address_id=address_id, # Assuming same for simplicity
-                items=order_items_create,
-                user_card_id=user_card.id,
-                merchant_card_id=merchant_card.id
-            )
-
-            if not new_order_id:
-                # create_order handles its own rollback, but we raise to trigger the outer rollback
-                raise Exception(message)
-
-            # 5. Clear the user's cart
+            if not user_card:
+                raise Exception("Could not find your payment card.")
+            
+            # 4. Create an order for each merchant
+            for merchant_id, group_data in merchant_groups.items():
+                # Get merchant's card
+                merchant_card = self.transaction_service.virtual_card_repo.get_by_merchant_id(merchant_id)
+                if not merchant_card:
+                    raise Exception(f"Could not find payment card for merchant {merchant_id}.")
+                
+                # Create order for this merchant
+                new_order_id, message = self.create_order(
+                    user_id=user_id,
+                    merchant_id=merchant_id,
+                    shipping_address_id=address_id,
+                    billing_address_id=address_id,
+                    items=group_data['items'],
+                    user_card_id=user_card.id,
+                    merchant_card_id=merchant_card.id
+                )
+                
+                if not new_order_id:
+                    # If any order fails, the exception will trigger rollback of all orders
+                    raise Exception(f"Failed to create order for merchant {merchant_id}: {message}")
+                
+                created_order_ids.append(new_order_id)
+            
+            # 5. Clear the user's cart only after ALL orders succeed
             self.cart_repo.clear_cart(user_id)
-
+            
             # 6. Commit the entire transaction
             self.db.commit()
             transaction_committed = True
-            return (new_order_id, "Order placed successfully!")
-
+            
+            # Build success message
+            if len(created_order_ids) == 1:
+                return (created_order_ids, "Order placed successfully!")
+            else:
+                return (
+                    created_order_ids,
+                    f"Successfully placed {len(created_order_ids)} orders from {len(created_order_ids)} merchants!"
+                )
+        
         except Exception as e:
             print(f"[OrderService ERROR] Checkout failed for user {user_id}: {e}")
             if not transaction_committed:
