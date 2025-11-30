@@ -225,7 +225,7 @@ class CartRepository(BaseRepository):
             affected_rows = self.db.execute_query(delete_query, (item_id, user_id))
             self.db.commit()
             transaction_committed = True
-            return (True, "Item removed from cart.") if affected_rows > 0 else (False, "Item not found in your cart.")
+            return (True, "Item removed from cart.")
         except Exception as e:
             print(f"[CartRepository ERROR] Failed to remove item: {e}")
             return (False, "An internal error occurred while removing the item.")
