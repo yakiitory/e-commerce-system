@@ -585,14 +585,11 @@ def merchant_dashboard_page():
         flash("You do not have permission to access this page.", "error")
         return redirect(url_for('index'))
 
-    success, products_or_message = product_service.get_products_by_merchant_id(user.id)
+    products = product_service.get_product_entries_by_merchant_id(user.id)
 
-    if not success:
-        flash(str(products_or_message), "error")
+    if not products:
+        flash("You don't have any products yet, start selling!", "error")
         products = []
-    else:
-        products = products_or_message or []
-
     return render_template('merchant-dashboard.html', products=products)
 
 @app.route('/merchant-orders')

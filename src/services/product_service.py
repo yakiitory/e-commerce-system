@@ -375,7 +375,7 @@ class ProductService:
             print(f"[ProductService ERROR] An unexpected error occurred while fetching address {address_id}: {e}")
             return None
 
-    def get_products_by_merchant_id(self, merchant_id: int) -> tuple[bool, list[Product] | str]:
+    def get_product_entries_by_merchant_id(self, merchant_id: int) -> list[ProductEntry]:
         """
         Retrieves all products for a specific merchant.
 
@@ -388,8 +388,8 @@ class ProductService:
         """
         try:
             # Assuming the product repository has a method to fetch products by merchant ID.
-            products = self.product_repo.read_all_by_merchant_id(merchant_id)
-            return (True, products)
+            products = self.product_repo.get_product_entries_by_merchant_id(merchant_id)
+            return products
         except Exception as e:
             print(f"[ProductService ERROR] Failed to get products for merchant {merchant_id}: {e}")
-            return (False, "Could not retrieve products for the specified merchant.")
+            return []

@@ -450,5 +450,26 @@ class ProductRepository(BaseRepository):
         ]
 
         return product_entry_list
+    
+    def get_product_entries_by_merchant_id(self, merchant_id: int) -> list[ProductEntry]:
+        ### 1: Base query
+        product_query = "SELECT products.id FROM products WHERE merchant_id = %s"
+
+        ### 3.1: Fetch IDs
+        rows = self.db.fetch_all(product_query, (merchant_id,))
+
+        if not rows:
+            return []
+
+        ### 4: Build ProductEntry list with comprehension
+        product_entry_list = [
+            entry
+            for entry in (
+                self.get_product_entry(row["id"]) for row in rows
+            )
+            if entry is not None
+        ]
+
+        return product_entry_list
 
         
