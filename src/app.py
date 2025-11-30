@@ -617,6 +617,29 @@ def edit_product_page(product_id: int):
     categories = backend.mock_get_all_categories()
     return render_template('edit-product.html', product=product, categories=categories, addresses=merchant_addresses)
 
+@app.route('/delete-product/<int:product_id>', methods=['POST'])
+def delete_product(product_id: int):
+    """Handles deleting a product for a merchant."""
+    if 'username' not in session:
+        flash("Please log in to delete a product.", "error")
+        return redirect(url_for('login_page'))
+
+    user = backend.mock_get_user_by_username(session['username'])
+    if not user or user.role != 'merchant':
+        flash("You do not have permission to perform this action.", "error")
+        return redirect(url_for('index'))
+
+    product = backend.mock_get_product_by_id(product_id)
+
+    # Ensure the product belongs to the logged-in merchant
+    if not product or product.merchant_id != user.id:
+        flash("Product not found or you do not have permission to delete it.", "error")
+        return redirect(url_for('merchant_dashboard_page'))
+
+    result = backend.mock_delete_product(product_id)
+    flash(result['message'], 'success' if result['status'] else 'error')
+    return redirect(url_for('merchant_dashboard_page'))
+
 
 @app.route('/payments')
 def payments_page():
