@@ -26,7 +26,7 @@ mock_products = [
     ),
     Product(
         id=2,
-        name="Loq",
+        name="Loq ksdfjksdhjfkjhsdfjkhskdfhk jdhfjsdfhsdkfh",
         merchant_id=1,
         brand="Lenovo",
         category_id=2,

@@ -541,6 +541,8 @@ def edit_product_page(product_id: int):
         flash("Product not found or you do not have permission to edit it.", "error")
         return redirect(url_for('merchant_dashboard_page'))
 
+    merchant_addresses = backend.mock_get_addresses_by_user_id(user.id)
+
     if request.method == 'POST':
         form_data = request.form.to_dict()
 
@@ -549,13 +551,18 @@ def edit_product_page(product_id: int):
         form_data['original_price'] = float(form_data.get('original_price', form_data['price']))
         form_data['quantity_available'] = int(form_data.get('quantity_available', 0))
         form_data['category_id'] = int(form_data.get('category_id'))
+        address_id = request.form.get('address_id', type=int)
+
+        # Data Validation for address
+        if not address_id or not any(addr.id == address_id for addr in merchant_addresses):
+            flash("Please select a valid address for the product.", "error")
+            return redirect(url_for('edit_product_page', product_id=product_id))
 
         # Handle images
         form_data['images'] = [img.strip() for img in form_data.get('images', '').split(',') if img.strip()]
 
         # Remove fields that shouldn't be updated directly
         form_data.pop('merchant_id', None)
-        form_data.pop('address_id', None)
 
         result = backend.mock_update_product(product_id, form_data)
         flash(result['message'], 'success' if result['status'] else 'error')
@@ -563,7 +570,7 @@ def edit_product_page(product_id: int):
 
     # For GET request
     categories = backend.mock_get_all_categories()
-    return render_template('edit-product.html', product=product, categories=categories)
+    return render_template('edit-product.html', product=product, categories=categories, addresses=merchant_addresses)
 
 
 @app.route('/payments')
