@@ -165,21 +165,20 @@ class TransactionService:
 
     def get_merchant_payment_history(self, merchant_id: int) -> list[Payment] | None:
         """
-        Retrieves a user's enriched payment history.
+        Retrieves a merchant's enriched payment history.
 
         Args:
             merchant_id (int): The ID of the merchant.
 
         Returns:
-            A tuple containing success status, and either a tuple of (VirtualCard, list[Payment])
-            or an error message string.
+            list[Payment] | None: A list of annotated Payment objects, or None on error.
         """
         try:
             merchant_card = self.virtual_card_repo.get_by_merchant_id(merchant_id)
             if not merchant_card:
                 return [] # No card means no history
 
-            payment_history = self.payment_repo.get_payments_for_user(merchant_card.id)
+            payment_history = self.payment_repo.get_payments_for_merchant(merchant_card.id)
 
             for payment in payment_history:
                 if payment.sender_id == merchant_card.id:

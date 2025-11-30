@@ -53,25 +53,25 @@ class OrderRepository(BaseRepository):
         if not new_order_id:
             return (None, message)
         
-        cart = self.cart_repository.get_cart(data.user_id)
-        if not cart:
-            cart_items = []
-        else:
-            cart_items = cart.items
-
-        if cart_items:
-            for item_data in cart_items:
+        # Create order items from the validated items passed in, not from the cart
+        if data.items:
+            for item_data in data.items:
                 insert_query = f"""
-                    INSERT INTO {self.order_items_table_name} (order_id, item_id)
-                    VALUES (%s, %s)
+                    INSERT INTO {self.order_items_table_name} 
+                    (order_id, product_id, product_quantity, product_price)
+                    VALUES (%s, %s, %s, %s)
                 """
                 try:
-                    self.db.execute_query(insert_query, (new_order_id, item_data.id))
-                    print(f"[OrderRepository] Successfully linked order {new_order_id} to item {item_data.id}")
+                    self.db.execute_query(
+                        insert_query, 
+                        (new_order_id, item_data.product_id, item_data.product_quantity, item_data.product_price)
+                    )
+                    print(f"[OrderRepository] Successfully created order item for order {new_order_id}, product {item_data.product_id}")
                 except Exception as e:
-                    error_message = f"Failed to link order {new_order_id} to item {item_data.id}: {e}"
+                    error_message = f"Failed to create order item for order {new_order_id}, product {item_data.product_id}: {e}"
                     print(f"[OrderRepository ERROR] {error_message}")
                     return (None, error_message)
+        
         return (new_order_id, f"Order created successfully with ID {new_order_id}.")
 
     @override
