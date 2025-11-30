@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // --- New for Edit Page: Load existing images ---
     function loadInitialImages() {
-        const existingImageUrls = imagesHiddenInput.value.split(',').filter(url => url);
+        const existingImageUrls = imagesHiddenInput.value ? imagesHiddenInput.value.split(',') : [];
         uploadedFiles = existingImageUrls.map(url => ({
             id: Date.now() + Math.random(),
             url: url,
@@ -118,9 +118,11 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     productForm.addEventListener('submit', () => {
-        const imageUrls = uploadedFiles.map(file => file.url.startsWith('blob:') ? `/static/img/uploads/${file.name}` : file.url);
-        imagesHiddenInput.value = imageUrls.join(',');
+        const existingImageUrls = uploadedFiles
+            .filter(file => !file.url.startsWith('data:'))
+            .map(file => file.url);
+        imagesHiddenInput.value = existingImageUrls.join(',');
     });
 
-    loadInitialImages(); // Initialize with existing images
+    loadInitialImages();
 });

@@ -8,7 +8,7 @@
 
 <main class="content-wrapper">
 {% block body %}
-    <form class="add-product-container" action="{{ url_for('edit_product_page', product_id=product.id) }}" method="post" id="product-form">
+    <form class="add-product-container" action="{{ url_for('edit_product_page', product_id=product.id) }}" method="post" id="product-form" enctype="multipart/form-data">
         <div class="form-section">
             <h3>Edit Product</h3>
                 <div class="form-group">
@@ -43,7 +43,7 @@
             <div class="image-upload-section">
             <h4>Product Images</h4>
             <div class="image-uploader" id="image-uploader">
-                <input type="file" id="file-input" multiple accept="image/*" style="display: none;">
+                <input type="file" id="file-input" name="new_images" multiple accept="image/*" style="display: none;">
                 <div class="upload-area" id="upload-area">
                     <p><strong>Drag & drop images here</strong></p>
                     <p>or</p>

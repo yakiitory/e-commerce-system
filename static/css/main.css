@@ -188,48 +188,58 @@ footer {
     font-weight: 600;
     margin-bottom: 0;
 }
-
 .footer-content {
     display:flex;
     justify-content: space-between; 
     gap: 2rem; 
+    margin-top: 1.5rem;
 }
 
 .footer-column {
     align-items: flex-start;
     flex-direction: column;
     display: flex;
+    gap: 0.8rem; /* Adds space between links */
 }
 
-.footer-column p {
-    margin-top: .5rem;
-    text-decoration: underline;
-    text-decoration-color: #f5c2e7;
-    text-decoration-thickness: .05rem;
-    text-underline-offset: 0.5rem;
+.footer-column .footer-column-title {
+    margin: 0 0 0.5rem 0;
     color: #ffffff;
     font-weight: 600;
-    font-size: 1.3rem;
+    font-size: 1.1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .footer-column a {
     text-decoration: none;
     color: #C4C4C4;
+    transition: color 0.2s ease-in-out, padding-left 0.2s ease-in-out;
+    font-size: 0.95rem;
+}
+
+.footer-column a:hover {
+    color: #f5c2e7; /* star-pink */
+    padding-left: 5px;
 }
 
 .footer-contact-item {
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    font-size: 0.95rem;
 }
 
 .footer-contact-item svg {
     width: 1rem;
     height: 1rem;
     fill: #F9E2AF;
-    flex-shrink: 0; /* Prevents the icon from shrinking */
+    flex-shrink: 0;
 }
 
+.footer-contact-item a {
+    font-size: inherit; /* Ensure contact links inherit font size */
+}
 
 /* General Content Wrapper */
 .content-wrapper {

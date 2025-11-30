@@ -2,7 +2,7 @@ from flask import Flask, render_template, url_for, jsonify, request, abort, flas
 from dataclasses import asdict
 from datetime import datetime
 import os
-
+import random
 from werkzeug.utils import secure_filename
 from PIL import Image
 
@@ -28,6 +28,25 @@ def inject_user():
     if 'username' in session:
         current_user = backend.mock_get_user_by_username(session['username'])
     return dict(current_user=current_user)
+
+@app.context_processor
+def inject_footer_data():
+    """
+    Injects data into the context of all templates for the footer.
+    """
+    all_categories = backend.mock_get_all_categories()
+    all_products = backend.mock_get_all_products()
+
+    # Get 4 random categories if possible
+    footer_categories = random.sample(all_categories, k=min(len(all_categories), 4))
+    
+    # 4 random products if possible
+    footer_products = random.sample(all_products, k=min(len(all_products), 4))
+    
+    return dict(
+        footer_categories=footer_categories,
+        footer_products=footer_products
+    )
 
 @app.route('/')
 def index():
@@ -558,10 +577,36 @@ def edit_product_page(product_id: int):
             flash("Please select a valid address for the product.", "error")
             return redirect(url_for('edit_product_page', product_id=product_id))
 
-        # Handle images
-        form_data['images'] = [img.strip() for img in form_data.get('images', '').split(',') if img.strip()]
+        # Handle image uploads and existing images
+        upload_folder = os.path.join(app.static_folder, 'img', 'uploads')
+        os.makedirs(upload_folder, exist_ok=True)
 
-        # Remove fields that shouldn't be updated directly
+        # Get existing images from the hidden input
+        existing_images = [img.strip() for img in request.form.get('images', '').split(',') if img.strip()]
+        
+        new_image_files = request.files.getlist('new_images')
+        new_image_urls = []
+
+        for image_file in new_image_files:
+            if image_file and image_file.filename:
+                filename = secure_filename(image_file.filename)
+                unique_filename = f"{os.urandom(8).hex()}_{filename}"
+                save_path = os.path.join(upload_folder, unique_filename)
+                try:
+                    img = Image.open(image_file.stream)
+                    if img.mode in ('RGBA', 'P'):
+                        img = img.convert('RGB')
+                    img.save(save_path, 'jpeg', quality=85, optimize=True)
+                    web_path = f'img/uploads/{unique_filename}'
+                    new_image_urls.append(f'/static/{web_path}')
+                except Exception as e:
+                    flash(f"Error processing image {filename}: {e}", "error")
+                    return redirect(url_for('edit_product_page', product_id=product_id))
+
+        # Combine existing and new images
+        form_data['images'] = existing_images + new_image_urls
+
+        # Remove fields that shouldn't be updated directly from the form
         form_data.pop('merchant_id', None)
 
         result = backend.mock_update_product(product_id, form_data)
