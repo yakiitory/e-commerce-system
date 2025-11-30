@@ -19,11 +19,9 @@ class OrderRepository(BaseRepository):
     def create(self, data: OrderCreate) -> tuple[int | None, str]:
         """
         Creates a new order and its associated order items.
-
         Args:
             data (OrderCreate): The OrderCreate object containing the new order's data
                                 and a list of OrderItemCreate objects.
-
         Returns:
             tuple[int | None, str]: A tuple indicating the new order's ID if successful,
                                     `None` otherwise, and a message.
@@ -53,20 +51,42 @@ class OrderRepository(BaseRepository):
         if not new_order_id:
             return (None, message)
         
-        # Create order items from the validated items passed in, not from the cart
+        # Create item records from the OrderItemCreate data and link them to this order
         if data.items:
             for item_data in data.items:
-                insert_query = f"""
-                    INSERT INTO {self.order_items_table_name} 
-                    (order_id, product_id, product_quantity, product_price)
-                    VALUES (%s, %s, %s, %s)
+                # Step 1: Create an item record with the correct columns
+                item_insert_query = """
+                    INSERT INTO items (product_id, product_quantity, product_price, applied_discounts, total_price)
+                    VALUES (%s, %s, %s, %s, %s)
                 """
                 try:
-                    self.db.execute_query(
-                        insert_query, 
-                        (new_order_id, item_data.product_id, item_data.product_quantity, item_data.product_price)
+                    total_price = item_data.product_price * item_data.product_quantity
+                    
+                    # execute_query returns the lastrowid for INSERT statements
+                    item_id = self.db.execute_query(
+                        item_insert_query,
+                        (
+                            item_data.product_id,
+                            item_data.product_quantity,
+                            item_data.product_price,
+                            0,  # applied_discounts - default to 0
+                            total_price
+                        )
                     )
-                    print(f"[OrderRepository] Successfully created order item for order {new_order_id}, product {item_data.product_id}")
+                    
+                    if not item_id:
+                        error_message = f"Failed to create item record for product {item_data.product_id}"
+                        print(f"[OrderRepository ERROR] {error_message}")
+                        return (None, error_message)
+                    
+                    # Step 2: Link the item to this order
+                    order_item_insert_query = f"""
+                        INSERT INTO {self.order_items_table_name} (order_id, item_id)
+                        VALUES (%s, %s)
+                    """
+                    self.db.execute_query(order_item_insert_query, (new_order_id, item_id))
+                    print(f"[OrderRepository] Successfully linked order {new_order_id} to item {item_id} (product {item_data.product_id})")
+                    
                 except Exception as e:
                     error_message = f"Failed to create order item for order {new_order_id}, product {item_data.product_id}: {e}"
                     print(f"[OrderRepository ERROR] {error_message}")
