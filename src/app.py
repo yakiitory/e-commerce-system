@@ -1251,8 +1251,8 @@ def liked_products_page():
     liked_products = []
     if wishlist_product_ids:
         for product_id in wishlist_product_ids:
-            success, product_entry = product_service.get_product_for_display(product_id)
-            if success and product_entry:
+            product_entry = product_repository.get_product_entry(product_id)
+            if product_entry:
                 liked_products.append(product_entry)
 
     return render_template('liked-products.html', products=liked_products)
