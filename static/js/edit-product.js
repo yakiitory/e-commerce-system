@@ -31,7 +31,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     uploadArea.addEventListener('dragleave', () => {
-        upload0Area.parentElement.classList.remove('dragover');
+        uploadArea.parentElement.classList.remove('dragover');
     });
 
     uploadArea.addEventListener('drop', (e) => {

@@ -129,7 +129,7 @@
 }
 
 .delete-btn:hover {
-    background-color: #fbe9eb; /* Light pink background */
+    background-color: #fbe9eb; 
 }
 
 .delete-btn svg {
@@ -139,5 +139,5 @@
 }
 
 .delete-btn:hover svg {
-    fill: #d9534f; /* A reddish color for delete hover */
+    fill: #d9534f; 
 }
