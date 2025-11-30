@@ -90,18 +90,55 @@ header {
 .logo-img {
     height: 3rem;
     width: auto;
-    transition: height 0.2s ease-in-out; /* Adds a smooth transition effect */
+    transition: height 0.2s ease-in-out; 
+}
+
+.search-container {
+    flex-grow: 1;
+    position: relative;
+    max-width: 80rem;
 }
 
 .search-bar {
     flex-grow: 1;
-    max-width: 70rem;
+    max-width: 80rem;
     height: 30px;
     border-radius: 1rem;
     border: 1px solid #000000;
     display: flex;
     align-items: center;
     overflow: hidden;
+    position: relative; 
+}
+
+.search-container.suggestions-active .search-bar {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.search-suggestions {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background-color: white;
+    border: 1px solid #ccc;
+    border-top: none;
+    border-radius: 0 0 1rem 1rem;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    z-index: 1000;
+    max-height: 300px;
+    overflow-y: auto;
+    display: none;
+}
+
+.suggestion-item {
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+}
+
+.suggestion-item:hover {
+    background-color: #f0f0f0;
 }
 
 .search-input {
@@ -110,7 +147,7 @@ header {
     outline: none;
     padding: 0 1rem;
     height: 100%;
-    font-size: 1rem;
+    font-size: 1rem; 
     background: transparent;
 }
 

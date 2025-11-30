@@ -18,12 +18,15 @@
         <a href="/" class="logo-container">
             <img class="logo-img" src="{{ url_for('static', filename='img/fleamart_logo.png') }}" alt="FleaMart Logo">
         </a>
-        <form class="search-bar" action="{{ url_for('products_page') }}" method="get">
-            <input type="text" name="query" class="search-input" placeholder="Browse FleaMart...">
-            <button type="submit" class="search-icon-container">
-                {% include "svg/search.svg"%}
-            </button>
-        </form>
+        <div class="search-container" id="searchContainer">
+            <form class="search-bar" action="{{ url_for('products_page') }}" method="get" id="searchForm">
+                <input type="text" name="query" class="search-input" id="searchInput" placeholder="Browse FleaMart..." autocomplete="off">
+                <button type="submit" class="search-icon-container">
+                    {% include "svg/search.svg"%}
+                </button>
+            </form>
+            <div id="suggestions" class="search-suggestions"></div>
+        </div>
         <div class="icons-container">
             {% if current_user %}
             <a href="{{ url_for('account_details_page') }}" title="Account">{% include "svg/account.svg" %}</a>
@@ -107,6 +110,7 @@
         {% endblock %}
     </footer>
     <script>
+        // Category Dropdown
         document.addEventListener('DOMContentLoaded', function () {
             const categoryItems = document.querySelectorAll('.category-list .has-submenu');
 
@@ -115,6 +119,68 @@
                 header.addEventListener('click', () => {
                     item.classList.toggle('open');
                 });
+            });
+        });
+
+        // Logic for search suggestions
+        document.addEventListener('DOMContentLoaded', function () {
+            const searchContainer = document.getElementById('searchContainer');
+            const searchInput = document.getElementById('searchInput');
+            const suggestionsContainer = document.getElementById('suggestions');
+            const searchForm = document.getElementById('searchForm');
+            let debounceTimer;
+
+            if (!searchContainer || !searchInput || !suggestionsContainer) {
+                return;
+            }
+
+            searchInput.addEventListener('input', function() {
+                const query = this.value;
+
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => {
+                    if (query.length < 2) {
+                        suggestionsContainer.innerHTML = '';
+                        suggestionsContainer.style.display = 'none';
+                        searchContainer.classList.remove('suggestions-active');
+                        return;
+                    }
+
+                    fetch(`/api/search-suggestions?query=${encodeURIComponent(query)}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            suggestionsContainer.innerHTML = '';
+                            if (data.length > 0) {
+                                suggestionsContainer.style.display = 'block';
+                                searchContainer.classList.add('suggestions-active');
+                                data.forEach(suggestion => {
+                                    const item = document.createElement('div');
+                                    item.className = 'suggestion-item';
+                                    item.textContent = suggestion;
+                                    item.addEventListener('click', () => {
+                                        searchInput.value = suggestion;
+                                        searchForm.submit();
+                                    });
+                                    suggestionsContainer.appendChild(item);
+                                });
+                            } else {
+                                suggestionsContainer.style.display = 'none';
+                                searchContainer.classList.remove('suggestions-active');
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error fetching search suggestions:', error);
+                            suggestionsContainer.style.display = 'none';
+                            searchContainer.classList.remove('suggestions-active');
+                        });
+                }, 250);
+            });
+
+            document.addEventListener('click', function(event) {
+                if (!searchContainer.contains(event.target)) {
+                    suggestionsContainer.style.display = 'none';
+                    searchContainer.classList.remove('suggestions-active');
+                }
             });
         });
     </script>

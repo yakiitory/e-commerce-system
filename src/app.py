@@ -9,6 +9,7 @@ from PIL import Image
 import backend
 
 from models.products import ProductCreate
+from trie import Trie
 
 app = Flask(__name__, template_folder='../templates', static_folder='../static')
 
@@ -28,6 +29,34 @@ def inject_user():
     if 'username' in session:
         current_user = backend.mock_get_user_by_username(session['username'])
     return dict(current_user=current_user)
+
+# --- Trie Initialization ---
+search_trie = Trie()
+
+def populate_search_trie():
+    """
+    Populates the search Trie with data from the backend.
+    This runs once before the first request to the application.
+    """
+    print("Populating search trie...")
+    all_products = backend.mock_get_all_products()
+    all_categories = backend.mock_get_all_categories()
+    
+    searchable_terms = set()
+    
+    for product in all_products:
+        searchable_terms.add(product.name)
+        searchable_terms.add(product.brand)
+        
+    for category in all_categories:
+        searchable_terms.add(category.name)
+        
+    for term in searchable_terms:
+        search_trie.insert(term)
+    print("Search trie populated.")
+
+# Call the function to populate the Trie when the application starts
+populate_search_trie()
 
 @app.context_processor
 def inject_footer_data():
@@ -1060,191 +1089,18 @@ def liked_products_page():
 
     return render_template('liked-products.html', products=liked_products)
 
-if __name__ == '__main__':
-    app.run(debug=True)
-
-@app.route('/product-page/<int:product_id>')
-def product_page(product_id: int):
-    """Renders the detail page for a specific product.
-
-    Fetches product details, reviews, and merchant information. It also
-    determines if the currently logged-in user is allowed to review the product.
-
-    Args:
-        product_id (int): The ID of the product to display.
-
-    Returns:
-        str: The rendered HTML of the product detail page.
+@app.route('/api/search-suggestions')
+def search_suggestions():
     """
-    product = backend.mock_get_product_by_id(product_id)
-    reviews = backend.mock_get_reviews_by_product_id(product_id)
-    merchant = None
-    can_review = False
-    is_liked = False
-
-    if 'username' in session:
-        user = backend.mock_get_user_by_username(session['username'])
-        if user:
-            user_orders = backend.mock_get_orders_by_user_id(user.id)
-            for order in user_orders:
-                metadata = backend.mock_get_user_metadata(user.id)
-                if metadata and product_id in metadata.liked_products:
-                    is_liked = True 
-                if order.status == backend.Status.DELIVERED:
-                    for item in order.orders:
-                        if item.product_id == product_id:
-                            can_review = True
-                            break
-                if can_review:
-                    break
-
-    if product:
-        merchant = next((user for user in backend.mock_users.values() if user.id == product.merchant_id), None)
-        product.store_name = merchant.store_name if merchant and hasattr(merchant, 'store_name') else "Unknown Store"
-        
-        # Fetch and attach metadata
-        metadata = backend.mock_get_product_metadata(product.id)
-        product.sold_count = metadata.sold_count if metadata else 0
-        product.rating_avg = metadata.rating_avg if metadata else 0
-
-
-    for review in reviews:
-        review.user = next((user for user in backend.mock_users.values() if user.id == review.user_id), None)
-
-    if product is None:
-        abort(404)
-
-    return render_template('product_detail.html', product=product, reviews=reviews, merchant=merchant, can_review=can_review, is_liked=is_liked)
-
-@app.route('/add-to-cart', methods=['POST'])
-def add_to_cart():
-    """Adds a product to the current user's cart.
-
-    Requires the user to be logged in. Handles form submission for adding
-    a specified quantity of a product to the cart.
-
-    Returns:
-        A redirect to the product page.
+    Provides search suggestions using a Trie for efficiency.
     """
-    if 'username' not in session:
-        flash("Please log in to add items to your cart.", "error")
-        return redirect(url_for('login_page'))
+    query = request.args.get('query', '').lower()
+    if not query or len(query) < 2:
+        return jsonify([])
 
-    user = backend.mock_get_user_by_username(session['username'])
-    cart = backend.mock_get_cart_by_user_id(user.id) 
-    product_id = int(request.form.get('product_id'))
-    quantity = int(request.form.get('quantity', 1))
-
-    result = backend.mock_add_item_to_cart(cart.id, {'product_id': product_id, 'product_quantity': quantity})
-    flash(result['message'], 'success' if result['status'] else 'error')
-    return redirect(url_for('product_page', product_id=product_id))
-
-@app.route('/update-cart-item/<int:item_id>', methods=['POST'])
-def update_cart_item(item_id: int):
-    """Updates the quantity of an item in the user's cart."""
-    if 'username' not in session:
-        flash("Please log in to modify your cart.", "error")
-        return redirect(url_for('login_page'))
-
-    user = backend.mock_get_user_by_username(session['username'])
-    cart = backend.mock_get_cart_by_user_id(user.id)
-    
-    try:
-        quantity = int(request.form.get('quantity'))
-        if quantity < 1:
-            flash("Quantity must be at least 1.", "error")
-            return redirect(url_for('cart_page'))
-    except (ValueError, TypeError):
-        flash("Invalid quantity specified.", "error")
-        return redirect(url_for('cart_page'))
-
-    result = backend.mock_update_cart_item_quantity(cart.id, item_id, quantity)
-    flash(result['message'], 'success' if result['status'] else 'error')
-    return redirect(url_for('cart_page'))
-
-@app.route('/remove-from-cart/<int:item_id>', methods=['POST'])
-def remove_from_cart(item_id: int):
-    """Removes an item from the user's cart."""
-    if 'username' not in session:
-        flash("Please log in to modify your cart.", "error")
-        return redirect(url_for('login_page'))
-
-    user = backend.mock_get_user_by_username(session['username'])
-    cart = backend.mock_get_cart_by_user_id(user.id)
-
-    result = backend.mock_remove_item_from_cart(cart.id, item_id)
-    flash(result['message'], 'success' if result['status'] else 'error')
-    return redirect(url_for('cart_page'))
-
-@app.route('/add-review/<int:product_id>', methods=['POST'])
-def add_review(product_id: int):
-    """Handles the submission of a product review.
-
-    Requires the user to be logged in. Creates a new review for the given
-    product based on the submitted form data.
-
-    Args:
-        product_id (int): The ID of the product.
-
-    Returns:
-        A redirect to the product page.
-    """
-    if 'username' not in session:
-        flash("Please log in to submit a review.", "error")
-        return redirect(url_for('login_page'))
-
-    user = backend.mock_get_user_by_username(session['username'])
-    
-    review_data = {
-        "user_id": user.id,
-        "product_id": product_id,
-        "rating": float(request.form.get('rating')),
-        "description": request.form.get('description'),
-        "attached": [],
-        "likes": 0
-    }
-
-    result = backend.mock_create_review(review_data)
-    flash(result['message'], 'success' if result['status'] else 'error')
-
-    return redirect(url_for('product_page', product_id=product_id))
-
-@app.route('/like-product/<int:product_id>', methods=['POST'])
-def like_product(product_id: int):
-    """Toggles a product in the user's liked list."""
-    if 'username' not in session:
-        flash("Please log in to like products.", "error")
-        return redirect(url_for('login_page'))
-
-    user = backend.mock_get_user_by_username(session['username'])
-    if not user:
-        flash("User not found.", "error")
-        return redirect(url_for('index'))
-
-    result = backend.mock_like_unlike_product(user.id, product_id)
-    flash(result['message'], 'success' if result['status'] else 'error')
-    return redirect(request.referrer or url_for('product_page', product_id=product_id))
-
-@app.route('/liked-products')
-def liked_products_page():
-    """Renders the page showing the user's liked products."""
-    if 'username' not in session:
-        flash("Please log in to view your liked products.", "error")
-        return redirect(url_for('login_page'))
-
-    user = backend.mock_get_user_by_username(session['username'])
-    liked_products = backend.mock_get_liked_products(user.id)
-
-    # Enrich product data
-    for product in liked_products:
-        category = backend.mock_get_category_by_id(product.category_id)
-        address = backend.mock_get_address_by_id(product.address_id)
-        metadata = backend.mock_get_product_metadata(product.id)
-        product.category_name = category.name if category else "Uncategorized"
-        product.city = address.city if address else "N/A"
-        product.rating_avg = metadata.rating_avg if metadata else 0
-
-    return render_template('liked-products.html', products=liked_products)
+    # Use the Trie to get suggestions
+    suggestions = search_trie.search_prefix(query)
+    return jsonify(suggestions[:10]) # Limit to 10 suggestions
 
 if __name__ == '__main__':
     app.run(debug=True)

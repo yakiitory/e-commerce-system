@@ -73,6 +73,19 @@ mock_users = {
         gender="Male",
         age=25,
         created_at=datetime.now()
+    ),
+    "fayefaye": User(
+        id=2,
+        role="user",
+        username="fayefaye",
+        hash="password",
+        first_name="Faye",
+        last_name="Peteros",
+        phone_number="09123456789",
+        email="juan@example.com",
+        gender="Female",
+        age=25,
+        created_at=datetime.now()
     )
 }
 
