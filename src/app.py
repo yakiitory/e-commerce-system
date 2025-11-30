@@ -29,7 +29,6 @@ admin_repository            = AdminRepository(db)
 address_repository          = AddressRepository(db)
 merchant_repository         = MerchantRepository(db)
 category_repository         = CategoryRepository(db)
-order_repository            = OrderRepository(db)
 payment_repository          = PaymentRepository(db)
 product_metadata_repository = ProductMetadataRepository(db)
 review_repository           = ReviewRepository(db)
@@ -38,6 +37,7 @@ user_repository             = UserRepository(db)
 virtual_card_repository     = VirtualCardRepository(db)
 product_repository          = ProductRepository(db)
 cart_repository             = CartRepository(db, product_metadata_repository)
+order_repository            = OrderRepository(db, cart_repository=cart_repository)
 
 address_service = AddressService(
     db=db,
@@ -1210,7 +1210,7 @@ def add_review(product_id: int):
         return redirect(url_for('product_page', product_id=product_id))
 
     success, message = review_service.create_review(
-        user_id=user.id, product_id=product_id, rating=rating, description=description, images=images
+        user_id=user.id, product_id=product_id, rating=rating, description=description
     )
     flash(message, 'success' if success else 'error')
 

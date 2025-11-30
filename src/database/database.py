@@ -147,16 +147,21 @@ class Database:
         """
         connection = None
         cursor = None
-        last_id = None
+        result_id = None
         try:
             # Use the transaction connection if available, otherwise get a new one.
             connection = self._transaction_connection or self.get_connection()
             cursor = connection.cursor()
             cursor.execute(query, params or ())
+
+            if query.strip().upper().startswith("UPDATE") or query.strip().upper().startswith("DELETE"):
+                result_id = cursor.rowcount
+            else: # Assumes INSERT
+                result_id = cursor.lastrowid
+
             # Only commit if not in a transaction. The final commit() call will handle it.
             if not self._transaction_connection:
                 connection.commit()
-            last_id = cursor.lastrowid # Capture the last inserted ID
         except Error as e:
             print(f"[DB ERROR] Query failed: {e}")
             # Only rollback if not in a transaction. The final rollback() call will handle it.
@@ -168,7 +173,7 @@ class Database:
             # Only close the connection if it's not part of a transaction.
             if connection and not self._transaction_connection:
                 connection.close()
-        return last_id
+        return result_id
 
     def fetch_one(self, query: str, params: tuple | None = None):
         """

@@ -512,5 +512,15 @@ class ProductRepository(BaseRepository):
         params = (new_rating, product_id)
         self.db.execute_query(query, params)
         return True
+    
+    def update_quantity(self, product_id: int, purchased_quantity: int) -> bool:
+        query = """
+            UPDATE products
+            SET quantity_available = quantity_available - %s
+            WHERE id = %s
+        """
+        params = (purchased_quantity, product_id)
+        self.db.execute_query(query, params)
+        return True
 
         

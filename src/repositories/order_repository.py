@@ -5,10 +5,13 @@ from models.payments import VirtualCard
 from repositories.base_repository import BaseRepository
 from database.database import Database
 from models.status import Status
+from repositories.cart_repository import CartRepository
+
 
 class OrderRepository(BaseRepository):
-    def __init__(self, db: Database):
+    def __init__(self, db: Database, cart_repository: CartRepository):
         self.db = db
+        self.cart_repository = cart_repository
         self.table_name = "orders"
         self.order_items_table_name = "order_items"
 
@@ -35,9 +38,9 @@ class OrderRepository(BaseRepository):
             "billing_address_id",
         ]
 
-        # Prepare data for _create_record, converting Status enum to its value
-        order_data_for_db = data.__dict__.copy()
-        order_data_for_db['status'] = data.status.value
+        # Use a SimpleNamespace to create a mutable object from the dataclass
+        order_data_for_db = SimpleNamespace(**data.__dict__)
+        order_data_for_db.status = data.status.value
 
         # Create the order record
         new_order_id, message = self._create_record(
@@ -49,28 +52,26 @@ class OrderRepository(BaseRepository):
 
         if not new_order_id:
             return (None, message)
+        
+        cart = self.cart_repository.get_cart(data.user_id)
+        if not cart:
+            cart_items = []
+        else:
+            cart_items = cart.items
 
-        if data.items:
-            for item_data in data.items:
-                item_fields = [
-                    "order_id",
-                    "product_id",
-                    "quantity",
-                    "price_at_purchase",
-                ]
-                # Manually set order_id for each item
-                item_data.order_id = new_order_id
-                item_id, item_message = self._create_record(
-                    data=item_data,
-                    fields=item_fields,
-                    table_name=self.order_items_table_name,
-                    db=self.db
-                )
-                if not item_id:
-                    # Rollback: Delete the order that was just created
-                    self._delete_by_id(new_order_id, self.table_name, self.db)
-                    return (None, f"Failed to create order item, order creation rolled back. Reason: {item_message}")
-
+        if cart_items:
+            for item_data in cart_items:
+                insert_query = f"""
+                    INSERT INTO {self.order_items_table_name} (order_id, item_id)
+                    VALUES (%s, %s)
+                """
+                try:
+                    self.db.execute_query(insert_query, (new_order_id, item_data.id))
+                    print(f"[OrderRepository] Successfully linked order {new_order_id} to item {item_data.id}")
+                except Exception as e:
+                    error_message = f"Failed to link order {new_order_id} to item {item_data.id}: {e}"
+                    print(f"[OrderRepository ERROR] {error_message}")
+                    return (None, error_message)
         return (new_order_id, f"Order created successfully with ID {new_order_id}.")
 
     @override
@@ -306,7 +307,6 @@ class OrderRepository(BaseRepository):
             tuple[int | None, str]: A tuple with the new invoice ID and a message.
         """
         invoice_fields = [
-            "order_id",
             "address_id",
             "issue_date",
             "status",

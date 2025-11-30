@@ -134,8 +134,8 @@ CREATE TABLE IF NOT EXISTS `items` (
   `product_id` INT NOT NULL,
   `product_quantity` INT NOT NULL,
   `product_price` REAL NOT NULL,
-  `applied_discounts` INT NOT NULL,
-  `total_price` REAL NOT NULL,
+  `applied_discounts` INT NOT NULL DEFAULT 0,
+  `total_price` REAL NOT NULL DEFAULT 0.0,
   PRIMARY KEY (`id`),
   FOREIGN KEY (`product_id`) REFERENCES `products`(`id`)
     ON UPDATE CASCADE

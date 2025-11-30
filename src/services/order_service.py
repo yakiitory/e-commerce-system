@@ -1,4 +1,5 @@
 from __future__ import annotations
+from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from models.orders import Order, OrderCreate, OrderItemCreate, Invoice, InvoiceCreate
@@ -54,15 +55,15 @@ class OrderService:
             return (None, "Cannot create an order with no items.")
 
         # --- 1. Validate items and calculate total amount ---
-        total_amount = 0.0
+        total_amount = Decimal(0.0)
         validated_items = []
         for item in items:
             product = self.product_repo.read(item.product_id)
             if not product:
                 return (None, f"Validation failed: Product with ID {item.product_id} not found.")
             # Use the current product price for the order
-            item.price_at_purchase = product.price
-            total_amount += item.price_at_purchase * item.quantity
+            item.product_price = product.price
+            total_amount += Decimal(item.product_price * item.product_quantity)
             validated_items.append(item)
 
         if total_amount <= 0:
@@ -76,7 +77,7 @@ class OrderService:
             payment_success, payment_message = self.transaction_service.transfer_funds(
                 sender_card_id=user_card_id,
                 receiver_card_id=merchant_card_id,
-                amount=total_amount,
+                amount=float(total_amount),
                 payment_type="ORDER_PAYMENT",
                 in_transaction=True
             )
@@ -89,7 +90,7 @@ class OrderService:
             order_to_create = OrderCreate(
                 user_id=user_id, merchant_id=merchant_id,
                 shipping_address_id=shipping_address_id, billing_address_id=billing_address_id,
-                total_amount=total_amount, items=validated_items, status=Status.PAID
+                total_amount=float(total_amount), items=validated_items, status=Status.PAID
             )
             new_order_id, order_message = self.order_repo.create(order_to_create)
             if not new_order_id:
@@ -109,7 +110,9 @@ class OrderService:
 
             # --- 5. Update Product Metadata ---
             for item in validated_items:
-                self.product_repo.metadata_repo.increment_field(item.product_id, 'sold_count', item.quantity)
+                self.product_repo.metadata_repo.increment_field(item.product_id, 'sold_count')
+                self.product_repo.update_quantity(item.product_id, item.product_quantity)
+
 
             # --- 6. Commit Transaction ---
             self.db.commit()
@@ -210,7 +213,7 @@ class OrderService:
 
             # --- 4. Revert Product Metadata ---
             for item in order.items:
-                self.product_repo.metadata_repo.decrement_field(item.product_id, 'sold_count', item.quantity)
+                self.product_repo.metadata_repo.decrement_field(item.product_id, 'sold_count', item.product_quantity)
 
             # --- 5. Commit Transaction ---
             self.db.commit()
@@ -394,16 +397,16 @@ class OrderService:
                 total_amount += item.total_price
                 order_items_create.append(OrderItemCreate(
                     product_id=item.product_id,
-                    quantity=item.quantity,
-                    price_at_purchase=item.price
+                    product_quantity=item.quantity,
+                    product_price=item.price
                 ))
 
             if not merchant_id:
                 raise Exception("Could not determine the merchant for this order.")
 
             # 3. Get card details for payment
-            user_card = self.transaction_service.virtual_card_repo.get_by_owner_id(user_id)
-            merchant_card = self.transaction_service.virtual_card_repo.get_by_owner_id(merchant_id)
+            user_card = self.transaction_service.virtual_card_repo.get_by_user_id(user_id)
+            merchant_card = self.transaction_service.virtual_card_repo.get_by_merchant_id(merchant_id)
             if not user_card or not merchant_card:
                 raise Exception("Could not find virtual cards for payment processing.")
 

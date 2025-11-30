@@ -10,8 +10,8 @@ from .status import Status
 class OrderItemCreate:
     """Data needed to create a new item within an order."""
     product_id: int
-    quantity: int
-    price_at_purchase: float
+    product_quantity: int
+    product_price: float
     order_id: int | None = None # Set by the repository during creation
 
 @dataclass

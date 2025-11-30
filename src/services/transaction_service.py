@@ -83,8 +83,9 @@ class TransactionService:
         # Create a payment record first with a PENDING status
         payment_create = PaymentCreate(
             sender_id=sender_card_id,
+            sender_type="VIRTUAL_CARD",
             receiver_id=receiver_card_id,
-            type=payment_type,
+            receiver_type="VIRTUAL_CARD",
             amount=amount,
         )
         payment_id, _ = self.payment_repo.create(payment_create)
