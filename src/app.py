@@ -963,12 +963,12 @@ def checkout_page():
         return redirect(url_for('login_page'))
 
     # Fetch cart contents for both GET and POST
-    cart_success, cart_result = interaction_service.get_cart(user.id)
-    if not cart_success or not cart_result:
+    cart = cart_repository.get_cart(user.id)
+    if not cart:
         flash("Your cart is empty.", "error")
         return redirect(url_for('cart_page'))
     
-    cart_items = cart_result
+    cart_items = cart.items
 
     if request.method == 'POST':
         address_id = request.form.get('address_id', type=int)
@@ -992,10 +992,9 @@ def checkout_page():
         flash(str(addr_result), "error")
     addresses = addr_result if addr_success else []
 
-    vc_success, vc_result = transaction_service.get_user_payment_details(user.id)
-    if not vc_success:
-        flash(str(vc_result), "error")
-    virtual_card = vc_result[0] if vc_success else None # type: ignore
+    virtual_card = virtual_card_repository.get_by_user_id(user.id)
+    if not virtual_card:
+        flash(str("You have no card!"), "error")
 
     total_price = sum(item.total_price for item in cart_items) # type: ignore
 

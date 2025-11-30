@@ -46,12 +46,12 @@
                     <div class="summary-items">
                         {% for item in cart_items %}
                         <div class="summary-item">
-                            <img src="{{ item.product.images[0] if item.product.images else url_for('static', filename='img/placeholder.jpg') }}" alt="{{ item.product.name }}">
+                            <img src="{{ item.thumbnail_url if item.thumbnail_url else url_for('static', filename='img/placeholder.jpg') }}" alt="{{ item.name }}">
                             <div class="item-info">
-                                <p>{{ item.product.brand }} - {{ item.product.name }}</p>
-                                <p>Qty: {{ item.product_quantity }}</p>
+                                <p>{{ item.product_brand }} - {{ item.product_name }}</p>
+                                <p>Qty: {{ item.quantity }}</p>
                             </div>
-                            <span class="item-price">₱{{ "{:,.2f}".format(item.product_price * item.product_quantity) }}</span>
+                            <span class="item-price">₱{{ "{:,.2f}".format(item.price * item.quantity) }}</span>
                         </div>
                         {% endfor %}
                     </div>
