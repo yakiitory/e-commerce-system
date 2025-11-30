@@ -113,8 +113,13 @@ class OrderRepository(BaseRepository):
             print(f"[OrderRepository] No order found with id = {identifier}")
             return None
 
-        # Fetch associated order items
-        items_query = f"SELECT * FROM {self.order_items_table_name} WHERE order_id = %s"
+        # Fetch associated order items by joining order_items with items table
+        items_query = f"""
+            SELECT i.* 
+            FROM items i
+            JOIN {self.order_items_table_name} oi ON i.id = oi.item_id
+            WHERE oi.order_id = %s
+        """
         item_rows = self.db.fetch_all(items_query, (identifier,))
 
         # Map to dataclasses
@@ -287,8 +292,13 @@ class OrderRepository(BaseRepository):
         orders = []
         for order_row in order_rows:
             order_id = order_row['id']
-            # Fetch associated order items for each order
-            items_query = f"SELECT * FROM {self.order_items_table_name} WHERE order_id = %s"
+            # Fetch associated order items by joining with items table
+            items_query = f"""
+                SELECT i.* 
+                FROM items i
+                JOIN {self.order_items_table_name} oi ON i.id = oi.item_id
+                WHERE oi.order_id = %s
+            """
             item_rows = self.db.fetch_all(items_query, (order_id,))
             
             order_items = [OrderItem(**item_row) for item_row in item_rows] if item_rows else []
@@ -362,8 +372,13 @@ class OrderRepository(BaseRepository):
         orders = []
         for order_row in order_rows:
             order_id = order_row['id']
-            # Fetch associated order items for each order
-            items_query = f"SELECT * FROM {self.order_items_table_name} WHERE order_id = %s"
+            # Fetch associated order items by joining with items table
+            items_query = f"""
+                SELECT i.* 
+                FROM items i
+                JOIN {self.order_items_table_name} oi ON i.id = oi.item_id
+                WHERE oi.order_id = %s
+            """
             item_rows = self.db.fetch_all(items_query, (order_id,))
             
             order_items = [OrderItem(**item_row) for item_row in item_rows] if item_rows else []

@@ -353,11 +353,16 @@ def orders_page():
         except KeyError:
             # Handle invalid status string
             flash("Invalid status filter.", "error")
-
     for order in orders:
         for item in order.items:
             _, product_entry = product_service.get_product_for_display(item.product_id)
+
+            # Attach the whole product object (already done)
             setattr(item, 'product', product_entry)
+
+            # ALSO attach the thumbnail directly to the item
+            setattr(item, 'thumbnail', product_entry.thumbnail) # type: ignore
+
     
     # Pass the selected status to the template to highlight the active button
     return render_template('orders.html', orders=orders, Status=Status, selected_status=status_filter_str)

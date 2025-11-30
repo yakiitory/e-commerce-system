@@ -18,6 +18,8 @@ class OrderItemCreate:
 class OrderItem(OrderItemCreate):
     """Represents a fully formed order item record from the database."""
     id: int = field(default_factory=int)
+    applied_discounts: int = 0
+    total_price: float = 0
 
 # --- Order Models ---
 # Represents a customer's order.
