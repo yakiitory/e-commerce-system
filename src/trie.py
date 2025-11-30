@@ -2,9 +2,7 @@ class TrieNode:
     """A node in the Trie structure."""
     def __init__(self):
         self.children = {}
-        # is_end_of_word is True if the node represents the end of a word
         self.is_end_of_word = False
-        # Store the full, original-cased word at the end node for easy retrieval
         self.word = None
 
 class Trie:
@@ -16,13 +14,12 @@ class Trie:
     def insert(self, word: str):
         """Inserts a word into the trie, character by character."""
         node = self.root
-        # We store everything in lowercase to make searching case-insensitive
         for char in word.lower():
             if char not in node.children:
                 node.children[char] = TrieNode()
             node = node.children[char]
         node.is_end_of_word = True
-        node.word = word # Store the original cased word
+        node.word = word
 
     def _find_all_from_node(self, node: TrieNode, suggestions: list):
         """A recursive helper to find all words starting from a given node."""
@@ -37,7 +34,7 @@ class Trie:
         node = self.root
         for char in prefix.lower():
             if char not in node.children:
-                return [] # Prefix does not exist
+                return []
             node = node.children[char]
         
         suggestions = []
