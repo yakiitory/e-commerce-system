@@ -661,19 +661,24 @@ def add_product_page():
         flash("Please log in to add a product.", "error")
         return redirect(url_for('login_page'))
 
-
-    # Use mock backend to get merchant
     user = merchant_repository.get_by_username(session['username'])
     if not user or user.role != 'merchant':
         flash("You do not have permission to perform this action.", "error")
         return redirect(url_for('index'))
 
+    merchant_addresses = address_repository.get_addresses_for_merchant(user.id)
     if request.method == 'POST':
+        if not merchant_addresses:
+            flash("You must have a saved address to add a product.", "error")
+            return redirect(url_for('user_addresses_page'))
+        
         # Image Processing: Save files and get their URLs
         upload_folder = os.path.join(cast(str, app.static_folder), 'img', 'uploads')
         form_data = request.form.to_dict()
         image_files = request.files.getlist('images')
         image_urls = []
+        address_id = request.form.get('address_id', type=int)
+
         os.makedirs(upload_folder, exist_ok=True)
 
         for image_file in image_files:
@@ -693,11 +698,6 @@ def add_product_page():
                     flash(f"Error processing image {filename}: {e}", "error")
                     return redirect(url_for('add_product_page'))
 
-        # Data Validationd
-        merchant_addresses = address_repository.get_addresses_for_merchant(user.id)
-        if not merchant_addresses:
-            flash("You must have a saved address to add a product.", "error")
-            return redirect(url_for('user_addresses_page'))
 
         try:
             # Create the ProductCreate object
@@ -709,7 +709,7 @@ def add_product_page():
                 price=float(form_data.get('price', 0)),
                 quantity_available=int(form_data.get('quantity_available', 0)),
                 merchant_id=user.id,
-                address_id=merchant_addresses[0].id,
+                address_id=address_id # type: ignore
             )
         except (ValueError, TypeError) as e:
             flash(f"Invalid data provided: {e}", "error")
@@ -722,7 +722,7 @@ def add_product_page():
 
     # For GET request, use the mock backend
     categories = product_service.get_all_categories()
-    return render_template('add-product.html', categories=categories or [])
+    return render_template('add-product.html', categories=categories or [], addresses=merchant_addresses)
 
 @app.route('/edit-product/<int:product_id>', methods=['GET', 'POST'])
 def edit_product_page(product_id: int):
@@ -759,7 +759,6 @@ def edit_product_page(product_id: int):
                 'category_id': int(form_data.get('category_id', 0)),
                 'description': form_data.get('description'),
                 'price': float(form_data.get('price', 0)),
-                'original_price': float(form_data.get('original_price') or form_data.get('price', 0)),
                 'quantity_available': int(form_data.get('quantity_available', 0)),
             }
         except (ValueError, TypeError) as e:

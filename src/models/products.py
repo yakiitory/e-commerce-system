@@ -39,7 +39,7 @@ class ProductEntry:
     name: str
     brand: str
     price: float
-    ratings: float
+    ratings: str
     warehouse: str
     thumbnail: str
     sold_count: int

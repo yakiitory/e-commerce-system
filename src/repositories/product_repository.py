@@ -277,6 +277,11 @@ class ProductRepository(BaseRepository):
             FROM addresses
             WHERE id = %s
         """
+        from_category_query = f"""
+            SELECT name
+            FROM categories
+            WHERE id = %s
+        """
         products_params = (identifier,)
         products_dict = self.db.fetch_one(from_products_query, products_params)
         if not products_dict:
@@ -299,11 +304,18 @@ class ProductRepository(BaseRepository):
         address_dict = self.db.fetch_one(from_address_query, address_params)
         if not address_dict:
             return None
+        
+        category_params = (products_dict["category_id"], )
+        category_dict = self.db.fetch_one(from_category_query, category_params)
+        if not category_dict:
+            return None
 
         if products_dict["rating_score"] and products_dict["rating_count"]:
             rating_avg = products_dict["rating_score"] / products_dict["rating_count"]
         else:
             rating_avg = 0
+
+        
         return ProductEntry(
             product_id=products_dict["id"],
             merchant_id=products_dict["merchant_id"],
@@ -312,11 +324,12 @@ class ProductRepository(BaseRepository):
             name=products_dict["name"],
             brand=products_dict["brand"],
             price=products_dict["price"],
-            ratings=rating_avg,
+            ratings=str(rating_avg),
             warehouse=address_dict["city"],
             thumbnail=image_dict["url"],
             sold_count=metadata_dict["sold_count"],
-            quantity_available=products_dict["quantity_available"]
+            quantity_available=products_dict["quantity_available"],
+            category_name=category_dict["name"]
         )
 
     def search(self, filters: dict[str, Any], page: int, per_page: int) -> tuple[list[ProductEntry], int]:
