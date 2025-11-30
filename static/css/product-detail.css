@@ -194,8 +194,8 @@
 .like-btn svg {
     width: 24px;
     height: 24px;
-    fill: var(--star-pink); /* For the filled heart */
-    stroke: var(--star-pink); /* For the outline heart */
+    fill: var(--star-pink);
+    stroke: var(--star-pink); 
 }
 
 .add-to-cart-btn:hover {
@@ -295,13 +295,13 @@
 
 .star-rating-input .star svg {
     fill: var(--star-pink);
-    width: 22px !important;  /* Use !important to override inline SVG attributes */
-    height: 22px !important; /* Use !important to override inline SVG attributes */
+    width: 22px !important;
+    height: 22px !important;
     transition: transform 0.1s ease-in-out;
 }
 
 .star-rating-input .star:hover {
-    transform: scale(1.1); /* Slightly enlarges star on hover */
+    transform: scale(1.1);
 }
 
 /* --- Responsive --- */
@@ -309,4 +309,24 @@
     .product-header {
         grid-template-columns: 1fr;
     }
+}
+
+.store-link {
+    display: inline-block;
+    background-color: #fdeff7;
+    color: #8c5f7a;
+    text-decoration: none;
+    padding: 0.25rem 1rem;
+    border-radius: 8px;
+    font-weight: 600;
+    border: 1px solid #F5C2E7;
+    transition: all 0.2s ease-in-out;
+}
+
+.store-link:hover {
+    background-color: #F5C2E7;
+    color: #1E1E2E;
+    border-color: #f2b6e0; 
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.05);
 }
