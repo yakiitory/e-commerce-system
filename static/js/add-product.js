@@ -4,9 +4,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const browseBtn = document.querySelector('.browse-btn');
     const imagePreviewGrid = document.getElementById('image-preview-grid');
     const productForm = document.getElementById('product-form');
-    const imagesHiddenInput = document.getElementById('images');
 
-    let uploadedFiles = [];
+    let uploadedFiles = []; // Stores File objects and their preview data
 
     // Trigger file input when browse button is clicked
     browseBtn.addEventListener('click', () => fileInput.click());
@@ -40,8 +39,9 @@ document.addEventListener('DOMContentLoaded', function () {
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     const fileData = {
-                        id: Date.now() + Math.random(), // unique id for the file
-                        url: e.target.result,
+                        id: Date.now() + Math.random(),
+                        file: file, // Store the actual File object
+                        url: e.target.result, // Base64 for preview
                         name: file.name
                     };
                     uploadedFiles.push(fileData);
@@ -105,10 +105,17 @@ document.addEventListener('DOMContentLoaded', function () {
         renderPreviews();
     }
 
-    // Before submitting the form, populate the hidden input
+    // Before submitting, rebuild the file input with files in the correct order
     productForm.addEventListener('submit', (e) => {
-        // In a real app, you'd upload files and get URLs. Here, we'll use placeholder names.
-        const imageUrls = uploadedFiles.map(file => `/static/img/uploads/${file.name}`);
-        imagesHiddenInput.value = imageUrls.join(',');
+        // Create a new DataTransfer object to rebuild the FileList in correct order
+        const dt = new DataTransfer();
+        
+        // Add files in the order they appear in uploadedFiles (main image first)
+        uploadedFiles.forEach(fileData => {
+            dt.items.add(fileData.file);
+        });
+        
+        // Replace the file input's files with our reordered list
+        fileInput.files = dt.files;
     });
 });

@@ -115,16 +115,13 @@ class ProductService:
             print(f"[ProductService ERROR] An unexpected error occurred while fetching metadata for product {product_id}: {e}")
             return (False, None)
 
-    def update_product(self, product_id: int, merchant_id: int, product_data: dict[str, Any] | None = None, images: list[FileStorage] | None = None) -> tuple[bool, str]:
+    def update_product(self, product_id: int, product_data: dict[str, Any]) -> tuple[bool, str]:
         """
         Updates a product's main data, and optionally its images.
 
         Args:
             product_id (int): The ID of the product to update.
-            merchant_id (int): The ID of the merchant performing the update, for ownership verification.
             product_data (dict | None): A dictionary of product fields to update.
-            images (list[FileStorage] | None): A list of new uploaded image files. If provided,
-                                              existing images will be replaced.
 
         Returns:
             tuple[bool, str]: A tuple indicating success and a message.
@@ -132,8 +129,6 @@ class ProductService:
         product = self.product_repo.read(product_id)
         if not product:
             return (False, f"Product with ID {product_id} not found.")
-        if product.merchant_id != merchant_id:
-            return (False, "You do not have permission to edit this product.")
 
         transaction_committed = False
         try:
@@ -204,20 +199,10 @@ class ProductService:
         transaction_committed = False
         try:
             self.db.begin_transaction()
-
-            # 1. Delete images from DB and get their URLs
-            image_urls_to_delete = self.product_repo.delete_images_for_product(product_id, self.db)
-
-            # 2. Delete the product record (cascades to metadata and product_images)
             self.product_repo.delete(product_id)
 
             self.db.commit()
             transaction_committed = True
-
-            # 3. After transaction commits, delete physical files
-            for url in image_urls_to_delete:
-                self.media_service.delete_image(url)
-
             return (True, f"Product '{product.name}' deleted successfully.")
         except Exception as e:
             print(f"[ProductService ERROR] Product deletion failed: {e}")

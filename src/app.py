@@ -85,6 +85,7 @@ order_service = OrderService(
 def create_app():
     app = Flask(__name__, template_folder='../templates', static_folder='../static')
     app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'yo_mama_gay')
+    app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
     return app
 
 app = create_app()
@@ -747,39 +748,69 @@ def edit_product_page(product_id: int):
         flash("Product not found or you do not have permission to edit it.", "error")
         return redirect(url_for('merchant_dashboard_page'))
 
+    merchant_addresses = address_repository.get_addresses_for_merchant(user.id)
     if request.method == 'POST':
-        form_data = request.form.to_dict()
-        images = request.files.getlist('images')
+            if not merchant_addresses:
+                flash("You must have a saved address to edit this product.", "error")
+                return redirect(url_for('user_addresses_page'))
+            
+            form_data = request.form.to_dict()
+            
+            # Convert types
+            form_data['price'] = float(form_data.get('price', 0))  # type: ignore
+            form_data['quantity_available'] = int(form_data.get('quantity_available', 0)) # type: ignore
+            form_data['category_id'] = int(form_data.get('category_id')) # type: ignore
+            address_id = request.form.get('address_id', type=int)
 
-        try:
-            # Prepare data for the service
-            update_data = {
-                'name': form_data.get('name'),
-                'brand': form_data.get('brand'),
-                'category_id': int(form_data.get('category_id', 0)),
-                'description': form_data.get('description'),
-                'price': float(form_data.get('price', 0)),
-                'quantity_available': int(form_data.get('quantity_available', 0)),
-            }
-        except (ValueError, TypeError) as e:
-            flash(f"Invalid data provided: {e}", "error")
-            return redirect(url_for('edit_product_page', product_id=product_id))
+            # Data Validation for address
+            if not address_id or not any(addr.id == address_id for addr in merchant_addresses):
+                flash("Please select a valid address for the product.", "error")
+                return redirect(url_for('edit_product_page', product_id=product_id))
 
-        # Call the service to update the product
-        success, message = product_service.update_product(product_id=product_id, merchant_id=user.id, product_data=update_data, images=images)
-        flash(message, 'success' if success else 'error')
+            # Handle image uploads and existing images
+            upload_folder = os.path.join(cast(str, app.static_folder), 'img', 'uploads')
+            os.makedirs(upload_folder, exist_ok=True)
 
-        return redirect(url_for('merchant_dashboard_page'))
+            # Get existing images from the hidden input
+            existing_images = [img.strip() for img in request.form.get('images', '').split(',') if img.strip()]
+            
+            new_image_files = request.files.getlist('new_images')
+            new_image_urls = []
+
+            for image_file in new_image_files:
+                if image_file and image_file.filename:
+                    filename = secure_filename(image_file.filename)
+                    unique_filename = f"{os.urandom(8).hex()}_{filename}"
+                    save_path = os.path.join(upload_folder, unique_filename)
+                    try:
+                        img = Image.open(image_file.stream)
+                        if img.mode in ('RGBA', 'P'):
+                            img = img.convert('RGB')
+                        img.save(save_path, 'jpeg', quality=85, optimize=True)
+                        web_path = f'img/uploads/{unique_filename}'
+                        new_image_urls.append(f'/static/{web_path}')
+                    except Exception as e:
+                        flash(f"Error processing image {filename}: {e}", "error")
+                        return redirect(url_for('edit_product_page', product_id=product_id))
+
+            # Combine existing and new images
+            all_images = existing_images + new_image_urls
+            form_data.pop('images', None)  # Remove from form_data if it exists
+            result, message = product_repository.update(product_id, form_data, all_images)
+            result, message = product_repository.update(product_id, form_data)
+            flash(message, 'success' if result else 'error')
+            return redirect(url_for('merchant_dashboard_page'))
 
     # For GET request
     categories = product_service.get_all_categories()
-    return render_template('edit-product.html', product=product, categories=categories)
+    return render_template('edit-product.html', product=product, categories=categories, addresses=merchant_addresses)
+
 
 @app.route('/delete-product/<int:product_id>', methods=['POST'])
 def delete_product(product_id: int):
-    """Handles the deletion of a product by a merchant."""
+    """Handles deleting a product for a merchant."""
     if 'username' not in session:
-        flash("Please log in to perform this action.", "error")
+        flash("Please log in to delete a product.", "error")
         return redirect(url_for('login_page'))
 
     user = merchant_repository.get_by_username(session['username'])
@@ -787,10 +818,15 @@ def delete_product(product_id: int):
         flash("You do not have permission to perform this action.", "error")
         return redirect(url_for('index'))
 
-    # Call the service to delete the product
-    success, message = product_service.delete_product(product_id=product_id, merchant_id=user.id)
-    flash(message, 'success' if success else 'error')
+    status, product = product_service.get_product(product_id)
 
+    # Ensure the product belongs to the logged-in merchant
+    if not product or product.merchant_id != user.id:
+        flash("Product not found or you do not have permission to delete it.", "error")
+        return redirect(url_for('merchant_dashboard_page'))
+
+    success, result = product_service.delete_product(product_id, user.id)
+    flash(result, 'success' if success else 'error')
     return redirect(url_for('merchant_dashboard_page'))
 
 @app.route('/payments')

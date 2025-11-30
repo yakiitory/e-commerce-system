@@ -8,9 +8,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
     let uploadedFiles = [];
 
-    // --- New for Edit Page: Load existing images ---
+    // --- Load existing images ---
     function loadInitialImages() {
-        const existingImageUrls = imagesHiddenInput.value.split(',').filter(url => url);
+        const existingImageUrls = imagesHiddenInput.value ? imagesHiddenInput.value.split(',') : [];
         uploadedFiles = existingImageUrls.map(url => ({
             id: Date.now() + Math.random(),
             url: url,
@@ -18,7 +18,6 @@ document.addEventListener('DOMContentLoaded', function () {
         }));
         renderPreviews();
     }
-    // --- End of new section ---
 
     // Trigger file input when browse button is clicked
     browseBtn.addEventListener('click', () => fileInput.click());
@@ -31,7 +30,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     uploadArea.addEventListener('dragleave', () => {
-        upload0Area.parentElement.classList.remove('dragover');
+        uploadArea.parentElement.classList.remove('dragover');
     });
 
     uploadArea.addEventListener('drop', (e) => {
@@ -54,7 +53,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     const fileData = {
                         id: Date.now() + Math.random(),
                         url: e.target.result,
-                        name: file.name
+                        name: file.name,
+                        isNewUpload: true // Mark as new upload
                     };
                     uploadedFiles.push(fileData);
                     renderPreviews();
@@ -118,9 +118,20 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     productForm.addEventListener('submit', () => {
-        const imageUrls = uploadedFiles.map(file => file.url.startsWith('blob:') ? `/static/img/uploads/${file.name}` : file.url);
-        imagesHiddenInput.value = imageUrls.join(',');
+        // Get all existing images (non-data URLs) - these are already ordered correctly
+        const existingImageUrls = uploadedFiles
+            .filter(file => !file.url.startsWith('data:'))
+            .map(file => file.url);
+        
+        // Update the hidden input with the reordered existing images
+        imagesHiddenInput.value = existingImageUrls.join(',');
+        
+        
+        // Create a new DataTransfer to reorder files
+        const dt = new DataTransfer();
+        const newFiles = uploadedFiles.filter(file => file.url.startsWith('data:'));
+        
     });
 
-    loadInitialImages(); // Initialize with existing images
+    loadInitialImages();
 });

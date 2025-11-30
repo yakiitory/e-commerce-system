@@ -51,9 +51,7 @@ class ProductRepository(BaseRepository):
 
             if not new_product_id:
                 raise Exception(message)
-
-            print("I AM TRYINGGGGGGGG TO PRINT THE IMAGES!" + str(urls))
-
+            
             # Handle image record creation and its junction table
             if urls:
                 is_first_image = 1
@@ -108,18 +106,17 @@ class ProductRepository(BaseRepository):
         return self._map_to_product(product_row)
     
     @override
-    def update(self, identifier: int, data: dict[str, Any] | None = None, metadata: dict[str, Any] | None = None) -> bool:
+    def update(self, identifier: int, data: dict[str, Any] | None = None, urls: list[str] | None = None) -> tuple[bool, str]:
         """
-        Updates an existing product and/or its metadata.
-        Accepts dictionaries for partial updates.
+        Updates an existing product and its images in a transactional way.
 
         Args:
             identifier (int): The ID of the product to update.
             data (dict | None): A dictionary of product fields to update.
-            metadata (dict | None): A dictionary of metadata fields to update.
+            urls (list[str] | None): List of new image URLs to replace existing ones.
 
         Returns:
-            bool: `True` if the update was successful, `False` otherwise.
+            tuple[bool, str]: (success, message)
         """
         allowed_product_fields = [
             "name",
@@ -134,25 +131,45 @@ class ProductRepository(BaseRepository):
             "address_id",
         ]
 
-        product_updated = True
-        metadata_updated = True
+        try:
+            self.db.begin_transaction()
 
-        # Update the product record if data is provided
-        if data:
-            product_updated = self._update_by_id(
-                identifier=identifier,
-                data=data,
-                table_name=self.table_name,
-                db=self.db,
-                allowed_fields=allowed_product_fields
-            )
+            # Update product fields if provided
+            if data:
+                updated = self._update_by_id(
+                    identifier=identifier,
+                    data=data,
+                    table_name=self.table_name,
+                    db=self.db,
+                    allowed_fields=allowed_product_fields
+                )
+                if not updated:
+                    raise Exception("Failed to update product fields.")
 
-        # Update the product metadata if metadata is provided
-        if metadata:
-            # Use the metadata repository to perform the update
-            metadata_updated = self.metadata_repo.update(identifier, metadata)
+            # Replace product images if URLs are provided
+            if urls is not None:
+                # Delete old image links
+                delete_query = "DELETE FROM product_images WHERE product_id = %s"
+                self.db.execute_query(delete_query, (identifier,))
 
-        return product_updated and metadata_updated
+                # Insert new images and junctions
+                is_first_image = 1
+                for url in urls:
+                    image = ImageCreate(url=url)
+                    image_id, message = self.image_repo.create(image)
+                    if not image_id:
+                        raise Exception(message)
+                    insert_query = "INSERT INTO product_images (product_id, image_id, is_thumbnail) VALUES (%s, %s, %s)"
+                    self.db.execute_query(insert_query, (identifier, image_id, is_first_image))
+                    is_first_image = 0
+
+            self.db.commit()
+            return (True, f"Product ID {identifier} updated successfully.")
+
+        except Exception as e:
+            self.db.rollback()
+            return (False, f"Failed to update product. Transaction rolled back. Reason: {e}")
+
 
     @override
     def delete(self, identifier: int) -> tuple[bool, str]:
