@@ -65,29 +65,24 @@
                 {% if deal_of_the_day %}
                 <div class="deal-container">
                     <div class="deal-img-container">
-                        <img src="{{ deal_of_the_day.images[0] if deal_of_the_day.images else '' }}" alt="{{ deal_of_the_day.name }}" class="deal-img">
+                        <img src="{{ deal_of_the_day.thumbnail if deal_of_the_day.thumbnail else '' }}" alt="{{ deal_of_the_day.name }}" class="deal-img">
                     </div>
                     <div class="deal-details">
                         <div class="big-star-ratings single-star">
                             {% include "svg/star-filled.svg" %} <span>{{ deal_of_the_day.rating_avg }}</span>
                         </div>
-                        <h3><a href="{{ url_for('product_page', product_id=deal_of_the_day.id) }}">{{ deal_of_the_day.brand }} - {{ deal_of_the_day.name }}</a></h3>
-                        <p>{{ deal_of_the_day.description[:150] }}...</p>
+                        <h3><a href="{{ url_for('product_page', product_id=deal_of_the_day.product_id) }}">{{ deal_of_the_day.brand }} - {{ deal_of_the_day.name }}</a></h3>
+                        <p>"Test!"</p>
                         <div class="deal-price">
                             <span>₱{{ "%.2f"|format(deal_of_the_day.price) }}</span>
-                            {% if deal_of_the_day.original_price > deal_of_the_day.price %}
-                            <span>₱{{ "%.2f"|format(deal_of_the_day.original_price) }}</span>
-                            {% endif %}
                         </div>
                         <form action="{{ url_for('add_to_cart') }}" method="POST">
-                            <input type="hidden" name="product_id" value="{{ deal_of_the_day.id }}">
+                            <input type="hidden" name="product_id" value="{{ deal_of_the_day.product_id }}">
                             <button type="submit" class="add-to-cart-btn">ADD TO CART</button>
                         </form>
 
                         <div class="progress-bar-container">
                             <div class="progress-labels">
-                               <span>ALREADY SOLD: <b>{{ deal_of_the_day_total_stock - deal_of_the_day.quantity_available }}</b> </span>
-                               <span>AVAILABLE: <b>{{ deal_of_the_day.quantity_available }}</b></span> 
                             </div>
                             <div class="progress-bar-bg">
                                 <div class="progress-bar-fill"></div>
@@ -112,9 +107,9 @@
                 <h3 class="main-title">Popular Lately</h3>
                 <div class="main-product-container">
                     {% for product in popular_lately %}
-                    <a href="{{ url_for('product_page', product_id=product.id) }}" class="product-link">
+                    <a href="{{ url_for('product_page', product_id=product.product_id) }}" class="product-link">
                         <div class="main-product-item">
-                            <img src="{{ product.images[0] if product.images else '' }}" alt="{{ product.name }}" class="main-product-img">
+                            <img src="{{ product.thumbnail if product.thumbnail else '' }}" alt="{{ product.name }}" class="main-product-img">
                             <div class="main-product-details">
                                 <p>{{ product.category_name }}</p>
                                 <p>{{ product.brand }} - {{ product.name }}</p>
@@ -123,9 +118,6 @@
                                 </div>
                                 <div class="main-product-price">
                                     <span>₱{{ "%.2f"|format(product.price) }}</span>
-                                    {% if product.original_price > product.price %}
-                                    <span>₱{{ "%.2f"|format(product.original_price) }}</span>
-                                    {% endif %}
                                 </div>
                                 <div class="city-container">
                                     <div class="city-icon">

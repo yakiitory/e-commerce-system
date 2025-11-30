@@ -39,7 +39,6 @@ class ReviewService:
         self.db = db
         self.review_repo = review_repo
         self.order_repo = order_repo
-        self.media_service = media_service
         self.product_meta_repo = product_meta_repo
 
     def create_review(self, user_id: int, product_id: int, rating: float, description: str, images: list[FileStorage] | None = None) -> tuple[bool, str]:
@@ -92,9 +91,9 @@ class ReviewService:
                         raise Exception("Failed to create placeholder for review image.")
 
                     # Save the physical file using the new ID
-                    saved, path_or_none = self.media_service.save_review_image(image_file, image_id)
-                    if not saved or not path_or_none:
-                        raise Exception(f"Failed to save image file for review image ID {image_id}.")
+                    #saved, path_or_none = self.media_service.save_review_image(image_file, image_id)
+                    #if not saved or not path_or_none:
+                    #    raise Exception(f"Failed to save image file for review image ID {image_id}.")
 
                     # Update the image record with the actual file path
                     self.review_repo._update_by_id(image_id, {'url': path_or_none}, 'review_images', self.db, ['url'])

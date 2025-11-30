@@ -2,6 +2,9 @@ from flask import Flask, render_template, url_for, jsonify, request, abort, flas
 from typing import cast
 from models.status import Status
 import os
+from werkzeug.utils import secure_filename
+
+from PIL import Image
 from services import AddressService, AuthService, CategoryService, InteractionService, ProductService, OrderService, MediaService, ReviewService, TransactionService
 from repositories import (
     AdminRepository,
@@ -61,11 +64,9 @@ transaction_service = TransactionService(
     user_repo=user_repository,
     merchant_repo=merchant_repository
 )
-media_service = MediaService(media_root="src/static/db-images")
 product_service = ProductService(
     db=db,
     product_repo=product_repository,
-    media_service=media_service
 )
 order_service = OrderService(
     db=db,
@@ -74,13 +75,12 @@ order_service = OrderService(
     transaction_service=transaction_service,
     cart_repo=cart_repository
 )
-review_service = ReviewService(
-    db=db,
-    review_repo=review_repository,
-    order_repo=order_repository,
-    media_service=media_service,
-    product_meta_repo=product_metadata_repository
-)
+#review_service = ReviewService(
+ #   db=db,
+ #   review_repo=review_repository,
+ #   order_repo=order_repository,
+ #   product_meta_repo=product_metadata_repository
+#)
 
 def create_app():
     app = Flask(__name__, template_folder='../templates', static_folder='../static')
@@ -158,7 +158,7 @@ def index():
     """
     # If a merchant is logged in, redirect them to their dashboard.
     if 'username' in session:
-        user = merchant_repository.get_by_username(session['username'])
+        user = user_repository.get_by_username(session['username'])
         if user and user.role == 'merchant':
             return redirect(url_for('merchant_dashboard_page'))
 
@@ -187,7 +187,6 @@ def index():
     return render_template('index.html', categories=categories, trending_products=trending_products,
                            new_arrivals=new_arrivals, top_rated=top_rated, best_sellers=best_sellers,
                            deal_of_the_day=deal_of_the_day, deal_of_the_day_total_stock=deal_of_the_day_total_stock, popular_lately=popular_lately)
-
 
 @app.route('/login-page', methods=['GET', 'POST'])
 def login_page():
@@ -665,56 +664,68 @@ def add_product_page():
         flash("Please log in to add a product.", "error")
         return redirect(url_for('login_page'))
 
+
+    # Use mock backend to get merchant
     user = merchant_repository.get_by_username(session['username'])
     if not user or user.role != 'merchant':
         flash("You do not have permission to perform this action.", "error")
         return redirect(url_for('index'))
 
     if request.method == 'POST':
+        # Image Processing: Save files and get their URLs
+        upload_folder = os.path.join(cast(str, app.static_folder), 'img', 'uploads')
         form_data = request.form.to_dict()
-        images = request.files.getlist('images')
+        image_files = request.files.getlist('images')
+        image_urls = []
+        os.makedirs(upload_folder, exist_ok=True)
 
-        # --- Data Validation and Preparation ---
-        success, merchant_addresses_or_msg = address_service.get_merchant_addresses(user.id)
-        merchant_addresses = merchant_addresses_or_msg if success else []
-        if not merchant_addresses: # type: ignore
+        for image_file in image_files:
+            if image_file and image_file.filename:
+                filename = secure_filename(image_file.filename)
+                unique_filename = f"{os.urandom(8).hex()}_{filename}"
+                save_path = os.path.join(upload_folder, unique_filename)
+                try:
+                    img = Image.open(image_file.stream)
+                    if img.mode in ('RGBA', 'P'):
+                        img = img.convert('RGB')
+                    img.save(save_path, 'jpeg', quality=85, optimize=True)
+                    # Construct the web-accessible URL for the saved image
+                    web_path = f'img/uploads/{unique_filename}'
+                    image_urls.append(url_for('static', filename=web_path))
+                except Exception as e:
+                    flash(f"Error processing image {filename}: {e}", "error")
+                    return redirect(url_for('add_product_page'))
+
+        # Data Validationd
+        merchant_addresses = address_repository.get_addresses_for_merchant(user.id)
+        if not merchant_addresses:
             flash("You must have a saved address to add a product.", "error")
             return redirect(url_for('user_addresses_page'))
 
         try:
+            # Create the ProductCreate object
             product_data = ProductCreate(
                 name=form_data.get('name', 'Unnamed Product'),
                 brand=form_data.get('brand', 'Unbranded'),
                 category_id=int(form_data.get('category_id', 0)),
                 description=form_data.get('description', ''),
                 price=float(form_data.get('price', 0)),
-                original_price=float(form_data.get('original_price') or form_data.get('price', 0)),
                 quantity_available=int(form_data.get('quantity_available', 0)),
                 merchant_id=user.id,
-                address_id=merchant_addresses[0].id, # type: ignore
-                images=[] # Will be populated after product creation
+                address_id=merchant_addresses[0].id,
             )
-            metadata = ProductMetadata(product_id=0)
-
         except (ValueError, TypeError) as e:
             flash(f"Invalid data provided: {e}", "error")
             return redirect(url_for('add_product_page'))
 
-        # --- Service Call ---
-        new_product_id, message = product_service.create_product(product_data, metadata, images)
+        new_product_id, message = product_service.create_product(product_data, image_urls)
 
         flash(message, 'success' if new_product_id else 'error')
-        if not new_product_id:
-            return redirect(url_for('add_product_page'))
+        return redirect(url_for('merchant_dashboard_page') if new_product_id else url_for('add_product_page'))
 
-        return redirect(url_for('merchant_dashboard_page'))
-
-    # For GET request
+    # For GET request, use the mock backend
     categories = product_service.get_all_categories()
-    if categories is None:
-        flash("Could not load categories.", "error")
-        categories = []
-    return render_template('add-product.html', categories=categories)
+    return render_template('add-product.html', categories=categories or [])
 
 @app.route('/edit-product/<int:product_id>', methods=['GET', 'POST'])
 def edit_product_page(product_id: int):
