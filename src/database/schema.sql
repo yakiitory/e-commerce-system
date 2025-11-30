@@ -112,11 +112,9 @@ CREATE TABLE IF NOT EXISTS `products` (
   `category_id` INT NOT NULL,
   `description` TEXT NOT NULl,
   `price` DECIMAL(10,2) NOT NULL,
-  `original_price` DECIMAL(10,2) NOT NULL,
-  `discount_rate` DECIMAL(10,2) NOT NULl,
   `quantity_available` INT NOT NULL,
-  `rating_avg` REAL NOT NULL DEFAULT 0.0,
-  `rating_count` INT NOT NULL,
+  `rating_score` REAL NOT NULL DEFAULT 0.0,
+  `rating_count` INT NOT NULL DEFAULT 0,
   `merchant_id` INT NOT NULL,
   `address_id` INT NOT NULL,
   PRIMARY KEY (`id`),
@@ -290,7 +288,7 @@ CREATE TABLE IF NOT EXISTS `images` (
 CREATE TABLE IF NOT EXISTS `product_images` (
   `product_id` INT NOT NULL,
   `image_id` INT NOT NULL,
-  `is_thumbnail` BOOLEAN NOT NULL,
+  `is_thumbnail` INT NOT NULL,
   PRIMARY KEY(`product_id`, `image_id`),
   FOREIGN KEY (`product_id`) REFERENCES `products`(`id`)
     ON UPDATE CASCADE
@@ -309,11 +307,6 @@ CREATE TABLE IF NOT EXISTS `product_metadata` (
   `wishlist_count` INT,
   `click_through_rate` REAL,
   `popularity_score` REAL,
-  `keywords` TEXT,
-  `embedding_vector` TEXT,
-  `tags` TEXT,
-  `demographics_fit` TEXT,
-  `seasonal_relevance` TEXT,
   PRIMARY KEY(`id`),
   FOREIGN KEY (`product_id`) REFERENCES `products`(`id`)
     ON UPDATE CASCADE

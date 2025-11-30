@@ -2,10 +2,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 from types import SimpleNamespace
 
+from models.products import ProductCreate, ProductMetadata, ProductMetadataCreate, Product, ProductEntry, Category, Address
+
 if TYPE_CHECKING:
     from repositories.product_repository import ProductRepository
     from database.database import Database
-    from models.products import ProductCreate, ProductMetadata, Product, ProductEntry, Category, Address
     from services.media_service import MediaService
     from werkzeug.datastructures import FileStorage
 
@@ -14,7 +15,7 @@ class ProductService:
     Handles the business logic for managing products.
     """
 
-    def __init__(self, db: Database, product_repo: ProductRepository, media_service: MediaService):
+    def __init__(self, db: Database, product_repo: ProductRepository):
         """
         Initializes the ProductService.
 
@@ -25,16 +26,13 @@ class ProductService:
         """
         self.db = db
         self.product_repo = product_repo
-        self.media_service = media_service
 
-    def create_product(self, product_data: ProductCreate, metadata: ProductMetadata, images: list[FileStorage]) -> tuple[int | None, str]:
+    def create_product(self, product_data: ProductCreate, images: list[str]) -> tuple[int | None, str]:
         """
         Creates a new product, saves its images, and links them.
 
         Args:
             product_data (ProductCreate): The data for the new product.
-            metadata (ProductMetadata): The metadata for the new product.
-            images (list[FileStorage]): A list of uploaded image files.
 
         Returns:
             tuple[int | None, str]: A tuple containing the new product ID and a message.
@@ -45,40 +43,15 @@ class ProductService:
 
             # 1. Create the product record to get its ID.
             # The product_data.images list is initially empty.
-            new_product_id, message = self.product_repo.create(product_data, metadata)
+            new_product_id, message = self.product_repo.create(product_data, images)
             if not new_product_id:
                 self.db.rollback()
                 return (None, message)
-
-            # 2. Process and save each uploaded image.
-            image_urls = []
-            is_first_image = True
-            for image_file in images:
-                # Create a placeholder in 'images' to get an ID
-                image_id, _ = self.product_repo._create_record(
-                    data=SimpleNamespace(url='placeholder'),
-                    fields=['url'], table_name='images', db=self.db
-                )
-                if not image_id:
-                    raise Exception("Failed to create placeholder image record.")
-
-                # Save the physical image file using the new ID
-                saved, path_or_none = self.media_service.save_product_image(image_file, image_id)
-                if not saved or not path_or_none:
-                    raise Exception(f"Failed to save image file for image ID {image_id}.")
-
-                # Update the image record with the actual file path
-                self.product_repo._update_by_id(image_id, {'url': path_or_none}, 'images', self.db, ['url'])
-                image_urls.append(path_or_none)
-
-                # Link image to product in the junction table
-                link_data = SimpleNamespace(product_id=new_product_id, image_id=image_id, is_thumbnail=is_first_image)
-                link_id, link_msg = self.product_repo._create_record(link_data, ['product_id', 'image_id', 'is_thumbnail'], 'product_images', self.db)
-                if not link_id:
-                    raise Exception(f"Failed to link image to product: {link_msg}")
-                
-                is_first_image = False # Only the first image is the thumbnail
-
+            metadata = ProductMetadataCreate(product_id=new_product_id)
+            new_metadata_id, message = self.product_repo.metadata_repo.create(metadata)
+            if not new_metadata_id:
+                self.db.rollback()
+                return (None, message)
             self.db.commit()
             transaction_committed = True
             return (new_product_id, f"Product '{product_data.name}' created successfully.")
@@ -288,9 +261,7 @@ class ProductService:
                                                     list of product entries or `None` on failure.
         """
         try:
-            # This assumes a corresponding `get_entries` method exists in the repository
-            # that can handle limit, offset, and sorting.
-            product_entries = self.product_repo.get_entries(limit=limit, offset=offset, sort_by=sort_by)
+            product_entries = self.product_repo.get_product_entries(limit=limit, offset=offset, sort_by=sort_by)
             return (True, product_entries)
         except Exception as e:
             print(f"[ProductService ERROR] An unexpected error occurred while fetching product entries: {e}")

@@ -2,7 +2,7 @@ from typing import override, Any, Literal
 from repositories.base_repository import BaseRepository
 from database.database import Database
 from models.accounts import UserMetadata
-from models.products import ProductMetadata
+from models.products import ProductMetadata, ProductMetadataCreate
 import dataclasses
 
 
@@ -89,7 +89,7 @@ class ProductMetadataRepository(BaseRepository):
         self.table_name = "product_metadata"
 
     @override
-    def create(self, data: ProductMetadata) -> tuple[int | None, str]:
+    def create(self, data: ProductMetadataCreate) -> tuple[int | None, str]:
         """
         Creates a new product metadata record.
 
@@ -100,10 +100,8 @@ class ProductMetadataRepository(BaseRepository):
             tuple[int | None, str]: A tuple with the new ID and a message.
         """
         fields = [
-            "view_count", "sold_count", "add_to_cart_count", "wishlist_count",
-            "click_through_rate", "rating_avg", "rating_count",
-            "popularity_score", "demographics_fit", "seasonal_relevance",
-            "embedding_vector", "keywords", "tags"
+            "product_id", "view_count", "sold_count", "add_to_cart_count", "wishlist_count",
+            "click_through_rate", "popularity_score"
         ]
         new_id, message = self._create_record(data, fields, self.table_name, self.db)
         return (new_id, message)
@@ -141,7 +139,7 @@ class ProductMetadataRepository(BaseRepository):
         """
         allowed_fields = [
             "view_count", "sold_count", "add_to_cart_count", "wishlist_count",
-            "click_through_rate", "rating_avg", "rating_count",
+            "click_through_rate",
             "popularity_score", "demographics_fit", "seasonal_relevance",
             "embedding_vector", "keywords", "tags"
         ]
