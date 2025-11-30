@@ -72,7 +72,7 @@
                             {% include "svg/star-filled.svg" %} <span>{{ deal_of_the_day.rating_avg }}</span>
                         </div>
                         <h3><a href="{{ url_for('product_page', product_id=deal_of_the_day.product_id) }}">{{ deal_of_the_day.brand }} - {{ deal_of_the_day.name }}</a></h3>
-                        <p>"Test!"</p>
+                        <p></p>
                         <div class="deal-price">
                             <span>₱{{ "%.2f"|format(deal_of_the_day.price) }}</span>
                         </div>
@@ -80,21 +80,13 @@
                             <input type="hidden" name="product_id" value="{{ deal_of_the_day.product_id }}">
                             <button type="submit" class="add-to-cart-btn">ADD TO CART</button>
                         </form>
-
                         <div class="progress-bar-container">
                             <div class="progress-labels">
+                               <span>AVAILABLE: <b>{{ deal_of_the_day.quantity_available }}</b></span> 
                             </div>
                             <div class="progress-bar-bg">
                                 <div class="progress-bar-fill"></div>
                             </div>
-                        </div>
-                        <div class="timer-container">
-                            <p>HURRY UP! OFFER ENDS IN:</p> 
-                            <div class="timer-boxes">
-                                <div class="time-box">360<span>days</span></div>
-                                <div class="time-box">24<span>hours</span></div>
-                                <div class="time-box">59<span>min</span></div><div class="time-box">0<span>sec</span></div> 
-                            </div>                       
                         </div>
                     </div>
                 </div>

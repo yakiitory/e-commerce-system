@@ -253,7 +253,7 @@ class ProductRepository(BaseRepository):
             ProductEntry | None: A ProductEntry object if found, otherwise `None`.
         """
         from_products_query = f"""
-            SELECT id, merchant_id, category_id, name, brand, price, rating_score, rating_count, address_id 
+            SELECT id, merchant_id, category_id, name, brand, price, rating_score, rating_count, address_id, quantity_available 
             FROM {self.table_name}
             WHERE id = %s
         """
@@ -315,7 +315,8 @@ class ProductRepository(BaseRepository):
             ratings=rating_avg,
             warehouse=address_dict["city"],
             thumbnail=image_dict["url"],
-            sold_count=metadata_dict["sold_count"]
+            sold_count=metadata_dict["sold_count"],
+            quantity_available=products_dict["quantity_available"]
         )
 
     def search(self, filters: dict[str, Any], page: int, per_page: int) -> tuple[list[ProductEntry], int]:

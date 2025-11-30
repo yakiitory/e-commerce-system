@@ -43,6 +43,7 @@ class ProductEntry:
     warehouse: str
     thumbnail: str
     sold_count: int
+    quantity_available: int
     _: KW_ONLY
     category_name: str | None = None
     city: str | None = None

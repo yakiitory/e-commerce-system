@@ -158,7 +158,7 @@ def index():
     """
     # If a merchant is logged in, redirect them to their dashboard.
     if 'username' in session:
-        user = user_repository.get_by_username(session['username'])
+        user = merchant_repository.get_by_username(session['username'])
         if user and user.role == 'merchant':
             return redirect(url_for('merchant_dashboard_page'))
 
