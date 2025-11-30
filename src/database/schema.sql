@@ -263,6 +263,7 @@ CREATE TABLE IF NOT EXISTS `payments` (
   `receiver_id` INT NOT NULL,
   `receiver_type` VARCHAR(50) NOT NULL,
   `amount` DECIMAL(18,2) NOT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

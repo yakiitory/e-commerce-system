@@ -197,9 +197,8 @@ class PaymentRepository(BaseRepository):
         Returns:
             list[Payment]: A list of Payment objects.
         """
-        query = f"SELECT * FROM {self.table_name} WHERE sender_id = %s OR receiver_id = %s"
-        query = f"SELECT * FROM {self.table_name} WHERE sender_id = %s OR receiver_id = %s"
-        rows = self.db.fetch_all(query, (user_id, user_id))
+        query = f"SELECT * FROM {self.table_name} WHERE (sender_id = %s AND sender_type = 'VIRTUAL_CARD') OR (receiver_id = %s AND receiver_type = 'VIRTUAL_CARD')"
+        rows = self.db.fetch_all(query, (user_id, user_id)) # user_id is now card_id
         if not rows:
             return []
         return [payment for row in rows if (payment := self._map_to_payment(row)) is not None]
@@ -214,8 +213,7 @@ class PaymentRepository(BaseRepository):
         Returns:
             list[Payment]: A list of Payment objects.
         """
-        query = f"SELECT * FROM {self.table_name} WHERE sender_id = %s OR receiver_id = %s"
-        query = f"SELECT * FROM {self.table_name} WHERE sender_id = %s OR receiver_id = %s"
+        query = f"SELECT * FROM {self.table_name} WHERE (sender_id = %s AND sender_type = 'VIRTUAL_CARD') OR (receiver_id = %s AND receiver_type = 'VIRTUAL_CARD')"
         rows = self.db.fetch_all(query, (merchant_id, merchant_id))
         if not rows:
             return []

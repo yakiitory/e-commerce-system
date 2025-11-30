@@ -855,7 +855,6 @@ def payments_page():
         virtual_card = virtual_card_repository.get_by_merchant_id(client.id)
 
     if not result:
-        flash(str(result), "error")
         return render_template('payments.html', virtual_card=virtual_card, payment_history=[])
 
     return render_template('payments.html', virtual_card=virtual_card, payment_history=result)

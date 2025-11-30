@@ -135,30 +135,25 @@ class TransactionService:
             user_id (int): The ID of the user.
 
         Returns:
-            A tuple containing success status, and either a tuple of (VirtualCard, list[Payment])
-            or an error message string.
+            list[Payment] | None: A list of annotated Payment objects, or None on error.
         """
         try:
-            payment_history = self.payment_repo.get_payments_for_user(user_id)
+            user_card = self.virtual_card_repo.get_by_user_id(user_id)
+            if not user_card:
+                return [] # No card means no history
 
-            # Enrich payment history with sender/receiver names
+            payment_history = self.payment_repo.get_payments_for_user(user_card.id)
+
             for payment in payment_history:
-                # Sender
-                if payment.sender_id == 0:
-                    sender_name = "System"
+                if payment.sender_id == user_card.id:
+                    transaction_type = "Sent"
+                    other_party = f"{payment.receiver_type.capitalize()}"
                 else:
-                    sender = self.user_repo.read(payment.sender_id) or self.merchant_repo.read(payment.sender_id)
-                    sender_name = sender.username if sender else "Unknown"
-                
-                # Receiver
-                if payment.receiver_id == 0:
-                    receiver_name = "System"
-                else:
-                    receiver = self.user_repo.read(payment.receiver_id) or self.merchant_repo.read(payment.receiver_id)
-                    receiver_name = receiver.username if receiver else "Unknown"
+                    transaction_type = "Received"
+                    other_party = f"{payment.sender_type.capitalize()}"
 
-                setattr(payment, 'sender_name', sender_name)
-                setattr(payment, 'receiver_name', receiver_name)
+                setattr(payment, 'transaction_type', transaction_type)
+                setattr(payment, 'other_party', other_party)
 
             return payment_history
 
@@ -166,6 +161,7 @@ class TransactionService:
             print(f"[TransactionService ERROR] Failed to get payment details for user {user_id}: {e}")
             return None
         
+
     def get_merchant_payment_history(self, merchant_id: int) -> list[Payment] | None:
         """
         Retrieves a user's enriched payment history.
@@ -178,31 +174,27 @@ class TransactionService:
             or an error message string.
         """
         try:
-            payment_history = self.payment_repo.get_payments_for_merchant(merchant_id)
+            merchant_card = self.virtual_card_repo.get_by_merchant_id(merchant_id)
+            if not merchant_card:
+                return [] # No card means no history
 
-            # Enrich payment history with sender/receiver names
+            payment_history = self.payment_repo.get_payments_for_user(merchant_card.id)
+
             for payment in payment_history:
-                # Sender
-                if payment.sender_id == 0:
-                    sender_name = "System"
+                if payment.sender_id == merchant_card.id:
+                    transaction_type = "Sent"
+                    other_party = f"{payment.receiver_type.capitalize()}"
                 else:
-                    sender = self.user_repo.read(payment.sender_id) or self.merchant_repo.read(payment.sender_id)
-                    sender_name = sender.username if sender else "Unknown"
-                
-                # Receiver
-                if payment.receiver_id == 0:
-                    receiver_name = "System"
-                else:
-                    receiver = self.user_repo.read(payment.receiver_id) or self.merchant_repo.read(payment.receiver_id)
-                    receiver_name = receiver.username if receiver else "Unknown"
+                    transaction_type = "Received"
+                    other_party = f"{payment.sender_type.capitalize()}"
 
-                setattr(payment, 'sender_name', sender_name)
-                setattr(payment, 'receiver_name', receiver_name)
+                setattr(payment, 'transaction_type', transaction_type)
+                setattr(payment, 'other_party', other_party)
 
             return payment_history
 
         except Exception as e:
-            print(f"[TransactionService ERROR] Failed to get payment details for user {merchant_id}: {e}")
+            print(f"[TransactionService ERROR] Failed to get payment details for merchant {merchant_id}: {e}")
             return None
 
     def create_virtual_card(self, owner_id: int, account_type: str) -> tuple[bool, str]:
