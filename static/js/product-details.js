@@ -1,33 +1,33 @@
 document.addEventListener('DOMContentLoaded', function () {
+    const mainImage = document.getElementById('main-product-image');
+    const thumbnails = document.querySelectorAll('.thumbnail-image');
+
+    thumbnails.forEach(thumbnail => {
+        thumbnail.addEventListener('click', function () {
+            mainImage.src = this.src;
+
+
+            thumbnails.forEach(thumb => thumb.classList.remove('active-thumbnail'));
+            this.classList.add('active-thumbnail');
+        });
+    });
+
+    if (thumbnails.length > 0) {
+        thumbnails[0].classList.add('active-thumbnail');
+    }
+
     const stars = document.querySelectorAll('.star-rating-input .star');
     const ratingInput = document.getElementById('rating-value');
-
-    const starFilledSVG = document.getElementById('star-filled-template')?.innerHTML;
-    const starNofillSVG = document.getElementById('star-nofill-template')?.innerHTML;
+    const starFilled = document.getElementById('star-filled-template').innerHTML;
+    const starNofill = document.getElementById('star-nofill-template').innerHTML;
 
     stars.forEach(star => {
         star.addEventListener('click', function () {
             const value = this.getAttribute('data-value');
             ratingInput.value = value;
-            updateStars(value);
-        });
-
-        star.addEventListener('mouseover', function () {
-            const value = this.getAttribute('data-value');
-            updateStars(value, true);
-        });
-
-        star.addEventListener('mouseout', function () {
-            updateStars(ratingInput.value);
+            stars.forEach((s, index) => {
+                s.innerHTML = index < value ? starFilled : starNofill;
+            });
         });
     });
-
-    function updateStars(value, isHover = false) {
-        stars.forEach(star => {
-            if (!starFilledSVG || !starNofillSVG) return;
-
-            const starValue = star.getAttribute('data-value');
-            star.innerHTML = starValue <= value ? starFilledSVG : starNofillSVG;
-        });
-    }
 });

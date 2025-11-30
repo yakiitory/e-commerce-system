@@ -40,13 +40,18 @@
 .product-images .main-image {
     display: flex;
     justify-content: center;
-    width: 100%;
-}
-
-.product-images .main-image img {
-    width: 60%;
+    align-items: center;
+    width: 60%; 
+    aspect-ratio: 1 / 1; 
+    overflow: hidden; 
     border-radius: 1rem;
     border: 1px solid var(--lightest-gray);
+}
+
+#main-product-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover; 
 }
 
 .thumbnail-images {
