@@ -36,20 +36,43 @@
                 <div class="form-group"><label for="price">Price</label><input type="number" id="price" name="price" step="0.01" required></div>
                 <div class="form-group"><label for="quantity_available">Quantity</label><input type="number" id="quantity_available" name="quantity_available" required></div>
             </div>
+            <button type="submit" class="submit-btn" {% if not addresses %}disabled{% endif %}>Add Product</button>
         </div>
-        <div class="image-upload-section">
-            <h4>Product Images</h4>
-            <div class="image-uploader" id="image-uploader">
-                <input type="file" id="file-input" name="images" multiple accept="image/*" style="display: none;">
-                <div class="upload-area" id="upload-area">
-                    <p><strong>Drag & drop images here</strong></p>
-                    <p>or</p>
-                    <button type="button" class="browse-btn">Browse Files</button>
-                    <span>(First image is the main image)</span>
+        <div>
+            <div class="image-upload-section">
+                <h4>Product Images</h4>
+                <div class="image-uploader" id="image-uploader">
+                    <input type="file" id="file-input" name="images" multiple accept="image/*" style="display: none;">
+                    <div class="upload-area" id="upload-area">
+                        <p><strong>Drag & drop images here</strong></p>
+                        <p>or</p>
+                        <button type="button" class="browse-btn">Browse Files</button>
+                        <span>(First image is the main image)</span>
+                    </div>
+                </div>
+                <div class="image-preview-grid" id="image-preview-grid"></div>
+            </div>
+            <div class="form-section">
+                <h4>Product Location</h4>
+                <div class="form-group">
+                    <label>Select which address to use for this product:</label>
+                    <div class="address-selection">
+                        {% if addresses %}
+                            {% for address in addresses %}
+                            <div class="address-option">
+                                <input type="radio" name="address_id" value="{{ address.id }}" id="address-{{ address.id }}" {% if loop.first %}checked{% endif %} required>
+                                <label for="address-{{ address.id }}">
+                                    <p>Address {{ loop.index }}</p>
+                                    <p>{{ address.house_no }} {{ address.street }}, {{ address.city }}, {{ address.postal_code }}</p>
+                                </label>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <p>You have no saved addresses. <a href="{{ url_for('user_addresses_page') }}">Please add one</a> before adding a product.</p>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
-            <div class="image-preview-grid" id="image-preview-grid"></div>
-            <button type="submit" class="submit-btn">Add Product</button>
         </div>
     </form>
 {% endblock %}

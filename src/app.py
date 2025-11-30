@@ -461,12 +461,16 @@ def add_product_page():
         flash("You do not have permission to perform this action.", "error")
         return redirect(url_for('index'))
 
+    merchant_addresses = backend.mock_get_addresses_by_user_id(user.id)
+
     if request.method == 'POST':
         # Image Processing: Save files and get their URLs
         upload_folder = os.path.join(app.static_folder, 'img', 'uploads')
         form_data = request.form.to_dict()
         image_files = request.files.getlist('images')
         image_urls = []
+        address_id = request.form.get('address_id', type=int)
+
         os.makedirs(upload_folder, exist_ok=True)
 
         for image_file in image_files:
@@ -486,10 +490,9 @@ def add_product_page():
                     flash(f"Error processing image {filename}: {e}", "error")
                     return redirect(url_for('add_product_page'))
 
-        # Data Validationd
-        merchant_addresses = backend.mock_get_addresses_by_user_id(user.id)
-        if not merchant_addresses:
-            flash("You must have a saved address to add a product.", "error")
+        # Data Validation
+        if not address_id or not any(addr.id == address_id for addr in merchant_addresses):
+            flash("Please select a valid address for the product.", "error")
             return redirect(url_for('user_addresses_page'))
 
         try:
@@ -503,7 +506,7 @@ def add_product_page():
                 original_price=float(form_data.get('original_price') or form_data.get('price', 0)), # type: ignore
                 quantity_available=int(form_data.get('quantity_available', 0)),
                 merchant_id=user.id,
-                address_id=merchant_addresses[0].id,
+                address_id=address_id,
                 images=image_urls # Pass the generated URLs to be persisted
             )
         except (ValueError, TypeError) as e:
@@ -517,7 +520,7 @@ def add_product_page():
 
     # For GET request, use the mock backend
     categories = backend.mock_get_all_categories()
-    return render_template('add-product.html', categories=categories or [])
+    return render_template('add-product.html', categories=categories or [], addresses=merchant_addresses)
 
 @app.route('/edit-product/<int:product_id>', methods=['GET', 'POST'])
 def edit_product_page(product_id: int):

@@ -9,8 +9,8 @@
 <main class="content-wrapper">
 {% block body %}
 <div class="form-container">
-    <div class="form-section left-section">
-        <h3>Personal Details</h3>
+    <div class="form-section">
+        <h3>Create a User Account</h3>
         <form action="{{ url_for('register_auth_page') }}" method="post" id="registrationForm">
             <div class="input-row">
                 <input type="text" name="first_name" placeholder="First Name" class="light-input" required>
@@ -35,30 +35,13 @@
                 <input type="number" name="age" placeholder="Age" class="light-input" required>
             </div>
 
-            <div class="btn-container-left">
+            <div class="btn-container">
                 <a href="{{ url_for('register_page') }}">
                     <button type="button" class="btn-back">
                         {% include "svg/arrow.svg" %}
                         Back
                     </button>
                 </a>
-            </div>
-        </form>
-    </div>
-
-    <div class="form-section right-section">
-        <h3>Address Information</h3>
-        <form>
-            <input type="text" name="house_number" placeholder="House Number" class="dark-input full-width" form="registrationForm" required>
-            <input type="text" name="street" placeholder="Street" class="dark-input full-width" form="registrationForm" required>
-
-            <div class="input-row">
-                <input type="text" name="city" placeholder="City" class="dark-input" form="registrationForm" required>
-                <input type="text" name="postal" placeholder="Postal" class="dark-input" form="registrationForm" required>
-            </div>
-            <input type="text" name="additional_notes" placeholder="Additional Notes" class="dark-input full-width" form="registrationForm">
-            
-            <div class="btn-container-right">
                 <button type="submit" id="nextButton" form="registrationForm">
                     Next
                     {% include "svg/arrow.svg" %}
@@ -66,6 +49,5 @@
             </div>
         </form>
     </div>
-</div>
 {% endblock %}
 </main>
