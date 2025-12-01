@@ -414,6 +414,7 @@ def invoice_page(order_id: int):
         session.pop('username', None)
         return redirect(url_for('login_page'))
 
+    # Get order details
     success, result = order_service.get_order_details(order_id=order_id, user_id=user.id)
 
     if not success:
@@ -425,13 +426,24 @@ def invoice_page(order_id: int):
         flash("Invoice for this order could not be found.", "error")
         return redirect(url_for('orders_page'))
 
-    address = product_service.get_address_by_id(invoice.address_id) if invoice.address_id else None
+    # Get shipping address
+    address = address_repository.read(invoice.address_id) if invoice.address_id else None
     
+    # Enrich order items with product details
     for item in order.items:
         _, product_entry = product_service.get_product_for_display(item.product_id)
-        setattr(item, 'product', product_entry)
+        if product_entry:
+            setattr(item, 'product', product_entry)
+        else:
+            # Create a minimal product object if not found
+            setattr(item, 'product', SimpleNamespace(
+                brand='N/A',
+                name='Product Not Found',
+                product_id=item.product_id
+            ))
 
     return render_template('invoice.html', order=order, invoice=invoice, address=address)
+
 
 @app.route('/login-security')
 def login_security_page():

@@ -37,19 +37,7 @@ class OrderService:
     ) -> tuple[int | None, str]:
         """
         Creates a new order by orchestrating product validation, payment,
-        order creation updates.
-
-        Args:
-            user_id (int): The ID of the user placing the order.
-            merchant_id (int): The ID of the merchant fulfilling the order.
-            shipping_address_id (int): The shipping address ID.
-            billing_address_id (int): The billing address ID.
-            items (list[OrderItemCreate]): A list of items to be included in the order.
-            user_card_id (int): The virtual card ID of the user for payment.
-            merchant_card_id (int): The virtual card ID of the merchant to receive payment.
-
-        Returns:
-            tuple[int | None, str]: A tuple containing the new order ID and a message.
+        order creation, and invoice generation.
         """
         if not items:
             return (None, "Cannot create an order with no items.")
@@ -61,7 +49,6 @@ class OrderService:
             product = self.product_repo.read(item.product_id)
             if not product:
                 return (None, f"Validation failed: Product with ID {item.product_id} not found.")
-            # Use the current product price for the order
             item.product_price = product.price
             total_amount += Decimal(item.product_price * item.product_quantity)
             validated_items.append(item)
@@ -82,37 +69,36 @@ class OrderService:
                 in_transaction=True
             )
             if not payment_success:
-                # transfer_funds already rolled back its own sub-steps, but we return here
-                # and the finally block will ensure the outer transaction is also rolled back.
                 return (None, f"Order creation failed: {payment_message}")
 
             # --- 3. Create the Order record ---
             order_to_create = OrderCreate(
-                user_id=user_id, merchant_id=merchant_id,
-                shipping_address_id=shipping_address_id, billing_address_id=billing_address_id,
-                total_amount=float(total_amount), items=validated_items, status=Status.PAID
+                user_id=user_id, 
+                merchant_id=merchant_id,
+                shipping_address_id=shipping_address_id, 
+                billing_address_id=billing_address_id,
+                total_amount=float(total_amount), 
+                items=validated_items, 
+                status=Status.PAID
             )
             new_order_id, order_message = self.order_repo.create(order_to_create)
             if not new_order_id:
-                # This is a critical failure. The transaction will be rolled back.
                 return (None, f"CRITICAL: Payment succeeded but order creation failed. Transaction rolled back. Reason: {order_message}")
 
             # --- 4. Create Invoice ---
             invoice_to_create = InvoiceCreate(
                 address_id=shipping_address_id,
                 status=Status.PAID,
-                payment_summary=f"Paid via Virtual Card (User Card ID: {user_card_id})"
+                payment_summary=f"Paid via Virtual Card (User Card ID: {user_card_id} → Merchant Card ID: {merchant_card_id})"
             )
             new_invoice_id, invoice_message = self.order_repo.create_invoice(invoice_to_create, new_order_id)
             if not new_invoice_id:
-                # This is also a critical failure.
                 return (None, f"CRITICAL: Order created but invoice creation failed. Transaction rolled back. Reason: {invoice_message}")
 
             # --- 5. Update Product Metadata ---
             for item in validated_items:
                 self.product_repo.metadata_repo.increment_field(item.product_id, 'sold_count')
                 self.product_repo.update_quantity(item.product_id, item.product_quantity)
-
 
             # --- 6. Commit Transaction ---
             self.db.commit()

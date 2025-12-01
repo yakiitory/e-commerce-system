@@ -40,7 +40,6 @@ class OrderCreate:
 class Order(OrderCreate):
     """Represents a fully formed order record from the database, including its items."""
     id: int = field(default_factory=int)
-    invoice_id: int | None = None
     items: list[OrderItem] = field(default_factory=list)
 
 # --- Cart Item Models ---
@@ -89,3 +88,4 @@ class InvoiceCreate:
 class Invoice(InvoiceCreate):
     """Represents a fully formed invoice record from the database."""
     id: int = field(default_factory=int)
+    order_id = int

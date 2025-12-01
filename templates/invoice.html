@@ -48,9 +48,9 @@
                 </tr>
             </thead>
             <tbody>
-                {% for item in order.orders %}
+                {% for item in order.items %}
                 <tr>
-                    <td>{{ item.product.brand }} - {{ item.product.name }}</td>
+                    <td>{{ item.product.brand if item.product else 'N/A' }} - {{ item.product.name if item.product else 'Unknown Product' }}</td>
                     <td>{{ item.product_quantity }}</td>
                     <td>₱{{ "{:,.2f}".format(item.product_price) }}</td>
                     <td>₱{{ "{:,.2f}".format(item.total_price) }}</td>
@@ -62,11 +62,11 @@
         <div class="invoice-summary">
             <div class="summary-row">
                 <span>Subtotal</span>
-                <span>₱{{ "{:,.2f}".format(order.total_price) }}</span>
+                <span>₱{{ "{:,.2f}".format(order.total_amount) }}</span>
             </div>
             <div class="summary-row total">
                 <span>Grand Total</span>
-                <span>₱{{ "{:,.2f}".format(order.total_price) }}</span>
+                <span>₱{{ "{:,.2f}".format(order.total_amount) }}</span>
             </div>
         </div>
 

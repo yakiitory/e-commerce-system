@@ -337,6 +337,7 @@ class OrderRepository(BaseRepository):
             tuple[int | None, str]: A tuple with the new invoice ID and a message.
         """
         invoice_fields = [
+            "order_id",
             "address_id",
             "issue_date",
             "status",
@@ -348,9 +349,11 @@ class OrderRepository(BaseRepository):
         setattr(invoice_data_for_db, 'order_id', order_id)
         setattr(invoice_data_for_db, 'status', data.status.value)
 
-        return self._create_record(
+        new_invoice_id, message = self._create_record(
             data=invoice_data_for_db, fields=invoice_fields, table_name="invoices", db=self.db
         )
+        
+        return (new_invoice_id, message)
 
     def read_all_by_merchant_id(self, merchant_id: int) -> list[Order]:
         """
