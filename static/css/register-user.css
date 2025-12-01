@@ -194,30 +194,43 @@
     transform: translateY(-2px);
 }
 
-.btn-container-left {
+.btn-container {
     margin-top: auto;
     display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
-.btn-container-right {
-    margin-top: auto;
-    display: flex;
-    justify-content: flex-end;
+.btn-back {
+    background-color: var(--white) !important;
+    color: var(--black) !important;
+    border: 1px solid var(--light-underline) !important;
 }
 
-.form-container .btn-container-right button {
-    background-color: var(--white);
-    color: var(--black);
+.form-section form button svg {
+    width: 18px;
+    height: 18px;
+    transition: transform 0.2s ease-in-out;
 }
 
-.btn-container-right svg {
-    padding-left: .5rem;
-    fill: var(--black)
-}
-
-.btn-container-left svg {
+.btn-back svg {
     transform: rotate(180deg);
-    padding-left: .5rem;
+    margin-right: 0.5rem;
+    fill: var(--black);
+}
+
+#nextButton svg {
+    margin-left: 0.5rem;
+    fill: var(--white);
+}
+
+/* --- Button Hover Effects --- */
+.btn-back:hover svg {
+    transform: rotate(180deg) translateX(3px);
+}
+
+#nextButton:hover svg {
+    transform: translateX(3px);
 }
 
 /* --- Responsive --- */
