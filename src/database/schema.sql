@@ -302,9 +302,10 @@ CREATE TABLE IF NOT EXISTS `reviews` (
   `id` INT AUTO_INCREMENT NOT NULL,
   `user_id` INT,
   `product_id` INT,
-  `ratings` REAL,
+  `rating` REAL,                    
   `description` TEXT,
-  `likes` INT,
+  `likes` INT DEFAULT 0,            
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,  
   PRIMARY KEY (`id`),
   FOREIGN KEY (`user_id`) REFERENCES `users`(`id`)
     ON UPDATE CASCADE
