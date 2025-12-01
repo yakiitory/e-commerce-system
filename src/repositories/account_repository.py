@@ -451,4 +451,16 @@ class AdminRepository(AccountRepository):
         """
         if not row:
             return None
-        return Admin(**row)
+        
+        # Only pass fields that the Admin dataclass expects
+        # Admin inherits from Account which has: id, role, created_at
+        # And Account inherits from AuthMixin (username, hash) and DateMixin (created_at)
+        admin_data = {
+            'id': row['id'],
+            'role': row['role'],
+            'username': row['username'],
+            'hash': row['hash'],
+            'created_at': row['created_at']
+        }
+        
+        return Admin(**admin_data)
