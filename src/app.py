@@ -126,6 +126,55 @@ with app.app_context():
         else:
             print(f"Failed to create dummy merchant: {message}")
 
+# --- Trie Initialization ---
+search_trie = Trie()
+
+def populate_search_trie():
+    """
+    Populates the search Trie with data from the backend.
+    This runs once before the first request to the application.
+    """
+    print("Populating search trie...")
+    all_products = backend.mock_get_all_products()
+    all_categories = backend.mock_get_all_categories()
+    
+    searchable_terms = set()
+    
+    for product in all_products:
+        searchable_terms.add(product.name)
+        searchable_terms.add(product.brand)
+        
+    for category in all_categories:
+        searchable_terms.add(category.name)
+        
+    for term in searchable_terms:
+        search_trie.insert(term)
+    print("Search trie populated.")
+
+# Call the function to populate the Trie when the application starts
+populate_search_trie()
+
+@app.context_processor
+def inject_footer_data():
+    """
+    Injects data into the context of all templates for the footer.
+    """
+    all_categories = backend.mock_get_all_categories()
+    all_products = backend.mock_get_all_products()
+
+    # Get 4 random categories if possible
+    footer_categories = random.sample(all_categories, k=min(len(all_categories), 4))
+    
+    # 4 random products if possible
+    footer_products = random.sample(all_products, k=min(len(all_products), 4))
+    
+    return dict(
+        footer_categories=footer_categories,
+        footer_products=footer_products
+    )
+
+
+
 @app.context_processor
 def inject_user():
     """Injects user information into the template context.
@@ -344,6 +393,20 @@ def register_auth_page():
 @app.route('/account-details-page')
 def account_details_page():
     return render_template('account-details.html')
+
+@app.route('/api/search-suggestions')
+def search_suggestions():
+    """
+    Provides search suggestions using a Trie for efficiency.
+    Uses mock backend logic
+    """
+    query = request.args.get('query', '').lower()
+    if not query or len(query) < 2:
+        return jsonify([])
+
+    # Use the Trie to get suggestions
+    suggestions = search_trie.search_prefix(query)
+    return jsonify(suggestions[:10]) # Limit to 10 suggestions
 
 @app.route('/orders')
 def orders_page():

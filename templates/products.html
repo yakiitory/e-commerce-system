@@ -19,7 +19,10 @@
 
                 <section class="filter-section">
                     <h3>Search</h3>
-                    <input type="search" name="query" class="filter-search-input" placeholder="Search products..." value="{{ search_criteria.query or '' }}">
+                    <div id="sidebarSearchContainer" style="position: relative;">
+                        <input type="search" name="query" id="sidebarSearchInput" class="filter-search-input" placeholder="Search products..." value="{{ search_criteria.query or '' }}" autocomplete="off">
+                        <div id="sidebarSuggestions" class="search-suggestions"></div>
+                    </div>
                 </section>
 
                 <section class="filter-section filter-by-price">
