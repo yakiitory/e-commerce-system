@@ -25,22 +25,25 @@
         <div class="main-product">
             <div class="main-product-container">
                 {% for product in products %}
-                <a href="{{ url_for('product_page', product_id=product.id) }}" class="product-link">
+                <a href="{{ url_for('product_page', product_id=product.product_id) }}" class="product-link">
                     <div class="main-product-item">
                         <div class="main-product-img">
-                            <img src="{{ product.images[0] if product.images else url_for('static', filename='img/placeholder.jpg') }}" alt="Image of {{ product.name }}">
+                            <img src="{{ product.thumbnail if product.thumbnail else url_for('static', filename='img/placeholder.jpg') }}" alt="Image of {{ product.name }}">
                         </div>
                         <div class="main-product-details">
                             <p>{{ product.category_name }}</p>
                             <p>{{ product.brand }} - {{ product.name }}</p>
                             <div class="small-star-ratings single-star">
-                                {% include "svg/star-filled.svg" %} <span>{{ product.rating_avg }}</span>
+                                {% include "svg/star-filled.svg" %} <span>{{ product.ratings }}</span>
                             </div>
                             <div class="main-product-price">
                                 <span>₱{{ "{:,.2f}".format(product.price) }}</span>
-                                {% if product.original_price > product.price %}
-                                <span>₱{{ "{:,.2f}".format(product.original_price) }}</span>
-                                {% endif %}
+                            </div>
+                            <div class="city-container">
+                                <div class="city-icon">
+                                    {% include "svg/location.svg" %}
+                                </div>
+                                <p>{{ product.warehouse }}</p>
                             </div>
                         </div>
                     </div>
