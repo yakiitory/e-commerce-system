@@ -1,0 +1,282 @@
+# E-Commerce Admin Panel - CLI Tool
+
+A comprehensive command-line interface for managing your e-commerce platform. This tool provides administrators with full control over users, merchants, products, orders, and system settings.
+
+## Features
+
+### 🔐 Authentication & Security
+- Secure admin login with password hashing
+- Role-based access control (admin/superadmin)
+- Password change functionality
+- First-time setup wizard
+
+### 👥 User Management
+- List all registered users
+- Search users by username
+- View detailed user profiles
+- Suspend user accounts
+- Delete user accounts (with confirmation)
+- View user order history
+
+### 🏪 Merchant Management
+- List all merchants
+- Search merchants by username
+- View merchant details and statistics
+- View merchant product counts
+- Suspend merchant accounts
+- Delete merchant accounts
+
+### 📦 Product Management
+- Browse all products
+- Search products by name or brand
+- View detailed product information
+- Delete products
+- View products by category
+- See product inventory status
+
+### 📋 Order Management
+- View recent orders
+- Search orders by ID
+- View detailed order information
+- Filter orders by status (Pending, Paid, Shipped, Delivered, Cancelled)
+- Admin order cancellation with refunds
+- Track order lifecycle
+
+### 🏷️ Category Management
+- List all product categories
+- View category hierarchy
+- See product counts per category
+- View category details
+
+### 📊 System Statistics
+- Platform overview (users, merchants, products, orders)
+- Total revenue tracking
+- Recent activity monitoring (last 7 days)
+- Order status breakdown
+- Real-time metrics
+
+### 👨‍💼 Admin Management (Superadmin Only)
+- List all administrators
+- Create new admin accounts
+- Delete admin accounts
+- Role assignment (admin/superadmin)
+
+## Installation
+
+1. Ensure you have Python 3.8+ installed
+2. Make sure your database is properly configured
+3. Place the `admin_panel.py` file in your project root directory
+
+```bash
+# Make the script executable (Unix/Linux/Mac)
+chmod +x admin_panel.py
+```
+
+## Usage
+
+### Starting the Panel
+
+```bash
+# Run directly
+python3 admin_panel.py
+
+# Or if executable (Unix/Linux/Mac)
+./admin_panel.py
+```
+
+### First Time Setup
+
+When you run the admin panel for the first time:
+
+1. The system will detect no admin accounts exist
+2. You'll be prompted to create the first superadmin account
+3. Enter a username and secure password
+4. Log in with your new credentials
+
+### Navigation
+
+The admin panel uses a **menu-driven interface**:
+
+- **Numbers** - Select menu options
+- **Text input** - Enter data when prompted
+- **yes/no** - Confirm actions
+- **0** - Go back to previous menu
+
+### Example Workflows
+
+#### View All Users
+```
+Main Menu → [1] User Management → [1] List All Users
+```
+
+#### Search for a Product
+```
+Main Menu → [3] Product Management → [2] Search Products by Name
+```
+
+#### Cancel an Order
+```
+Main Menu → [4] Order Management → [5] Cancel Order (Refund)
+```
+
+#### Create a New Admin
+```
+Main Menu → [7] Admin Management → [2] Create New Admin
+```
+
+## Security Features
+
+### Account Protection
+- Password masking during input
+- Minimum password length enforcement (6 characters)
+- Confirmation required for destructive actions
+- Cannot delete own admin account
+
+### Destructive Action Safeguards
+- Double confirmation for deletions
+- "Type DELETE" verification for critical operations
+- Clear warnings before permanent actions
+- Transaction rollback on errors
+
+### Role-Based Access
+- **Admin**: Can manage users, merchants, products, and orders
+- **Superadmin**: Full system access including admin management
+
+## Data Displayed
+
+### User Information
+- ID, Username, Name, Email, Phone
+- Gender, Age, Registration date
+- Order statistics
+
+### Merchant Information
+- ID, Username, Store name, Owner details
+- Contact information
+- Product count, Order count
+
+### Product Information
+- ID, Name, Brand, Price
+- Stock quantity
+- Ratings and reviews
+- Category, Merchant
+
+### Order Information
+- Order ID, Buyer, Seller
+- Total amount, Status
+- Order date, Items list
+
+## Menu Structure
+
+```
+Main Menu
+├── User Management
+│   ├── List All Users
+│   ├── Search User by Username
+│   ├── View User Details
+│   ├── Suspend User Account
+│   └── Delete User Account
+│
+├── Merchant Management
+│   ├── List All Merchants
+│   ├── Search Merchant by Username
+│   ├── View Merchant Details
+│   ├── Suspend Merchant Account
+│   └── Delete Merchant Account
+│
+├── Product Management
+│   ├── List All Products
+│   ├── Search Products by Name
+│   ├── View Product Details
+│   ├── Delete Product
+│   └── Products by Category
+│
+├── Order Management
+│   ├── List Recent Orders
+│   ├── Search Order by ID
+│   ├── View Order Details
+│   ├── Orders by Status
+│   └── Cancel Order (Refund)
+│
+├── Category Management
+│   ├── List All Categories
+│   └── View Category Details
+│
+├── System Statistics
+│   └── Platform metrics and analytics
+│
+├── Admin Management (Superadmin)
+│   ├── List All Admins
+│   ├── Create New Admin
+│   └── Delete Admin
+│
+└── Change Password
+```
+
+## Ethical Considerations
+
+This admin panel is designed with ethics in mind:
+
+✅ **User Privacy**: View only necessary information
+✅ **Transparency**: All actions are logged and visible
+✅ **Safeguards**: Multiple confirmations for destructive actions
+✅ **Accountability**: Admin actions are tied to specific accounts
+✅ **Data Protection**: Secure password handling and storage
+✅ **Fair Access**: Role-based permissions prevent abuse
+
+❌ **Does NOT allow**:
+- Viewing user passwords (stored as hashes)
+- Unauthorized data modification
+- Accessing private messages or personal files
+- Bypassing payment systems
+- Fraudulent transactions
+
+## Troubleshooting
+
+### Cannot Connect to Database
+```
+Error: Failed to create connection pool
+Solution: Check your .env file and database credentials
+```
+
+### Permission Denied
+```
+Error: Access denied. Superadmin only.
+Solution: Log in with a superadmin account or contact your superadmin
+```
+
+### Invalid Input
+```
+Error: Invalid ID. Please enter a number.
+Solution: Ensure you're entering numeric IDs where required
+```
+
+## Best Practices
+
+1. **Regular Monitoring**: Check system statistics daily
+2. **User Verification**: Always verify user/merchant identity before suspensions
+3. **Order Reviews**: Review cancelled orders for fraud patterns
+4. **Admin Access**: Limit superadmin accounts to trusted personnel
+5. **Password Security**: Use strong passwords and change them regularly
+6. **Backup First**: Consider database backups before bulk deletions
+
+## Support
+
+For issues or questions:
+1. Check the error message carefully
+2. Verify database connectivity
+3. Ensure proper admin permissions
+4. Review the system logs
+
+## Version
+
+Current Version: 1.0.0
+Last Updated: 2025
+
+## License
+
+This admin panel is part of the E-Commerce platform project.
+All rights reserved.
+
+---
+
+**⚠️ Important**: This tool has significant power over your platform. Use responsibly and ensure proper access controls are in place.
