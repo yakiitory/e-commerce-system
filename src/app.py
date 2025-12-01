@@ -859,6 +859,42 @@ def delete_product(product_id: int):
     flash(result, 'success' if success else 'error')
     return redirect(url_for('merchant_dashboard_page'))
 
+@app.route('/merchant/<int:merchant_id>')
+
+
+
+def merchant_page(merchant_id: int):
+    """Renders a public-facing page for a specific merchant.
+    Args:
+        merchant_id (int): The ID of the merchant to display.
+    Returns:
+        str: The rendered HTML of the merchant's page.
+    """
+    merchant = backend.mock_get_user_by_username(next((u.username for u in backend.mock_users.values() if u.id == merchant_id and u.role == 'merchant'), None))
+
+    if not merchant:
+        abort(404)
+
+    products = backend.mock_get_products_by_merchant_id(merchant.id)
+    total_rating = 0
+    rated_products_count = 0
+
+    for product in products:
+        metadata = backend.mock_get_product_metadata(product.id)
+
+        if metadata and metadata.rating_avg > 0:
+            total_rating += metadata.rating_avg
+            rated_products_count += 1
+
+        # product data for display
+        category = backend.mock_get_category_by_id(product.category_id)
+        product.category_name = category.name if category else "Uncategorized"
+        product.rating_avg = metadata.rating_avg if metadata else 0
+
+    average_rating = total_rating / rated_products_count if rated_products_count > 0 else 0
+    return render_template('merchant_page.html', merchant=merchant, products=products, average_rating=average_rating)
+
+
 @app.route('/payments')
 def payments_page():
     """Renders the user's payments page, showing virtual card and history."""
