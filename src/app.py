@@ -1290,6 +1290,14 @@ def product_page(product_id: int):
     # Fetch reviews for the product
     review_success, reviews_or_none = review_service.get_reviews_for_product(product_id)
     reviews = reviews_or_none if review_success and reviews_or_none else []
+    
+    # *** FIX: Enrich reviews with user information ***
+    for review in reviews:
+        user = user_repository.read(review.user_id)
+        if user:
+            setattr(review, 'user_name', f"{user.first_name} {user.last_name}")
+        else:
+            setattr(review, 'user_name', "Anonymous")
 
     # Fetch merchant details
     merchant = None
