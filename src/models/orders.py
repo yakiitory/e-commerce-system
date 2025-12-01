@@ -80,6 +80,7 @@ class Cart(CartCreate):
 @dataclass
 class InvoiceCreate:
     address_id: int
+    order_id: int
     issue_date: datetime = field(default_factory=datetime.now)
     status: Status = Status.PENDING
     payment_summary: str | None = None
@@ -88,4 +89,3 @@ class InvoiceCreate:
 class Invoice(InvoiceCreate):
     """Represents a fully formed invoice record from the database."""
     id: int = field(default_factory=int)
-    order_id = int

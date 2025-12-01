@@ -88,6 +88,7 @@ class OrderService:
             # --- 4. Create Invoice ---
             invoice_to_create = InvoiceCreate(
                 address_id=shipping_address_id,
+                order_id=new_order_id,
                 status=Status.PAID,
                 payment_summary=f"Paid via Virtual Card (User Card ID: {user_card_id} → Merchant Card ID: {merchant_card_id})"
             )
@@ -151,6 +152,7 @@ class OrderService:
     def cancel_order(self, order_id: int, user_id: int) -> tuple[bool, str]:
         """
         Cancels an existing order, refunds the payment, and reverts product metadata.
+        FIXED: Allow cancellation for PENDING and PAID statuses, and restore product inventory.
 
         Args:
             order_id (int): The ID of the order to cancel.
@@ -171,17 +173,17 @@ class OrderService:
             if order.user_id != user_id:
                 return (False, "You are not authorized to cancel this order.")
 
-            if order.status != Status.PAID:
-                return (False, f"Order cannot be canceled. Current status: {order.status.value}.")
+            if order.status not in [Status.PENDING, Status.PAID]:
+                return (False, f"Order cannot be canceled. Current status: {order.status.name}.")
 
-            # --- 2. Process Refund ---
-            # We need the virtual card IDs for the refund.
-            user_card = self.order_repo.get_user_card_for_order(order_id)
-            merchant_card = self.order_repo.get_merchant_card_for_order(order_id)
+            # --- 2. Get Virtual Cards ---
+            user_card = self.transaction_service.virtual_card_repo.get_by_user_id(order.user_id)
+            merchant_card = self.transaction_service.virtual_card_repo.get_by_merchant_id(order.merchant_id)
 
             if not user_card or not merchant_card:
                 return (False, "CRITICAL: Could not retrieve card details for refund. Cannot cancel order.")
 
+            # --- 3. Process Refund ---
             refund_success, refund_message = self.transaction_service.transfer_funds(
                 sender_card_id=merchant_card.id,
                 receiver_card_id=user_card.id,
@@ -192,16 +194,24 @@ class OrderService:
             if not refund_success:
                 return (False, f"Order cancellation failed: {refund_message}")
 
-            # --- 3. Update Order Status ---
+            # --- 4. Update Order Status ---
             update_success, update_message = self.order_repo.update_status(order_id, Status.CANCELLED)
             if not update_success:
                 return (False, f"CRITICAL: Refund succeeded but order status update failed. Transaction rolled back. Reason: {update_message}")
 
-            # --- 4. Revert Product Metadata ---
+            # --- 5. Revert Product Metadata AND Restore Inventory ---
             for item in order.items:
+                # Decrement sold count
                 self.product_repo.metadata_repo.decrement_field(item.product_id, 'sold_count', item.product_quantity)
+                
+                product = self.product_repo.read(item.product_id)
+                if product:
+                    self.product_repo.update(
+                        item.product_id, 
+                        {'quantity_available': product.quantity_available + item.product_quantity}
+                    )
 
-            # --- 5. Commit Transaction ---
+            # --- 6. Commit Transaction ---
             self.db.commit()
             transaction_committed = True
             return (True, f"Order {order_id} has been successfully canceled and refunded.")
@@ -212,6 +222,7 @@ class OrderService:
         finally:
             if not transaction_committed:
                 self.db.rollback()
+
 
     def confirm_delivery(self, order_id: int, user_id: int) -> tuple[bool, str]:
         """
@@ -296,6 +307,7 @@ class OrderService:
     def merchant_cancel_order(self, order_id: int, merchant_id: int) -> tuple[bool, str]:
         """
         Allows a merchant to cancel an order, which refunds the customer.
+        FIXED: Use correct card retrieval and restore inventory.
 
         Args:
             order_id (int): The ID of the order to cancel.
@@ -316,25 +328,45 @@ class OrderService:
             if order.merchant_id != merchant_id:
                 return (False, "You are not authorized to cancel this order.")
 
-            if order.status != Status.PAID:
-                return (False, f"Only paid orders can be canceled. Current status: {order.status.value}.")
+            # Only allow cancellation for PENDING and PAID orders (not SHIPPED)
+            if order.status not in [Status.PENDING, Status.PAID]:
+                return (False, f"Only pending or paid orders can be canceled. Current status: {order.status.name}.")
 
-            # 2. Process Refund (reusing logic from user cancellation)
-            user_card = self.order_repo.get_user_card_for_order(order_id)
-            merchant_card = self.order_repo.get_merchant_card_for_order(order_id)
+            # 2. Get Virtual Cards - FIXED: Use correct method
+            user_card = self.transaction_service.virtual_card_repo.get_by_user_id(order.user_id)
+            merchant_card = self.transaction_service.virtual_card_repo.get_by_merchant_id(order.merchant_id)
 
             if not user_card or not merchant_card:
                 return (False, "CRITICAL: Could not retrieve card details for refund. Cannot cancel order.")
 
+            # 3. Process Refund
             refund_success, refund_message = self.transaction_service.transfer_funds(
-                sender_card_id=merchant_card.id, receiver_card_id=user_card.id,
-                amount=order.total_amount, payment_type="REFUND", in_transaction=True
+                sender_card_id=merchant_card.id, 
+                receiver_card_id=user_card.id,
+                amount=order.total_amount, 
+                payment_type="REFUND", 
+                in_transaction=True
             )
             if not refund_success:
                 return (False, f"Order cancellation failed: {refund_message}")
 
-            # 3. Update Order Status
+            # 4. Update Order Status
             self.order_repo.update_status(order_id, Status.CANCELLED)
+            
+            # 5. Revert Product Metadata AND Restore Inventory - FIXED
+            for item in order.items:
+                # Decrement sold count
+                self.product_repo.metadata_repo.decrement_field(item.product_id, 'sold_count', item.product_quantity)
+                
+                # Restore product quantity back to inventory
+                product = self.product_repo.read(item.product_id)
+                if product:
+                    self.product_repo.update(
+                        item.product_id, 
+                        {'quantity_available': product.quantity_available + item.product_quantity}
+                    )
+            
+            # 6. Commit Transaction
             self.db.commit()
             transaction_committed = True
             return (True, f"Order {order_id} has been successfully canceled and refunded.")

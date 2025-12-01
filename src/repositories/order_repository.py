@@ -241,7 +241,7 @@ class OrderRepository(BaseRepository):
             VirtualCard | None: The user's VirtualCard object if found, otherwise None.
         """
         query = """
-            SELECT vc.* FROM virtual_cards vc
+            SELECT vc.* FROM virtualcards vc
             JOIN payments p ON vc.id = p.sender_id
             WHERE p.order_id = %s AND p.type = 'ORDER_PAYMENT'
         """
