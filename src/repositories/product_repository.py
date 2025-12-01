@@ -352,6 +352,7 @@ class ProductRepository(BaseRepository):
     def search(self, filters: dict[str, Any], page: int, per_page: int) -> tuple[list[ProductEntry], int]:
         """
         Searches, filters, sorts, and paginates products, returning them as ProductEntry objects.
+        Enhanced search across product name, brand, description, and category name.
 
         Args:
             filters (dict[str, Any]): A dictionary of filters (query, category, price, etc.).
@@ -365,17 +366,19 @@ class ProductRepository(BaseRepository):
         """
         base_query = """
             SELECT
-                p.id AS product_id,self.db.fetch_all(final_product_query, (limit, offset))
+                p.id AS product_id,
                 p.merchant_id, p.category_id, p.address_id,
-                p.name, p.brand, p.price, p.original_price,
-                pm.rating_avg AS ratings,
+                p.name, p.brand, p.price, p.quantity_available,
+                COALESCE(p.rating_score / NULLIF(p.rating_count, 0), 0) AS ratings,
                 a.city AS warehouse,
                 i.url AS thumbnail,
-                pm.sold_count
+                pm.sold_count,
+                c.name AS category_name
             FROM
                 products p
             INNER JOIN product_metadata pm ON p.id = pm.product_id
             INNER JOIN addresses a ON p.address_id = a.id
+            INNER JOIN categories c ON p.category_id = c.id
             LEFT JOIN (
                 SELECT pi.product_id, im.url
                 FROM product_images pi
@@ -383,27 +386,40 @@ class ProductRepository(BaseRepository):
                 WHERE pi.is_thumbnail = TRUE
             ) AS i ON p.id = i.product_id
         """
-        count_query = "SELECT COUNT(p.id) as total FROM products p INNER JOIN product_metadata pm ON p.id = pm.product_id"
+        count_query = """
+            SELECT COUNT(DISTINCT p.id) as total 
+            FROM products p 
+            INNER JOIN product_metadata pm ON p.id = pm.product_id
+            INNER JOIN categories c ON p.category_id = c.id
+        """
 
         where_clauses = []
         params = []
 
-        # Build WHERE clauses from filters
+        # Enhanced search query - searches across name, brand, description, and category
         if filters.get('query'):
-            where_clauses.append("(p.name LIKE %s OR p.description LIKE %s)")
-            term = f"%{filters['query']}%"
-            params.extend([term, term])
+            search_term = filters['query'].strip()
+            # Search in product name, brand, description, and category name
+            where_clauses.append(
+                "(p.name LIKE %s OR p.brand LIKE %s OR p.description LIKE %s OR c.name LIKE %s)"
+            )
+            term = f"%{search_term}%"
+            params.extend([term, term, term, term])
+        
         if filters.get('category'):
             where_clauses.append("p.category_id = %s")
             params.append(filters['category'])
+        
         if filters.get('min_price') is not None:
             where_clauses.append("p.price >= %s")
             params.append(filters['min_price'])
+        
         if filters.get('max_price') is not None:
             where_clauses.append("p.price <= %s")
             params.append(filters['max_price'])
+        
         if filters.get('min_rating') is not None:
-            where_clauses.append("pm.rating_avg >= %s")
+            where_clauses.append("(p.rating_score / NULLIF(p.rating_count, 0)) >= %s")
             params.append(filters['min_rating'])
 
         if where_clauses:
@@ -417,15 +433,18 @@ class ProductRepository(BaseRepository):
 
         # --- Sorting Logic ---
         sort_by = filters.get('sort_by')
-        order_clause = "ORDER BY p.created_at DESC" # Default sort
-        if sort_by == 'sold_count':
+        order_clause = "ORDER BY p.id DESC"  # Default sort by newest
+        
+        if sort_by == 'sold_count' or sort_by == 'sold':
             order_clause = "ORDER BY pm.sold_count DESC"
         elif sort_by == 'price_asc':
             order_clause = "ORDER BY p.price ASC"
         elif sort_by == 'price_desc':
             order_clause = "ORDER BY p.price DESC"
         elif sort_by == 'ratings':
-            order_clause = "ORDER BY pm.rating_avg DESC"
+            order_clause = "ORDER BY (p.rating_score / NULLIF(p.rating_count, 0)) DESC"
+        elif sort_by == 'brand':
+            order_clause = "ORDER BY p.brand ASC, p.name ASC"
 
         # --- Pagination Logic ---
         offset = (page - 1) * per_page
