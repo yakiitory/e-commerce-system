@@ -9,10 +9,11 @@
 <main class="content-wrapper">
 {% block body %}
 <div class="form-container">
-    <div class="form-section left-section">
-        <h3>Personal and Store Details</h3>
+    <div class="form-section"></div>
+        <h3>Create a Merchant Account</h3>
 
-        <form action="{{ url_for('register_merchant_page') }}" method="post" id="registrationForm">
+        <form action="{{ url_for('register_auth_page') }}" method="post" id="registrationForm">
+            <h4>Personal and Store Details</h4>
             <div class="input-row">
                 <input type="text" name="first_name" placeholder="First Name" class="light-input" required>
                 <input type="text" name="last_name" placeholder="Last Name" class="light-input" required>
@@ -20,37 +21,30 @@
             <input type="email" name="email" placeholder="user@example.com" class="light-input full-width" required>
             <input type="tel" name="phone_number" placeholder="Phone Number" class="light-input full-width" required>
             <input type="text" name="store_name" placeholder="Store Name" class="light-input full-width" required>
-            <div class="btn-container-left">
+
+            <h4>Address Information</h4>
+            <input type="text" name="house_number" placeholder="House Number" class="light-input full-width" required>
+            <input type="text" name="street" placeholder="Street" class="light-input full-width" required>
+
+            <div class="input-row">
+                <input type="text" name="city" placeholder="City" class="light-input" required>
+                <input type="text" name="postal" placeholder="Postal" class="light-input" required>
+            </div>
+            <input type="text" name="additional_notes" placeholder="Additional Notes" class="light-input full-width">
+
+            <div class="btn-container">
                 <a href="{{ url_for('register_page') }}">
                     <button type="button" class="btn-back">
                         {% include "svg/arrow.svg" %}
                         Back
                     </button>
                 </a>
-            </div>
-        </form>
-    </div>
-
-    <div class="form-section right-section">
-        <h3>Address Information</h3>
-        <form>
-            <input type="text" name="house_number" placeholder="House Number" class="dark-input full-width" form="registrationForm" required>
-            <input type="text" name="street" placeholder="Street" class="dark-input full-width" form="registrationForm" required>
-
-            <div class="input-row">
-                <input type="text" name="city" placeholder="City" class="dark-input" form="registrationForm" required>
-                <input type="text" name="postal" placeholder="Postal" class="dark-input" form="registrationForm" required>
-            </div>
-            <input type="text" name="additional_notes" placeholder="Additional Notes" class="dark-input full-width" form="registrationForm">
-
-            <div class="btn-container-right">
-                <button type="submit" id="nextButton" form="registrationForm">
+                <button type="submit" id="nextButton">
                     Next
                     {% include "svg/arrow.svg" %}
                 </button>
             </div>
         </form>
     </div>
-</div>
 {% endblock %}
 </main>
