@@ -73,38 +73,40 @@
             <div class="footer-content">
                 <div class="footer-column">
                     <p class="footer-column-title">POPULAR CATEGORIES</p>
-                <a href="">Lorem Ipsum</a>
-                <a href="">Lorem Ipsum</a>
-                <a href="">Lorem Ipsum</a>
-                <a href="">Lorem Ipsum</a>  
+                    {% for category in footer_categories %}
+                        <a href="{{ url_for('products_page', category=category.id) }}">{{ category.name }}</a>
+                    {% else %}
+                        <a href="{{ url_for('products_page') }}">Browse All</a>
+                    {% endfor %}
                 </div>
                 <div class="footer-column">
                     <p class="footer-column-title">PRODUCTS</p>
-                <a href="">Lorem Ipsum</a>
-                <a href="">Lorem Ipsum</a>
-                <a href="">Lorem Ipsum</a>
-                <a href="">Lorem Ipsum</a>  
+                    {% for product in footer_products %}
+                        <a href="{{ url_for('product_page', product_id=product.id) }}">{{ product.name }}</a>
+                    {% else %}
+                        <a href="{{ url_for('products_page') }}">All Products</a>
+                    {% endfor %}
                 </div>
                 <div class="footer-column">
                     <p class="footer-column-title">SERVICES</p>
-                <a href="">Lorem Ipsum</a>
-                <a href="">Lorem Ipsum</a>
-                <a href="">Lorem Ipsum</a>
-                <a href="">Lorem Ipsum</a>  
+                    <a href="{{ url_for('account-details-page') }}">Your Account</a>
+                    <a href="{{ url_for('orders_page') }}">Your Orders</a>
+                    <a href="{{ url_for('cart_page') }}">Shopping Cart</a>
+                    <a href="{{ url_for('liked-products') }}">Liked Products</a>
                 </div>
                 <div class="footer-column">
                     <p class="footer-column-title">CONTACT US</p>
                     <div class="footer-contact-item">
                         {% include "svg/location.svg" %}
-                    <a href="">Lorem ipsum dolor sit amet consectetur</a>
+                        <a href="">123 Release em, San Pablo City</a>
                     </div>
                     <div class="footer-contact-item">
                         {% include "svg/call.svg" %}
-                    <a href="">012 345 679</a>
+                        <a href="">(123) 456-7890</a>
                     </div>
                     <div class="footer-contact-item">
                         {% include "svg/mail.svg" %}
-                    <a href="">example@gmail.com</a> 
+                        <a href="">contact@fleamart.com</a>
                     </div>
                 </div>
             </div>

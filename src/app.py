@@ -150,6 +150,26 @@ def inject_user():
             current_user = admin_repository.get_by_username(username)
     return dict(current_user=current_user)
 
+@app.context_processor
+def inject_footer_data():
+    """
+    Injects random data into the context of all templates for the footer.
+    Uses mock backend functions
+    """
+    all_categories = backend.mock_get_all_categories()
+    all_products = backend.mock_get_all_products()
+
+    # Get 4 random categories if possible
+    footer_categories = random.sample(all_categories, k=min(len(all_categories), 4))
+    
+    # 4 random products if possible
+    footer_products = random.sample(all_products, k=min(len(all_products), 4))
+    
+    return dict(
+        footer_categories=footer_categories,
+        footer_products=footer_products
+    )
+
 @app.route('/')
 def index():
     """Renders the home page.
