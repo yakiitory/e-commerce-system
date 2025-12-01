@@ -60,6 +60,12 @@ Create a `.env` file in the root directory of the project. This file will hold y
 ```
 DATABASE_URL="loremipsumdolorsitamet"
 FLASK_SECRET_KEY="loremipsumdolorsitamet"
+DB_HOST="loremipsum"
+DB_PORT=3306
+DB_USER="loremipsum"
+DB_PASSWORD="loremipsum"
+DB_NAME="loremipsum"
+DB_POOL_SIZE=5
 ```
 
 ### 5. Set Up the Database
