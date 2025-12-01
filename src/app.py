@@ -3,6 +3,7 @@ from typing import cast
 from models.status import Status
 import os
 from werkzeug.utils import secure_filename
+from trie import Trie
 
 from PIL import Image
 from services import AddressService, AuthService, CategoryService, InteractionService, ProductService, OrderService, MediaService, ReviewService, TransactionService
@@ -23,6 +24,10 @@ from repositories import (
 )
 from database.database import Database
 from models.products import ProductCreate, ProductMetadata
+
+from datetime import datetime, timedelta
+
+_footer_cache = {'data': None, 'expires': None}
 
 db = Database()
 admin_repository            = AdminRepository(db)
@@ -131,47 +136,57 @@ search_trie = Trie()
 
 def populate_search_trie():
     """
-    Populates the search Trie with data from the backend.
-    This runs once before the first request to the application.
+    Populates the search Trie with searchable terms from the database.
+    
+    This function:
+    1. Fetches all products from the database (as lightweight query)
+    2. Creates searchable strings by combining brand + name
+    3. Fetches all categories
+    4. Inserts all terms into the Trie for fast prefix searching
+    
+    This runs once when the application starts.
     """
-    print("Populating search trie...")
-    all_products = backend.mock_get_all_products()
-    all_categories = backend.mock_get_all_categories()
+    print("[Trie] Populating search trie...")
     
     searchable_terms = set()
     
-    for product in all_products:
-        searchable_terms.add(product.name)
-        searchable_terms.add(product.brand)
+    try:
+        # Fetch all products with just the fields we need for search
+        # This is more efficient than fetching full ProductEntry objects
+        product_query = "SELECT id, name, brand FROM products"
+        products = db.fetch_all(product_query)
         
-    for category in all_categories:
-        searchable_terms.add(category.name)
+        if products:
+            for product in products:
+                # Add individual brand and name as separate searchable terms
+                searchable_terms.add(product['brand'])
+                searchable_terms.add(product['name'])
+                
+                # Add combined "brand - name" format (like how it displays in UI)
+                combined = f"{product['brand']} - {product['name']}"
+                searchable_terms.add(combined)
         
-    for term in searchable_terms:
-        search_trie.insert(term)
-    print("Search trie populated.")
+        # Fetch all categories
+        category_query = "SELECT name FROM categories"
+        categories = db.fetch_all(category_query)
+        
+        if categories:
+            for category in categories:
+                searchable_terms.add(category['name'])
+        
+        # Insert all unique terms into the Trie
+        for term in searchable_terms:
+            if term and term.strip():  # Only add non-empty terms
+                search_trie.insert(term)
+        
+        print(f"[Trie] Successfully populated with {len(searchable_terms)} searchable terms.")
+        
+    except Exception as e:
+        print(f"[Trie ERROR] Failed to populate search trie: {e}")
+        print("[Trie] Search suggestions will be unavailable until next restart.")
 
 # Call the function to populate the Trie when the application starts
 populate_search_trie()
-
-@app.context_processor
-def inject_footer_data():
-    """
-    Injects data into the context of all templates for the footer.
-    """
-    all_categories = backend.mock_get_all_categories()
-    all_products = backend.mock_get_all_products()
-
-    # Get 4 random categories if possible
-    footer_categories = random.sample(all_categories, k=min(len(all_categories), 4))
-    
-    # 4 random products if possible
-    footer_products = random.sample(all_products, k=min(len(all_products), 4))
-    
-    return dict(
-        footer_categories=footer_categories,
-        footer_products=footer_products
-    )
 
 
 
@@ -201,23 +216,54 @@ def inject_user():
 
 @app.context_processor
 def inject_footer_data():
-    """
-    Injects random data into the context of all templates for the footer.
-    Uses mock backend functions
-    """
-    all_categories = backend.mock_get_all_categories()
-    all_products = backend.mock_get_all_products()
-
-    # Get 4 random categories if possible
-    footer_categories = random.sample(all_categories, k=min(len(all_categories), 4))
+    """Cached footer data - refreshes every hour."""
+    global _footer_cache
     
-    # 4 random products if possible
-    footer_products = random.sample(all_products, k=min(len(all_products), 4))
+    # Return cached data if still valid
+    now = datetime.now()
+    if _footer_cache['data'] and _footer_cache['expires'] and now < _footer_cache['expires']:
+        return _footer_cache['data']
     
-    return dict(
-        footer_categories=footer_categories,
-        footer_products=footer_products
-    )
+    # Cache expired - fetch new data
+    try:
+        # Same queries as Option 1
+        category_query = """
+            SELECT id, name FROM categories 
+            WHERE parent_id IS NOT NULL
+            ORDER BY RAND() LIMIT 4
+        """
+        category_rows = db.fetch_all(category_query)
+        
+        from models.products import Category
+        footer_categories = [
+            Category(id=row['id'], name=row['name'], parent_id=None, description='') 
+            for row in category_rows
+        ] if category_rows else []
+        
+        product_query = """
+            SELECT id, name FROM products 
+            ORDER BY RAND() LIMIT 4
+        """
+        product_rows = db.fetch_all(product_query)
+        
+        from types import SimpleNamespace
+        footer_products = [
+            SimpleNamespace(id=row['id'], name=row['name']) 
+            for row in product_rows
+        ] if product_rows else []
+        
+        # Store in cache with 1 hour expiry
+        _footer_cache['data'] = dict(
+            footer_categories=footer_categories,
+            footer_products=footer_products
+        )
+        _footer_cache['expires'] = now + timedelta(hours=1)
+        
+        return _footer_cache['data']
+        
+    except Exception as e:
+        print(f"[Footer ERROR] Failed to load footer data: {e}")
+        return dict(footer_categories=[], footer_products=[])
 
 @app.route('/')
 def index():
@@ -398,7 +444,8 @@ def account_details_page():
 def search_suggestions():
     """
     Provides search suggestions using a Trie for efficiency.
-    Uses mock backend logic
+    
+    Returns up to 10 suggestions that match the query prefix.
     """
     query = request.args.get('query', '').lower()
     if not query or len(query) < 2:
@@ -406,7 +453,7 @@ def search_suggestions():
 
     # Use the Trie to get suggestions
     suggestions = search_trie.search_prefix(query)
-    return jsonify(suggestions[:10]) # Limit to 10 suggestions
+    return jsonify(suggestions[:10])  # Limit to 10 suggestions
 
 @app.route('/orders')
 def orders_page():
@@ -943,39 +990,43 @@ def delete_product(product_id: int):
     return redirect(url_for('merchant_dashboard_page'))
 
 @app.route('/merchant/<int:merchant_id>')
-
-
-
 def merchant_page(merchant_id: int):
     """Renders a public-facing page for a specific merchant.
+    
     Args:
         merchant_id (int): The ID of the merchant to display.
+    
     Returns:
         str: The rendered HTML of the merchant's page.
     """
-    merchant = backend.mock_get_user_by_username(next((u.username for u in backend.mock_users.values() if u.id == merchant_id and u.role == 'merchant'), None))
-
+    # Fetch merchant from database
+    merchant = merchant_repository.read(merchant_id)
+    
     if not merchant:
         abort(404)
-
-    products = backend.mock_get_products_by_merchant_id(merchant.id)
+    
+    # Get all products for this merchant using the product service
+    product_entries = product_service.get_product_entries_by_merchant_id(merchant_id)
+    
+    # Calculate average rating across all merchant products
     total_rating = 0
     rated_products_count = 0
-
-    for product in products:
-        metadata = backend.mock_get_product_metadata(product.id)
-
-        if metadata and metadata.rating_avg > 0:
-            total_rating += metadata.rating_avg
+    
+    for product_entry in product_entries:
+        # Get the rating from the product entry
+        if product_entry.ratings and float(product_entry.ratings) > 0:
+            total_rating += float(product_entry.ratings)
             rated_products_count += 1
-
-        # product data for display
-        category = backend.mock_get_category_by_id(product.category_id)
-        product.category_name = category.name if category else "Uncategorized"
-        product.rating_avg = metadata.rating_avg if metadata else 0
-
+    
     average_rating = total_rating / rated_products_count if rated_products_count > 0 else 0
-    return render_template('merchant_page.html', merchant=merchant, products=products, average_rating=average_rating)
+    
+    return render_template(
+        'merchant_page.html', 
+        merchant=merchant, 
+        products=product_entries, 
+        average_rating=average_rating
+    )
+
 
 
 @app.route('/payments')
