@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/merchant_page.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/products.css') }}">
+<title>{{ merchant.store_name }} - FleaMart</title>
+{% endblock %}
+
+<main class="content-wrapper">
+{% block body %}
+    <div class="merchant-page-container">
+        <div class="merchant-header">
+            <div class="merchant-avatar">
+                <span>{{ merchant.store_name[0] | upper }}</span>
+            </div>
+            <div class="merchant-info">
+                <h1>{{ merchant.store_name }}</h1>
+                <div class="merchant-rating single-star">
+                    {% include "svg/star-filled.svg" %}
+                    <span>{{ "%.1f"|format(average_rating) }} Average Rating</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-product">
+            <div class="main-product-container">
+                {% for product in products %}
+                <a href="{{ url_for('product_page', product_id=product.id) }}" class="product-link">
+                    <div class="main-product-item">
+                        <div class="main-product-img">
+                            <img src="{{ product.images[0] if product.images else url_for('static', filename='img/placeholder.jpg') }}" alt="Image of {{ product.name }}">
+                        </div>
+                        <div class="main-product-details">
+                            <p>{{ product.category_name }}</p>
+                            <p>{{ product.brand }} - {{ product.name }}</p>
+                            <div class="small-star-ratings single-star">
+                                {% include "svg/star-filled.svg" %} <span>{{ product.rating_avg }}</span>
+                            </div>
+                            <div class="main-product-price">
+                                <span>₱{{ "{:,.2f}".format(product.price) }}</span>
+                                {% if product.original_price > product.price %}
+                                <span>₱{{ "{:,.2f}".format(product.original_price) }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </a>
+                {% else %}
+                <p>This merchant has not listed any products yet.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+{% endblock %}
+</main>

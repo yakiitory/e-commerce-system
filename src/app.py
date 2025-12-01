@@ -126,6 +126,55 @@ with app.app_context():
         else:
             print(f"Failed to create dummy merchant: {message}")
 
+# --- Trie Initialization ---
+search_trie = Trie()
+
+def populate_search_trie():
+    """
+    Populates the search Trie with data from the backend.
+    This runs once before the first request to the application.
+    """
+    print("Populating search trie...")
+    all_products = backend.mock_get_all_products()
+    all_categories = backend.mock_get_all_categories()
+    
+    searchable_terms = set()
+    
+    for product in all_products:
+        searchable_terms.add(product.name)
+        searchable_terms.add(product.brand)
+        
+    for category in all_categories:
+        searchable_terms.add(category.name)
+        
+    for term in searchable_terms:
+        search_trie.insert(term)
+    print("Search trie populated.")
+
+# Call the function to populate the Trie when the application starts
+populate_search_trie()
+
+@app.context_processor
+def inject_footer_data():
+    """
+    Injects data into the context of all templates for the footer.
+    """
+    all_categories = backend.mock_get_all_categories()
+    all_products = backend.mock_get_all_products()
+
+    # Get 4 random categories if possible
+    footer_categories = random.sample(all_categories, k=min(len(all_categories), 4))
+    
+    # 4 random products if possible
+    footer_products = random.sample(all_products, k=min(len(all_products), 4))
+    
+    return dict(
+        footer_categories=footer_categories,
+        footer_products=footer_products
+    )
+
+
+
 @app.context_processor
 def inject_user():
     """Injects user information into the template context.
@@ -149,6 +198,26 @@ def inject_user():
         elif role in ['admin', 'superadmin']: # Assuming admin roles
             current_user = admin_repository.get_by_username(username)
     return dict(current_user=current_user)
+
+@app.context_processor
+def inject_footer_data():
+    """
+    Injects random data into the context of all templates for the footer.
+    Uses mock backend functions
+    """
+    all_categories = backend.mock_get_all_categories()
+    all_products = backend.mock_get_all_products()
+
+    # Get 4 random categories if possible
+    footer_categories = random.sample(all_categories, k=min(len(all_categories), 4))
+    
+    # 4 random products if possible
+    footer_products = random.sample(all_products, k=min(len(all_products), 4))
+    
+    return dict(
+        footer_categories=footer_categories,
+        footer_products=footer_products
+    )
 
 @app.route('/')
 def index():
@@ -324,6 +393,20 @@ def register_auth_page():
 @app.route('/account-details-page')
 def account_details_page():
     return render_template('account-details.html')
+
+@app.route('/api/search-suggestions')
+def search_suggestions():
+    """
+    Provides search suggestions using a Trie for efficiency.
+    Uses mock backend logic
+    """
+    query = request.args.get('query', '').lower()
+    if not query or len(query) < 2:
+        return jsonify([])
+
+    # Use the Trie to get suggestions
+    suggestions = search_trie.search_prefix(query)
+    return jsonify(suggestions[:10]) # Limit to 10 suggestions
 
 @app.route('/orders')
 def orders_page():
@@ -858,6 +941,42 @@ def delete_product(product_id: int):
     success, result = product_service.delete_product(product_id, user.id)
     flash(result, 'success' if success else 'error')
     return redirect(url_for('merchant_dashboard_page'))
+
+@app.route('/merchant/<int:merchant_id>')
+
+
+
+def merchant_page(merchant_id: int):
+    """Renders a public-facing page for a specific merchant.
+    Args:
+        merchant_id (int): The ID of the merchant to display.
+    Returns:
+        str: The rendered HTML of the merchant's page.
+    """
+    merchant = backend.mock_get_user_by_username(next((u.username for u in backend.mock_users.values() if u.id == merchant_id and u.role == 'merchant'), None))
+
+    if not merchant:
+        abort(404)
+
+    products = backend.mock_get_products_by_merchant_id(merchant.id)
+    total_rating = 0
+    rated_products_count = 0
+
+    for product in products:
+        metadata = backend.mock_get_product_metadata(product.id)
+
+        if metadata and metadata.rating_avg > 0:
+            total_rating += metadata.rating_avg
+            rated_products_count += 1
+
+        # product data for display
+        category = backend.mock_get_category_by_id(product.category_id)
+        product.category_name = category.name if category else "Uncategorized"
+        product.rating_avg = metadata.rating_avg if metadata else 0
+
+    average_rating = total_rating / rated_products_count if rated_products_count > 0 else 0
+    return render_template('merchant_page.html', merchant=merchant, products=products, average_rating=average_rating)
+
 
 @app.route('/payments')
 def payments_page():

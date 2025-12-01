@@ -67,7 +67,11 @@
 
     <section class="product-description">
         <h3>About The Store</h3>
-        <p>This product is sold by {{ merchant.store_name if merchant and merchant.store_name else 'an unknown seller' }}.</p>
+        {% if merchant %}
+            <p>This product is sold by <a href="{{ url_for('merchant_page', merchant_id=merchant.id) }}" class="store-link">{{ merchant.store_name }}</a>.</p>
+        {% else %}
+            <p>This product is sold by an unknown seller.</p>
+        {% endif %}
     </section>
 
     <section class="product-reviews">
