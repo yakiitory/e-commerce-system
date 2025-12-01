@@ -1,4 +1,5 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import datetime
 
 @dataclass
 class ReviewCreate():
@@ -11,3 +12,4 @@ class ReviewCreate():
 class Review(ReviewCreate):
     id: int
     likes: int
+    created_at: datetime = field(default_factory=datetime.now)
