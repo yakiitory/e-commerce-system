@@ -17,7 +17,7 @@ Follow these steps to get your local development environment set up and running.
 First, clone the project to your local machine:
 
 ```bash
-git clone <your-repository-url>
+git clone <https://github.com/yakiitory/e-commerce-system.git>
 cd e-commerce-system
 ```
 
