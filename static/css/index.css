@@ -127,55 +127,6 @@
     color: var(--star-pink);
 }
 
-/* Testimonials */
-.testimonials {
-    border: none;
-    display: flex;
-    flex-direction: column;
-    padding: 0;
-}
-
-.testimonials h3 {
-    border-bottom: #EBEBEB 1px solid;
-    color: #777777;
-    margin-bottom: 2rem;
-}
-
-.testimonial-card {
-    padding: 1rem;
-    border: 1px solid #EBEBEB;
-    border-radius: 1rem;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-}
-
-.testimonial-img {
-    border: 1px solid #EBEBEB;
-    border-radius: 50%;
-    width: 160px;
-    height: 160px;
-}
-
-.testimonial-details {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-    text-align: center;
-}
-
-.testimonial-details p {
-    margin: 5px 0;
-}
-
-.testimonial-details p:first-child {
-    font-size: 1.5rem;
-    font-weight: 600;
-    color: #777777;
-}
-
 /* Main Content */
 .content-area {
     display: flex;
