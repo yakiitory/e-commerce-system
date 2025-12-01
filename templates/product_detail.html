@@ -27,18 +27,18 @@
             <h2>{{ product.brand }} - {{ product.name }}</h2>
             <div class="info-row">
                 <div class="product-rating single-star">
-                    {% include "svg/star-filled.svg" %} <span>{{ average }}</span>
+                    {% include "svg/star-filled.svg" %} 
+                    <span>{{ "%.1f"|format(average) if average > 0 else "No ratings yet" }}</span>
                 </div>
-                <span>|
-                </span>
-                <span class="review-count">{{ reviews|length }} reviews</span>
+                <span>|</span>
+                <span class="review-count">{{ reviews|length }} review{{ 's' if reviews|length != 1 else '' }}</span>
                 <span>|</span>
                 <span class="sold-count">{{ product.sold_count }} sold</span>
             </div>
             <p class="product-price">
-                ${{ "%.2f"|format(product.price) }}
+                ₱{{ "%.2f"|format(product.price) }}
                 {% if product.original_price and product.original_price > product.price %}
-                    <span>${{ "%.2f"|format(product.original_price) }}</span>
+                    <span>₱{{ "%.2f"|format(product.original_price) }}</span>
                 {% endif %}
             </p>
             <p class="short-description">{{ product.description|truncate(150) }}</p>
@@ -47,16 +47,21 @@
                 <input type="hidden" name="product_id" value="{{ product.id }}">
                 <div class="quantity-selector">
                     <label for="quantity">Quantity:</label>
-                    <input type="number" id="quantity" name="quantity" value="1" min="1">
+                    <input type="number" id="quantity" name="quantity" value="1" min="1" max="{{ product.quantity_available }}">
                 </div>
                 <div class="action-buttons">
-                    <button type="submit" class="add-to-cart-btn">Add to Cart</button>
+                    <button type="submit" class="add-to-cart-btn" {% if product.quantity_available == 0 %}disabled{% endif %}>
+                        {% if product.quantity_available > 0 %}Add to Cart{% else %}Out of Stock{% endif %}
+                    </button>
             </form>
+            {% if current_user %}
             <form action="{{ url_for('like_product', product_id=product.id) }}" method="post" class="like-form">
                 <button type="submit" class="like-btn" title="{{ 'Unlike' if is_liked else 'Like' }}">
                     {% include "svg/heart.svg" if is_liked else "svg/heart-nofill.svg" %}
                 </button>
             </form>
+            {% endif %}
+                </div>
         </div>
     </section>
 
@@ -75,49 +80,89 @@
     </section>
 
     <section class="product-reviews">
-        <h3>Customer Reviews</h3>
+        <div class="reviews-header">
+            <h3>Customer Reviews</h3>
+            {% if reviews %}
+            <div class="rating-summary">
+                <div class="overall-rating">
+                    <span class="rating-number">{{ "%.1f"|format(average) }}</span>
+                    <div class="rating-stars">
+                        {% for i in range(5) %}
+                            {% if i < average|int %}
+                                <span class="star-icon filled">{% include "svg/star-filled.svg" %}</span>
+                            {% elif i < average %}
+                                <span class="star-icon half">{% include "svg/star-half.svg" %}</span>
+                            {% else %}
+                                <span class="star-icon">{% include "svg/star-nofill.svg" %}</span>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                    <span class="review-total">Based on {{ reviews|length }} review{{ 's' if reviews|length != 1 else '' }}</span>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
         <div class="reviews-list">
             {% for review in reviews %}
             <div class="review-card">
                 <div class="review-header">
-                    <span class="review-name">{{ review.user.first_name }} {{ review.user.last_name }}</span>
-                    <span class="review-username">({{ review.user.username }})</span>
-                </div>
-                <div class="review-rating">
-                    <div class="stars">
-                        {% include "svg/star-filled.svg" %}
-                        {% include "svg/star-filled.svg" %}
-                        {% include "svg/star-filled.svg" %}
-                        {% include "svg/star-half.svg" %}
-                        {% include "svg/star-nofill.svg" %} 
+                    <div class="reviewer-info">
+                        <div class="reviewer-avatar">
+                            {{ review.user_name[0]|upper if review.user_name else '?' }}
+                        </div>
+                        <div class="reviewer-details">
+                            <span class="reviewer-name">{{ review.user_name if review.user_name else 'Anonymous' }}</span>
+                            <div class="review-stars">
+                                {% for i in range(5) %}
+                                    {% if i < review.rating|int %}
+                                        <span class="star-icon filled">{% include "svg/star-filled.svg" %}</span>
+                                    {% elif i < review.rating %}
+                                        <span class="star-icon half">{% include "svg/star-half.svg" %}</span>
+                                    {% else %}
+                                        <span class="star-icon">{% include "svg/star-nofill.svg" %}</span>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                        </div>
                     </div>
-                    <p class="review-body">{{ review.description }}</p>
+                    {% if review.created_at %}
+                    <span class="review-date">{{ review.created_at.strftime('%B %d, %Y') }}</span>
+                    {% endif %}
                 </div>
+                <p class="review-body">{{ review.description }}</p>
             </div>
             {% else %}
-            <p>No reviews for this product yet.</p>
+            <div class="no-reviews">
+                <p>No reviews for this product yet. Be the first to review!</p>
+            </div>
             {% endfor %}
         </div>
 
         {% if can_review %}
         <div class="add-review-section">
             <h4>Write a Review</h4>
-            <form action="{{ url_for('add_review', product_id=product.id) }}" method="post">
+            <form action="{{ url_for('add_review', product_id=product.id) }}" method="post" id="review-form">
                 <div class="form-group">
-                    <label>Rating:</label>
+                    <label>Your Rating:</label>
                     <div class="star-rating-input">
                         {% for i in range(1, 6) %}
                         <span class="star" data-value="{{ i }}">{% include "svg/star-nofill.svg" %}</span>
                         {% endfor %}
                     </div>
                     <input type="hidden" name="rating" id="rating-value" value="0" required>
+                    <span class="rating-error" style="color: red; display: none; font-size: 0.9rem;">Please select a rating</span>
                 </div>
                 <div class="form-group">
-                    <label for="description">Review:</label>
-                    <textarea name="description" rows="4" required></textarea>
+                    <label for="description">Your Review:</label>
+                    <textarea name="description" id="review-description" rows="4" placeholder="Share your experience with this product..." required></textarea>
                 </div>
                 <button type="submit" class="submit-review-btn">Submit Review</button>
             </form>
+        </div>
+        {% elif current_user %}
+        <div class="cannot-review-message">
+            <p>You can only review products you have purchased and received.</p>
         </div>
         {% endif %}
     </section>

@@ -183,7 +183,8 @@ class OrderRepository(BaseRepository):
         query = """
             SELECT 1 FROM orders o
             JOIN order_items oi ON o.id = oi.order_id
-            WHERE o.user_id = %s AND oi.product_id = %s AND o.status = %s
+            JOIN items i ON oi.item_id = i.id
+            WHERE o.user_id = %s AND i.product_id = %s AND o.status = %s
             LIMIT 1
         """
         result = self.db.fetch_one(query, (user_id, product_id, Status.DELIVERED.value))

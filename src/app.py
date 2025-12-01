@@ -1,3 +1,4 @@
+from types import SimpleNamespace
 from flask import Flask, render_template, url_for, jsonify, request, abort, flash, redirect, session
 from typing import cast
 from models.status import Status
@@ -139,45 +140,59 @@ def populate_search_trie():
     Populates the search Trie with searchable terms from the database.
     
     This function:
-    1. Fetches all products from the database (as lightweight query)
+    1. Fetches all products from the database
     2. Creates searchable strings by combining brand + name
-    3. Fetches all categories
+    3. Fetches all categories (including parent categories)
     4. Inserts all terms into the Trie for fast prefix searching
-    
-    This runs once when the application starts.
     """
     print("[Trie] Populating search trie...")
     
     searchable_terms = set()
     
     try:
-        # Fetch all products with just the fields we need for search
-        # This is more efficient than fetching full ProductEntry objects
+        # Fetch all products with fields needed for search
         product_query = "SELECT id, name, brand FROM products"
         products = db.fetch_all(product_query)
         
         if products:
             for product in products:
                 # Add individual brand and name as separate searchable terms
-                searchable_terms.add(product['brand'])
-                searchable_terms.add(product['name'])
+                if product['brand']:
+                    searchable_terms.add(product['brand'])
+                if product['name']:
+                    searchable_terms.add(product['name'])
                 
-                # Add combined "brand - name" format (like how it displays in UI)
-                combined = f"{product['brand']} - {product['name']}"
-                searchable_terms.add(combined)
+                # Add combined "brand - name" format
+                if product['brand'] and product['name']:
+                    combined = f"{product['brand']} - {product['name']}"
+                    searchable_terms.add(combined)
+                
+                # Add individual words from product name for partial matching
+                if product['name']:
+                    words = product['name'].split()
+                    for word in words:
+                        if len(word) > 2:  # Only add words longer than 2 characters
+                            searchable_terms.add(word)
         
-        # Fetch all categories
+        # Fetch ALL categories (main and sub-categories)
         category_query = "SELECT name FROM categories"
         categories = db.fetch_all(category_query)
         
         if categories:
             for category in categories:
-                searchable_terms.add(category['name'])
+                if category['name']:
+                    searchable_terms.add(category['name'])
+                    
+                    # Add individual words from category name
+                    words = category['name'].split()
+                    for word in words:
+                        if len(word) > 2:
+                            searchable_terms.add(word)
         
         # Insert all unique terms into the Trie
         for term in searchable_terms:
-            if term and term.strip():  # Only add non-empty terms
-                search_trie.insert(term)
+            if term and term.strip():
+                search_trie.insert(term.strip())
         
         print(f"[Trie] Successfully populated with {len(searchable_terms)} searchable terms.")
         
@@ -253,11 +268,11 @@ def inject_footer_data():
         ] if product_rows else []
         
         # Store in cache with 1 hour expiry
-        _footer_cache['data'] = dict(
+        _footer_cache['data'] = dict( # type: ignore
             footer_categories=footer_categories,
             footer_products=footer_products
         )
-        _footer_cache['expires'] = now + timedelta(hours=1)
+        _footer_cache['expires'] = now + timedelta(hours=1) # type: ignore
         
         return _footer_cache['data']
         
@@ -1275,6 +1290,14 @@ def product_page(product_id: int):
     # Fetch reviews for the product
     review_success, reviews_or_none = review_service.get_reviews_for_product(product_id)
     reviews = reviews_or_none if review_success and reviews_or_none else []
+    
+    # *** FIX: Enrich reviews with user information ***
+    for review in reviews:
+        user = user_repository.read(review.user_id)
+        if user:
+            setattr(review, 'user_name', f"{user.first_name} {user.last_name}")
+        else:
+            setattr(review, 'user_name', "Anonymous")
 
     # Fetch merchant details
     merchant = None
