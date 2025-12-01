@@ -29,7 +29,6 @@ admin_repository            = AdminRepository(db)
 address_repository          = AddressRepository(db)
 merchant_repository         = MerchantRepository(db)
 category_repository         = CategoryRepository(db)
-order_repository            = OrderRepository(db)
 payment_repository          = PaymentRepository(db)
 product_metadata_repository = ProductMetadataRepository(db)
 review_repository           = ReviewRepository(db)
@@ -38,6 +37,7 @@ user_repository             = UserRepository(db)
 virtual_card_repository     = VirtualCardRepository(db)
 product_repository          = ProductRepository(db)
 cart_repository             = CartRepository(db, product_metadata_repository)
+order_repository            = OrderRepository(db, cart_repository=cart_repository)
 
 address_service = AddressService(
     db=db,
@@ -75,16 +75,17 @@ order_service = OrderService(
     transaction_service=transaction_service,
     cart_repo=cart_repository
 )
-#review_service = ReviewService(
- #   db=db,
- #   review_repo=review_repository,
- #   order_repo=order_repository,
- #   product_meta_repo=product_metadata_repository
-#)
+review_service = ReviewService(
+    db=db,
+    review_repo=review_repository,
+    order_repo=order_repository,
+    product_repo=product_repository
+)
 
 def create_app():
     app = Flask(__name__, template_folder='../templates', static_folder='../static')
     app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'yo_mama_gay')
+    app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
     return app
 
 app = create_app()
@@ -158,7 +159,7 @@ def index():
     """
     # If a merchant is logged in, redirect them to their dashboard.
     if 'username' in session:
-        user = user_repository.get_by_username(session['username'])
+        user = merchant_repository.get_by_username(session['username'])
         if user and user.role == 'merchant':
             return redirect(url_for('merchant_dashboard_page'))
 
@@ -352,11 +353,16 @@ def orders_page():
         except KeyError:
             # Handle invalid status string
             flash("Invalid status filter.", "error")
-
     for order in orders:
         for item in order.items:
             _, product_entry = product_service.get_product_for_display(item.product_id)
+
+            # Attach the whole product object (already done)
             setattr(item, 'product', product_entry)
+
+            # ALSO attach the thumbnail directly to the item
+            setattr(item, 'thumbnail', product_entry.thumbnail) # type: ignore
+
     
     # Pass the selected status to the template to highlight the active button
     return render_template('orders.html', orders=orders, Status=Status, selected_status=status_filter_str)
@@ -585,14 +591,11 @@ def merchant_dashboard_page():
         flash("You do not have permission to access this page.", "error")
         return redirect(url_for('index'))
 
-    success, products_or_message = product_service.get_products_by_merchant_id(user.id)
+    products = product_service.get_product_entries_by_merchant_id(user.id)
 
-    if not success:
-        flash(str(products_or_message), "error")
+    if not products:
+        flash("You don't have any products yet, start selling!", "error")
         products = []
-    else:
-        products = products_or_message or []
-
     return render_template('merchant-dashboard.html', products=products)
 
 @app.route('/merchant-orders')
@@ -664,19 +667,24 @@ def add_product_page():
         flash("Please log in to add a product.", "error")
         return redirect(url_for('login_page'))
 
-
-    # Use mock backend to get merchant
     user = merchant_repository.get_by_username(session['username'])
     if not user or user.role != 'merchant':
         flash("You do not have permission to perform this action.", "error")
         return redirect(url_for('index'))
 
+    merchant_addresses = address_repository.get_addresses_for_merchant(user.id)
     if request.method == 'POST':
+        if not merchant_addresses:
+            flash("You must have a saved address to add a product.", "error")
+            return redirect(url_for('user_addresses_page'))
+        
         # Image Processing: Save files and get their URLs
         upload_folder = os.path.join(cast(str, app.static_folder), 'img', 'uploads')
         form_data = request.form.to_dict()
         image_files = request.files.getlist('images')
         image_urls = []
+        address_id = request.form.get('address_id', type=int)
+
         os.makedirs(upload_folder, exist_ok=True)
 
         for image_file in image_files:
@@ -696,11 +704,6 @@ def add_product_page():
                     flash(f"Error processing image {filename}: {e}", "error")
                     return redirect(url_for('add_product_page'))
 
-        # Data Validationd
-        merchant_addresses = address_repository.get_addresses_for_merchant(user.id)
-        if not merchant_addresses:
-            flash("You must have a saved address to add a product.", "error")
-            return redirect(url_for('user_addresses_page'))
 
         try:
             # Create the ProductCreate object
@@ -712,7 +715,7 @@ def add_product_page():
                 price=float(form_data.get('price', 0)),
                 quantity_available=int(form_data.get('quantity_available', 0)),
                 merchant_id=user.id,
-                address_id=merchant_addresses[0].id,
+                address_id=address_id # type: ignore
             )
         except (ValueError, TypeError) as e:
             flash(f"Invalid data provided: {e}", "error")
@@ -725,7 +728,7 @@ def add_product_page():
 
     # For GET request, use the mock backend
     categories = product_service.get_all_categories()
-    return render_template('add-product.html', categories=categories or [])
+    return render_template('add-product.html', categories=categories or [], addresses=merchant_addresses)
 
 @app.route('/edit-product/<int:product_id>', methods=['GET', 'POST'])
 def edit_product_page(product_id: int):
@@ -750,40 +753,69 @@ def edit_product_page(product_id: int):
         flash("Product not found or you do not have permission to edit it.", "error")
         return redirect(url_for('merchant_dashboard_page'))
 
+    merchant_addresses = address_repository.get_addresses_for_merchant(user.id)
     if request.method == 'POST':
-        form_data = request.form.to_dict()
-        images = request.files.getlist('images')
+            if not merchant_addresses:
+                flash("You must have a saved address to edit this product.", "error")
+                return redirect(url_for('user_addresses_page'))
+            
+            form_data = request.form.to_dict()
+            
+            # Convert types
+            form_data['price'] = float(form_data.get('price', 0))  # type: ignore
+            form_data['quantity_available'] = int(form_data.get('quantity_available', 0)) # type: ignore
+            form_data['category_id'] = int(form_data.get('category_id')) # type: ignore
+            address_id = request.form.get('address_id', type=int)
 
-        try:
-            # Prepare data for the service
-            update_data = {
-                'name': form_data.get('name'),
-                'brand': form_data.get('brand'),
-                'category_id': int(form_data.get('category_id', 0)),
-                'description': form_data.get('description'),
-                'price': float(form_data.get('price', 0)),
-                'original_price': float(form_data.get('original_price') or form_data.get('price', 0)),
-                'quantity_available': int(form_data.get('quantity_available', 0)),
-            }
-        except (ValueError, TypeError) as e:
-            flash(f"Invalid data provided: {e}", "error")
-            return redirect(url_for('edit_product_page', product_id=product_id))
+            # Data Validation for address
+            if not address_id or not any(addr.id == address_id for addr in merchant_addresses):
+                flash("Please select a valid address for the product.", "error")
+                return redirect(url_for('edit_product_page', product_id=product_id))
 
-        # Call the service to update the product
-        success, message = product_service.update_product(product_id=product_id, merchant_id=user.id, product_data=update_data, images=images)
-        flash(message, 'success' if success else 'error')
+            # Handle image uploads and existing images
+            upload_folder = os.path.join(cast(str, app.static_folder), 'img', 'uploads')
+            os.makedirs(upload_folder, exist_ok=True)
 
-        return redirect(url_for('merchant_dashboard_page'))
+            # Get existing images from the hidden input
+            existing_images = [img.strip() for img in request.form.get('images', '').split(',') if img.strip()]
+            
+            new_image_files = request.files.getlist('new_images')
+            new_image_urls = []
+
+            for image_file in new_image_files:
+                if image_file and image_file.filename:
+                    filename = secure_filename(image_file.filename)
+                    unique_filename = f"{os.urandom(8).hex()}_{filename}"
+                    save_path = os.path.join(upload_folder, unique_filename)
+                    try:
+                        img = Image.open(image_file.stream)
+                        if img.mode in ('RGBA', 'P'):
+                            img = img.convert('RGB')
+                        img.save(save_path, 'jpeg', quality=85, optimize=True)
+                        web_path = f'img/uploads/{unique_filename}'
+                        new_image_urls.append(f'/static/{web_path}')
+                    except Exception as e:
+                        flash(f"Error processing image {filename}: {e}", "error")
+                        return redirect(url_for('edit_product_page', product_id=product_id))
+
+            # Combine existing and new images
+            all_images = existing_images + new_image_urls
+            form_data.pop('images', None)  # Remove from form_data if it exists
+            result, message = product_repository.update(product_id, form_data, all_images)
+            result, message = product_repository.update(product_id, form_data)
+            flash(message, 'success' if result else 'error')
+            return redirect(url_for('merchant_dashboard_page'))
 
     # For GET request
     categories = product_service.get_all_categories()
-    return render_template('edit-product.html', product=product, categories=categories)
+    return render_template('edit-product.html', product=product, categories=categories, addresses=merchant_addresses)
+
 
 @app.route('/delete-product/<int:product_id>', methods=['POST'])
 def delete_product(product_id: int):
-    """Handles the deletion of a product by a merchant."""
+    """Handles deleting a product for a merchant."""
     if 'username' not in session:
-        flash("Please log in to perform this action.", "error")
+        flash("Please log in to delete a product.", "error")
         return redirect(url_for('login_page'))
 
     user = merchant_repository.get_by_username(session['username'])
@@ -791,10 +823,15 @@ def delete_product(product_id: int):
         flash("You do not have permission to perform this action.", "error")
         return redirect(url_for('index'))
 
-    # Call the service to delete the product
-    success, message = product_service.delete_product(product_id=product_id, merchant_id=user.id)
-    flash(message, 'success' if success else 'error')
+    status, product = product_service.get_product(product_id)
 
+    # Ensure the product belongs to the logged-in merchant
+    if not product or product.merchant_id != user.id:
+        flash("Product not found or you do not have permission to delete it.", "error")
+        return redirect(url_for('merchant_dashboard_page'))
+
+    success, result = product_service.delete_product(product_id, user.id)
+    flash(result, 'success' if success else 'error')
     return redirect(url_for('merchant_dashboard_page'))
 
 @app.route('/payments')
@@ -823,7 +860,6 @@ def payments_page():
         virtual_card = virtual_card_repository.get_by_merchant_id(client.id)
 
     if not result:
-        flash(str(result), "error")
         return render_template('payments.html', virtual_card=virtual_card, payment_history=[])
 
     return render_template('payments.html', virtual_card=virtual_card, payment_history=result)
@@ -908,12 +944,12 @@ def cart_page():
         session.pop('username', None)
         return redirect(url_for('login_page'))
 
-    success, result = interaction_service.get_cart(user.id)
-    if not success:
-        flash(str(result), "error")
+    cart = cart_repository.get_cart(user.id)
+    if not cart:
+        flash(str("Failed to get cart!"), "error")
         cart_items = []
     else:
-        cart_items = result
+        cart_items = cart.items
 
     total_price = sum(item.total_price for item in cart_items) # type: ignore
 
@@ -932,12 +968,12 @@ def checkout_page():
         return redirect(url_for('login_page'))
 
     # Fetch cart contents for both GET and POST
-    cart_success, cart_result = interaction_service.get_cart(user.id)
-    if not cart_success or not cart_result:
+    cart = cart_repository.get_cart(user.id)
+    if not cart:
         flash("Your cart is empty.", "error")
         return redirect(url_for('cart_page'))
     
-    cart_items = cart_result
+    cart_items = cart.items
 
     if request.method == 'POST':
         address_id = request.form.get('address_id', type=int)
@@ -961,10 +997,9 @@ def checkout_page():
         flash(str(addr_result), "error")
     addresses = addr_result if addr_success else []
 
-    vc_success, vc_result = transaction_service.get_user_payment_details(user.id)
-    if not vc_success:
-        flash(str(vc_result), "error")
-    virtual_card = vc_result[0] if vc_success else None # type: ignore
+    virtual_card = virtual_card_repository.get_by_user_id(user.id)
+    if not virtual_card:
+        flash(str("You have no card!"), "error")
 
     total_price = sum(item.total_price for item in cart_items) # type: ignore
 
@@ -1070,9 +1105,13 @@ def product_page(product_id: int):
         # Fetch and attach metadata to the product object
         _, metadata = product_service.get_product_metadata(product.id)
         setattr(product, 'sold_count', metadata.sold_count if metadata else 0)
-        setattr(product, 'rating_avg', metadata.rating_avg if metadata else 0)
 
-    return render_template('product_detail.html', product=product, reviews=reviews, merchant=merchant, can_review=can_review, is_liked=is_liked)
+        if product.rating_score and product.rating_count:
+            average = product.rating_score / product.rating_count
+        else:
+            average = 0
+
+    return render_template('product_detail.html', product=product, average=average, reviews=reviews, merchant=merchant, can_review=can_review, is_liked=is_liked)
 
 @app.route('/add-to-cart', methods=['POST'])
 def add_to_cart():
@@ -1176,7 +1215,7 @@ def add_review(product_id: int):
         return redirect(url_for('product_page', product_id=product_id))
 
     success, message = review_service.create_review(
-        user_id=user.id, product_id=product_id, rating=rating, description=description, images=images
+        user_id=user.id, product_id=product_id, rating=rating, description=description
     )
     flash(message, 'success' if success else 'error')
 
@@ -1216,8 +1255,8 @@ def liked_products_page():
     liked_products = []
     if wishlist_product_ids:
         for product_id in wishlist_product_ids:
-            success, product_entry = product_service.get_product_for_display(product_id)
-            if success and product_entry:
+            product_entry = product_repository.get_product_entry(product_id)
+            if product_entry:
                 liked_products.append(product_entry)
 
     return render_template('liked-products.html', products=liked_products)

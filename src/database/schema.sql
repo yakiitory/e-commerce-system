@@ -134,8 +134,8 @@ CREATE TABLE IF NOT EXISTS `items` (
   `product_id` INT NOT NULL,
   `product_quantity` INT NOT NULL,
   `product_price` REAL NOT NULL,
-  `applied_discounts` INT NOT NULL,
-  `total_price` REAL NOT NULL,
+  `applied_discounts` INT NOT NULL DEFAULT 0,
+  `total_price` REAL NOT NULL DEFAULT 0.0,
   PRIMARY KEY (`id`),
   FOREIGN KEY (`product_id`) REFERENCES `products`(`id`)
     ON UPDATE CASCADE
@@ -263,6 +263,7 @@ CREATE TABLE IF NOT EXISTS `payments` (
   `receiver_id` INT NOT NULL,
   `receiver_type` VARCHAR(50) NOT NULL,
   `amount` DECIMAL(18,2) NOT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -325,30 +326,6 @@ CREATE TABLE IF NOT EXISTS `reviews` (
     ON UPDATE CASCADE
     ON DELETE CASCADE,
   FOREIGN KEY (`product_id`) REFERENCES `products`(`id`)
-    ON UPDATE CASCADE
-    ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-CREATE TABLE IF NOT EXISTS `user_reviews` (
-  `user_id` INT NOT NULL,
-  `review_id` INT NOT NULL,
-  PRIMARY KEY(`user_id`, `review_id`),
-  FOREIGN KEY (`review_id`) REFERENCES `reviews`(`id`)
-    ON UPDATE CASCADE
-    ON DELETE CASCADE,
-  FOREIGN KEY (`user_id`) REFERENCES `users`(`id`)
-    ON UPDATE CASCADE
-    ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-CREATE TABLE IF NOT EXISTS `review_images` (
-  `review_id` INT NOT NULL,
-  `image_id` INT NOT NULL,
-  PRIMARY KEY(`review_id`, `image_id`),
-  FOREIGN KEY (`image_id`) REFERENCES `images`(`id`)
-    ON UPDATE CASCADE
-    ON DELETE CASCADE,
-  FOREIGN KEY (`review_id`) REFERENCES `reviews`(`id`)
     ON UPDATE CASCADE
     ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -23,15 +23,15 @@
                     <div class="order-header">
                         <div class="header-group">
                             <span>ORDER PLACED</span>
-                            <p>{{ order.order_created.strftime('%B %d, %Y') }}</p>
+                            <p>{{ order.order_date.strftime('%B %d, %Y') }}</p>
                         </div>
                         <div class="header-group">
                             <span>TOTAL</span>
-                            <p>₱{{ "{:,.2f}".format(order.total_price) }}</p>
+                            <p>₱{{ "{:,.2f}".format(order.total_amount) }}</p>
                         </div>
                         <div class="header-group">
                             <span>STATUS</span>
-                            <p><span class="status-badge status-{{ order.status.name | lower }}">{{ order.status.name }}</span></p>
+                            <p><span class="status-badge status-{{ order.status.name | lower }}">{{ order.status }}</span></p>
                         </div>
                         <div class="header-group">
                             <span>ORDER #{{ order.id }}</span>
@@ -39,9 +39,9 @@
                         </div>
                     </div>
                     <div class="order-body">
-                        {% for item in order.orders %}
+                        {% for item in order.items %}
                         <div class="order-item">
-                            <img src="{{ item.product.images[0] if item.product.images else url_for('static', filename='img/placeholder.jpg') }}" alt="{{ item.product.name }}">
+                            <img src="{{ item.thumbnail if item.thumbnail else url_for('static', filename='img/placeholder.jpg') }}" alt="{{ item.product.name }}">
                             <div class="item-details">
                                 <h4>{{ item.product.brand }} - {{ item.product.name }}</h4>
                                 <p>Qty: {{ item.product_quantity }}</p>

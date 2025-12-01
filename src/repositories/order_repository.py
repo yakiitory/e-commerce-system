@@ -5,10 +5,13 @@ from models.payments import VirtualCard
 from repositories.base_repository import BaseRepository
 from database.database import Database
 from models.status import Status
+from repositories.cart_repository import CartRepository
+
 
 class OrderRepository(BaseRepository):
-    def __init__(self, db: Database):
+    def __init__(self, db: Database, cart_repository: CartRepository):
         self.db = db
+        self.cart_repository = cart_repository
         self.table_name = "orders"
         self.order_items_table_name = "order_items"
 
@@ -16,11 +19,9 @@ class OrderRepository(BaseRepository):
     def create(self, data: OrderCreate) -> tuple[int | None, str]:
         """
         Creates a new order and its associated order items.
-
         Args:
             data (OrderCreate): The OrderCreate object containing the new order's data
                                 and a list of OrderItemCreate objects.
-
         Returns:
             tuple[int | None, str]: A tuple indicating the new order's ID if successful,
                                     `None` otherwise, and a message.
@@ -35,9 +36,9 @@ class OrderRepository(BaseRepository):
             "billing_address_id",
         ]
 
-        # Prepare data for _create_record, converting Status enum to its value
-        order_data_for_db = data.__dict__.copy()
-        order_data_for_db['status'] = data.status.value
+        # Use a SimpleNamespace to create a mutable object from the dataclass
+        order_data_for_db = SimpleNamespace(**data.__dict__)
+        order_data_for_db.status = data.status.value
 
         # Create the order record
         new_order_id, message = self._create_record(
@@ -49,28 +50,48 @@ class OrderRepository(BaseRepository):
 
         if not new_order_id:
             return (None, message)
-
+        
+        # Create item records from the OrderItemCreate data and link them to this order
         if data.items:
             for item_data in data.items:
-                item_fields = [
-                    "order_id",
-                    "product_id",
-                    "quantity",
-                    "price_at_purchase",
-                ]
-                # Manually set order_id for each item
-                item_data.order_id = new_order_id
-                item_id, item_message = self._create_record(
-                    data=item_data,
-                    fields=item_fields,
-                    table_name=self.order_items_table_name,
-                    db=self.db
-                )
-                if not item_id:
-                    # Rollback: Delete the order that was just created
-                    self._delete_by_id(new_order_id, self.table_name, self.db)
-                    return (None, f"Failed to create order item, order creation rolled back. Reason: {item_message}")
-
+                # Step 1: Create an item record with the correct columns
+                item_insert_query = """
+                    INSERT INTO items (product_id, product_quantity, product_price, applied_discounts, total_price)
+                    VALUES (%s, %s, %s, %s, %s)
+                """
+                try:
+                    total_price = item_data.product_price * item_data.product_quantity
+                    
+                    # execute_query returns the lastrowid for INSERT statements
+                    item_id = self.db.execute_query(
+                        item_insert_query,
+                        (
+                            item_data.product_id,
+                            item_data.product_quantity,
+                            item_data.product_price,
+                            0,  # applied_discounts - default to 0
+                            total_price
+                        )
+                    )
+                    
+                    if not item_id:
+                        error_message = f"Failed to create item record for product {item_data.product_id}"
+                        print(f"[OrderRepository ERROR] {error_message}")
+                        return (None, error_message)
+                    
+                    # Step 2: Link the item to this order
+                    order_item_insert_query = f"""
+                        INSERT INTO {self.order_items_table_name} (order_id, item_id)
+                        VALUES (%s, %s)
+                    """
+                    self.db.execute_query(order_item_insert_query, (new_order_id, item_id))
+                    print(f"[OrderRepository] Successfully linked order {new_order_id} to item {item_id} (product {item_data.product_id})")
+                    
+                except Exception as e:
+                    error_message = f"Failed to create order item for order {new_order_id}, product {item_data.product_id}: {e}"
+                    print(f"[OrderRepository ERROR] {error_message}")
+                    return (None, error_message)
+        
         return (new_order_id, f"Order created successfully with ID {new_order_id}.")
 
     @override
@@ -92,8 +113,13 @@ class OrderRepository(BaseRepository):
             print(f"[OrderRepository] No order found with id = {identifier}")
             return None
 
-        # Fetch associated order items
-        items_query = f"SELECT * FROM {self.order_items_table_name} WHERE order_id = %s"
+        # Fetch associated order items by joining order_items with items table
+        items_query = f"""
+            SELECT i.* 
+            FROM items i
+            JOIN {self.order_items_table_name} oi ON i.id = oi.item_id
+            WHERE oi.order_id = %s
+        """
         item_rows = self.db.fetch_all(items_query, (identifier,))
 
         # Map to dataclasses
@@ -266,8 +292,13 @@ class OrderRepository(BaseRepository):
         orders = []
         for order_row in order_rows:
             order_id = order_row['id']
-            # Fetch associated order items for each order
-            items_query = f"SELECT * FROM {self.order_items_table_name} WHERE order_id = %s"
+            # Fetch associated order items by joining with items table
+            items_query = f"""
+                SELECT i.* 
+                FROM items i
+                JOIN {self.order_items_table_name} oi ON i.id = oi.item_id
+                WHERE oi.order_id = %s
+            """
             item_rows = self.db.fetch_all(items_query, (order_id,))
             
             order_items = [OrderItem(**item_row) for item_row in item_rows] if item_rows else []
@@ -306,7 +337,6 @@ class OrderRepository(BaseRepository):
             tuple[int | None, str]: A tuple with the new invoice ID and a message.
         """
         invoice_fields = [
-            "order_id",
             "address_id",
             "issue_date",
             "status",
@@ -342,8 +372,13 @@ class OrderRepository(BaseRepository):
         orders = []
         for order_row in order_rows:
             order_id = order_row['id']
-            # Fetch associated order items for each order
-            items_query = f"SELECT * FROM {self.order_items_table_name} WHERE order_id = %s"
+            # Fetch associated order items by joining with items table
+            items_query = f"""
+                SELECT i.* 
+                FROM items i
+                JOIN {self.order_items_table_name} oi ON i.id = oi.item_id
+                WHERE oi.order_id = %s
+            """
             item_rows = self.db.fetch_all(items_query, (order_id,))
             
             order_items = [OrderItem(**item_row) for item_row in item_rows] if item_rows else []

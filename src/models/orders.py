@@ -10,14 +10,16 @@ from .status import Status
 class OrderItemCreate:
     """Data needed to create a new item within an order."""
     product_id: int
-    quantity: int
-    price_at_purchase: float
+    product_quantity: int
+    product_price: float
     order_id: int | None = None # Set by the repository during creation
 
 @dataclass
 class OrderItem(OrderItemCreate):
     """Represents a fully formed order item record from the database."""
     id: int = field(default_factory=int)
+    applied_discounts: int = 0
+    total_price: float = 0
 
 # --- Order Models ---
 # Represents a customer's order.
@@ -38,6 +40,7 @@ class OrderCreate:
 class Order(OrderCreate):
     """Represents a fully formed order record from the database, including its items."""
     id: int = field(default_factory=int)
+    invoice_id: int | None = None
     items: list[OrderItem] = field(default_factory=list)
 
 # --- Cart Item Models ---
@@ -55,7 +58,7 @@ class CartItemCreate:
 class CartItem(CartItemCreate):
     """Represents a cart item record from the database."""
     id: int
-    added_at: datetime
+    product_brand: str
     product_name: str
     thumbnail_url: str
 

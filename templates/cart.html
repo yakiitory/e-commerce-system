@@ -15,15 +15,15 @@
                     {% for item in cart_items %}
                     <div class="cart-item">
                         <div class="cart-item-img">
-                            <img src="{{ item.product.images[0] if item.product.images else url_for('static', filename='img/placeholder.jpg') }}" alt="{{ item.product.name }}">
+                            <img src="{{ item.thumbnail_url if item.thumbnail_url else url_for('static', filename='img/placeholder.jpg') }}" alt="{{ item.product_name }}">
                         </div>
                         <div class="cart-item-details">
-                            <h4>{{ item.product.brand }} - {{ item.product.name }}</h4>
-                            <p class="item-price">₱{{ "{:,.2f}".format(item.product_price) }}</p>
+                            <h4>{{ item.product_brand }} - {{ item.product_name }}</h4>
+                            <p class="item-price">₱{{ "{:,.2f}".format(item.price) }}</p>
                             <div class="item-actions">
                                 <form action="{{ url_for('update_cart_item', item_id=item.id) }}" method="post" class="quantity-form">
                                     <label for="quantity-{{ item.id }}">Quantity:</label>
-                                    <input type="number" id="quantity-{{ item.id }}" name="quantity" value="{{ item.product_quantity }}" min="1" class="quantity-input">
+                                    <input type="number" id="quantity-{{ item.id }}" name="quantity" value="{{ item.quantity }}" min="1" class="quantity-input">
                                     <button type="submit" class="update-btn">Update</button>
                                 </form>
                                 <form action="{{ url_for('remove_from_cart', item_id=item.id) }}" method="post">
@@ -32,7 +32,7 @@
                             </div>
                         </div>
                         <div class="item-total">
-                            <p>Total: ₱{{ "{:,.2f}".format(item.product_price * item.product_quantity) }}</p>
+                            <p>Total: ₱{{ "{:,.2f}".format(item.price * item.quantity) }}</p>
                         </div>
                     </div>
                     {% endfor %}

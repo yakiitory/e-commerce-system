@@ -208,29 +208,3 @@ class ProductMetadataRepository(BaseRepository):
         except Exception as e:
             print(f"[{self.__class__.__name__} ERROR] Failed to decrement {field} for product {product_id}: {e}")
             return False
-
-    def update_average_rating(self, product_id: int, new_rating: float) -> bool:
-        """
-        Atomically updates the average rating and rating count for a product.
-
-        Args:
-            product_id (int): The ID of the product to update.
-            new_rating (float): The new rating score to incorporate.
-
-        Returns:
-            bool: True if the update was successful, False otherwise.
-        """
-        query = f"""
-            UPDATE {self.table_name}
-            SET
-                rating_avg = ((rating_avg * rating_count) + %s) / (rating_count + 1),
-                rating_count = rating_count + 1
-            WHERE product_id = %s
-        """
-        try:
-            self.db.execute_query(query, (new_rating, product_id))
-            return True
-        except Exception as e:
-            print(f"[{self.__class__.__name__} ERROR] Failed to update average rating for product {product_id}: {e}")
-            return False
- 

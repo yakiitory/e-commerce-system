@@ -51,9 +51,7 @@ class ProductRepository(BaseRepository):
 
             if not new_product_id:
                 raise Exception(message)
-
-            print("I AM TRYINGGGGGGGG TO PRINT THE IMAGES!" + str(urls))
-
+            
             # Handle image record creation and its junction table
             if urls:
                 is_first_image = 1
@@ -108,18 +106,17 @@ class ProductRepository(BaseRepository):
         return self._map_to_product(product_row)
     
     @override
-    def update(self, identifier: int, data: dict[str, Any] | None = None, metadata: dict[str, Any] | None = None) -> bool:
+    def update(self, identifier: int, data: dict[str, Any] | None = None, urls: list[str] | None = None) -> tuple[bool, str]:
         """
-        Updates an existing product and/or its metadata.
-        Accepts dictionaries for partial updates.
+        Updates an existing product and its images in a transactional way.
 
         Args:
             identifier (int): The ID of the product to update.
             data (dict | None): A dictionary of product fields to update.
-            metadata (dict | None): A dictionary of metadata fields to update.
+            urls (list[str] | None): List of new image URLs to replace existing ones.
 
         Returns:
-            bool: `True` if the update was successful, `False` otherwise.
+            tuple[bool, str]: (success, message)
         """
         allowed_product_fields = [
             "name",
@@ -134,25 +131,45 @@ class ProductRepository(BaseRepository):
             "address_id",
         ]
 
-        product_updated = True
-        metadata_updated = True
+        try:
+            self.db.begin_transaction()
 
-        # Update the product record if data is provided
-        if data:
-            product_updated = self._update_by_id(
-                identifier=identifier,
-                data=data,
-                table_name=self.table_name,
-                db=self.db,
-                allowed_fields=allowed_product_fields
-            )
+            # Update product fields if provided
+            if data:
+                updated = self._update_by_id(
+                    identifier=identifier,
+                    data=data,
+                    table_name=self.table_name,
+                    db=self.db,
+                    allowed_fields=allowed_product_fields
+                )
+                if not updated:
+                    raise Exception("Failed to update product fields.")
 
-        # Update the product metadata if metadata is provided
-        if metadata:
-            # Use the metadata repository to perform the update
-            metadata_updated = self.metadata_repo.update(identifier, metadata)
+            # Replace product images if URLs are provided
+            if urls is not None:
+                # Delete old image links
+                delete_query = "DELETE FROM product_images WHERE product_id = %s"
+                self.db.execute_query(delete_query, (identifier,))
 
-        return product_updated and metadata_updated
+                # Insert new images and junctions
+                is_first_image = 1
+                for url in urls:
+                    image = ImageCreate(url=url)
+                    image_id, message = self.image_repo.create(image)
+                    if not image_id:
+                        raise Exception(message)
+                    insert_query = "INSERT INTO product_images (product_id, image_id, is_thumbnail) VALUES (%s, %s, %s)"
+                    self.db.execute_query(insert_query, (identifier, image_id, is_first_image))
+                    is_first_image = 0
+
+            self.db.commit()
+            return (True, f"Product ID {identifier} updated successfully.")
+
+        except Exception as e:
+            self.db.rollback()
+            return (False, f"Failed to update product. Transaction rolled back. Reason: {e}")
+
 
     @override
     def delete(self, identifier: int) -> tuple[bool, str]:
@@ -253,7 +270,7 @@ class ProductRepository(BaseRepository):
             ProductEntry | None: A ProductEntry object if found, otherwise `None`.
         """
         from_products_query = f"""
-            SELECT id, merchant_id, category_id, name, brand, price, rating_score, rating_count, address_id 
+            SELECT id, merchant_id, category_id, name, brand, price, rating_score, rating_count, address_id, quantity_available 
             FROM {self.table_name}
             WHERE id = %s
         """
@@ -275,6 +292,11 @@ class ProductRepository(BaseRepository):
         from_address_query = f"""
             SELECT city
             FROM addresses
+            WHERE id = %s
+        """
+        from_category_query = f"""
+            SELECT name
+            FROM categories
             WHERE id = %s
         """
         products_params = (identifier,)
@@ -299,11 +321,18 @@ class ProductRepository(BaseRepository):
         address_dict = self.db.fetch_one(from_address_query, address_params)
         if not address_dict:
             return None
+        
+        category_params = (products_dict["category_id"], )
+        category_dict = self.db.fetch_one(from_category_query, category_params)
+        if not category_dict:
+            return None
 
         if products_dict["rating_score"] and products_dict["rating_count"]:
             rating_avg = products_dict["rating_score"] / products_dict["rating_count"]
         else:
             rating_avg = 0
+
+        
         return ProductEntry(
             product_id=products_dict["id"],
             merchant_id=products_dict["merchant_id"],
@@ -312,10 +341,12 @@ class ProductRepository(BaseRepository):
             name=products_dict["name"],
             brand=products_dict["brand"],
             price=products_dict["price"],
-            ratings=rating_avg,
+            ratings=str(rating_avg),
             warehouse=address_dict["city"],
             thumbnail=image_dict["url"],
-            sold_count=metadata_dict["sold_count"]
+            sold_count=metadata_dict["sold_count"],
+            quantity_available=products_dict["quantity_available"],
+            category_name=category_dict["name"]
         )
 
     def search(self, filters: dict[str, Any], page: int, per_page: int) -> tuple[list[ProductEntry], int]:
@@ -449,5 +480,47 @@ class ProductRepository(BaseRepository):
         ]
 
         return product_entry_list
+    
+    def get_product_entries_by_merchant_id(self, merchant_id: int) -> list[ProductEntry]:
+        ### 1: Base query
+        product_query = "SELECT products.id FROM products WHERE merchant_id = %s"
+
+        ### 3.1: Fetch IDs
+        rows = self.db.fetch_all(product_query, (merchant_id,))
+
+        if not rows:
+            return []
+
+        ### 4: Build ProductEntry list with comprehension
+        product_entry_list = [
+            entry
+            for entry in (
+                self.get_product_entry(row["id"]) for row in rows
+            )
+            if entry is not None
+        ]
+
+        return product_entry_list
+    
+    def update_ratings(self, product_id: int, new_rating: float) -> bool:
+        query = """
+            UPDATE products
+            SET rating_count = rating_count + 1,
+                rating_score = rating_score + %s
+            WHERE id = %s
+        """
+        params = (new_rating, product_id)
+        self.db.execute_query(query, params)
+        return True
+    
+    def update_quantity(self, product_id: int, purchased_quantity: int) -> bool:
+        query = """
+            UPDATE products
+            SET quantity_available = quantity_available - %s
+            WHERE id = %s
+        """
+        params = (purchased_quantity, product_id)
+        self.db.execute_query(query, params)
+        return True
 
         

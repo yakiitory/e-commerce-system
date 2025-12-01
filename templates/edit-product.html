@@ -8,10 +8,9 @@
 
 <main class="content-wrapper">
 {% block body %}
-    <div class="add-product-container">
+    <form class="add-product-container" action="{{ url_for('edit_product_page', product_id=product.id) }}" method="post" id="product-form" enctype="multipart/form-data">
         <div class="form-section">
             <h3>Edit Product</h3>
-            <form action="{{ url_for('edit_product_page', product_id=product.id) }}" method="post" id="product-form">
                 <div class="form-group">
                     <label for="name">Product Name</label>
                     <input type="text" id="name" name="name" value="{{ product.name }}" required>
@@ -39,12 +38,12 @@
                 </div>
                 <input type="hidden" id="images" name="images" value="{{ product.images|join(',') }}">
                 <button type="submit" class="submit-btn">Save Changes</button>
-            </form>
         </div>
-        <div class="image-upload-section">
+        <div>
+            <div class="image-upload-section">
             <h4>Product Images</h4>
             <div class="image-uploader" id="image-uploader">
-                <input type="file" id="file-input" multiple accept="image/*" style="display: none;">
+                <input type="file" id="file-input" name="new_images" multiple accept="image/*" style="display: none;">
                 <div class="upload-area" id="upload-area">
                     <p><strong>Drag & drop images here</strong></p>
                     <p>or</p>
@@ -53,7 +52,29 @@
                 </div>
             </div>
             <div class="image-preview-grid" id="image-preview-grid"></div>
+            </div>
+            <div class="form-section">
+                <h4>Product Location</h4>
+                <div class="form-group">
+                    <label>Select which address to use for this product:</label>
+                    <div class="address-selection">
+                        {% if addresses %}
+                            {% for address in addresses %}
+                            <div class="address-option">
+                                <input type="radio" name="address_id" value="{{ address.id }}" id="address-{{ address.id }}" {% if address.id == product.address_id %}checked{% endif %} required>
+                                <label for="address-{{ address.id }}">
+                                    <p>Address {{ loop.index }}</p>
+                                    <p>{{ address.house_no }} {{ address.street }}, {{ address.city }}, {{ address.postal_code }}</p>
+                                </label>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <p>You have no saved addresses. <a href="{{ url_for('user_addresses_page') }}">Please add one</a> before adding a product.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
         </div>
-    </div>
+    </form>
 {% endblock %}
 </main>
