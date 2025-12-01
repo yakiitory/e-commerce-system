@@ -14,16 +14,16 @@
                 {% for order in orders %}
                 <div class="order-card">
                     <div class="order-header">
-                        <div class="header-group"><span>ORDER PLACED</span><p>{{ order.order_created.strftime('%B %d, %Y') }}</p></div>
+                        <div class="header-group"><span>ORDER PLACED</span><p>{{ order.order_date.strftime('%B %d, %Y') }}</p></div>
                         <div class="header-group"><span>CUSTOMER</span><p>{{ order.customer_name }}</p></div>
-                        <div class="header-group"><span>TOTAL</span><p>₱{{ "{:,.2f}".format(order.total_price) }}</p></div>
+                        <div class="header-group"><span>TOTAL</span><p>₱{{ "{:,.2f}".format(order.total_amount) }}</p></div>
                         <div class="header-group"><span>STATUS</span><p><span class="status-badge status-{{ order.status.name | lower }}">{{ order.status.name }}</span></p></div>
                         <div class="header-group"><span>ORDER #{{ order.id }}</span></div>
                     </div>
                     <div class="order-body">
-                        {% for item in order.orders %}
+                        {% for item in order.items %}
                         <div class="order-item">
-                            <img src="{{ item.product.images[0] if item.product and item.product.images else url_for('static', filename='img/placeholder.jpg') }}" alt="{{ item.product.name if item.product else 'Product Image' }}">
+                            <img src="{{ item.thumbnail if item.thumbnail else url_for('static', filename='img/placeholder.jpg') }}" alt="{{ item.product.name if item.product else 'Product Image' }}">
                             <div class="item-details">
                                 <h4>{{ item.product.brand if item.product else 'N/A' }} - {{ item.product.name if item.product else 'N/A' }}</h4>
                                 <p>Qty: {{ item.product_quantity }}</p>
@@ -32,7 +32,7 @@
                         </div>
                         {% endfor %}
                         <div class="order-actions">
-                            {% if order.status == Status.PENDING %}
+                            {% if order.status == Status.PAID %}
                                 <form action="{{ url_for('merchant_cancel_order', order_id=order.id) }}" method="post" onsubmit="return confirm('Are you sure you want to cancel this customer order? This may trigger a refund.');">
                                     <button type="submit" class="action-btn cancel-btn">Cancel Order</button>
                                 </form>

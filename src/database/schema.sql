@@ -163,18 +163,6 @@ CREATE TABLE IF NOT EXISTS `cart_items` (
     ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE IF NOT EXISTS `invoices` (
-  `id` INT AUTO_INCREMENT NOT NULL,
-  `address_id` INT,
-  `issue_date` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, 
-  `status` TINYINT,
-  `payment_summary` TEXT,
-  PRIMARY KEY(`id`),
-  FOREIGN KEY (`address_id`) REFERENCES `addresses`(`id`)
-    ON UPDATE CASCADE
-    ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
 CREATE TABLE IF NOT EXISTS `orders` (
   `id` INT AUTO_INCREMENT NOT NULL,
   `user_id` INT NOT NULL,
@@ -184,11 +172,7 @@ CREATE TABLE IF NOT EXISTS `orders` (
   `total_amount` DECIMAL(10,2) NOT NULL,
   `status` TINYINT NOT NULL,
   `order_date` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `invoice_id` INT,
-  PRIMARY KEY(`id`),
-  FOREIGN KEY (`invoice_id`) REFERENCES `invoices`(`id`)
-    ON UPDATE CASCADE
-    ON DELETE CASCADE
+  PRIMARY KEY(`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `shipments` (
@@ -368,6 +352,21 @@ CREATE TABLE IF NOT EXISTS `user_metadata` (
     ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS `invoices` (
+  `id` INT AUTO_INCREMENT NOT NULL,
+  `order_id` INT NOT NULL,
+  `address_id` INT,
+  `issue_date` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, 
+  `status` TINYINT,
+  `payment_summary` TEXT,
+  PRIMARY KEY(`id`),
+  FOREIGN KEY (`order_id`) REFERENCES `orders`(`id`)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE,
+  FOREIGN KEY (`address_id`) REFERENCES `addresses`(`id`)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `merchant_products` (
   `merchant_id` INT NOT NULL,

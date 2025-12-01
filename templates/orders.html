@@ -49,7 +49,7 @@
                         </div>
                         {% endfor %}
                         <div class="order-actions">
-                            {% if order.status == Status.PENDING or order.status == Status.SHIPPED %}
+                            {% if order.status == Status.PENDING or order.status == Status.PAID %}
                                 <form action="{{ url_for('cancel_order', order_id=order.id) }}" method="post" onsubmit="return confirm('Are you sure you want to cancel this order?');">
                                     <button type="submit" class="action-btn cancel-btn">Cancel Order</button>
                                 </form>

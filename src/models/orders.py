@@ -40,7 +40,6 @@ class OrderCreate:
 class Order(OrderCreate):
     """Represents a fully formed order record from the database, including its items."""
     id: int = field(default_factory=int)
-    invoice_id: int | None = None
     items: list[OrderItem] = field(default_factory=list)
 
 # --- Cart Item Models ---
@@ -81,6 +80,7 @@ class Cart(CartCreate):
 @dataclass
 class InvoiceCreate:
     address_id: int
+    order_id: int
     issue_date: datetime = field(default_factory=datetime.now)
     status: Status = Status.PENDING
     payment_summary: str | None = None
