@@ -617,13 +617,25 @@ def merchant_orders_page():
     else:
         orders = orders_or_message or []
 
+    # Enrich order data with customer and product information
     for order in orders:
+        # Get customer information
         customer = user_repository.read(order.user_id)
         setattr(order, 'customer_name', f"{customer.first_name} {customer.last_name}" if customer else "Unknown User")
 
+        # Get product details for each item
         for item in order.items:
             _, product_entry = product_service.get_product_for_display(item.product_id)
-            setattr(item, 'product', product_entry)
+            
+            if product_entry:
+                # Attach the product entry
+                setattr(item, 'product', product_entry)
+                # Also attach the thumbnail directly for easier template access
+                setattr(item, 'thumbnail', product_entry.thumbnail)
+            else:
+                # Fallback if product is not found
+                setattr(item, 'product', None)
+                setattr(item, 'thumbnail', None)
 
     return render_template('merchant-orders.html', orders=orders, Status=Status)
 
@@ -642,6 +654,7 @@ def merchant_ship_order(order_id: int):
     success, message = order_service.ship_order(order_id=order_id, merchant_id=user.id)
     flash(message, 'success' if success else 'error')
     return redirect(url_for('merchant_orders_page'))
+
 
 @app.route('/merchant-cancel-order/<int:order_id>', methods=['POST'])
 def merchant_cancel_order(order_id: int):

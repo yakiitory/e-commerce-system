@@ -247,11 +247,12 @@ class OrderService:
             return (False, "You are not authorized to confirm delivery for this order.")
 
         if order.status != Status.SHIPPED:
-            return (False, f"Cannot confirm delivery. Order status is '{order.status.value}', not 'SHIPPED'.")
+            return (False, f"Cannot confirm delivery. Order status is '{order.status.name}', not 'SHIPPED'.")
 
         # 2. Update Order Status
         success, message = self.order_repo.update_status(order_id, Status.DELIVERED)
         return (success, "Delivery confirmed successfully! You can now review the product." if success else message)
+
 
     def get_order_details(self, order_id: int, user_id: int) -> tuple[bool, str | tuple[Order, Invoice | None]]:
         """
@@ -300,7 +301,7 @@ class OrderService:
             return (False, "You are not authorized to ship this order.")
 
         if order.status != Status.PAID:
-            return (False, f"Order cannot be shipped. Current status: '{order.status.value}'.")
+            return (False, f"Order cannot be shipped. Current status: '{order.status.name}'.")
 
         # 2. Update Order Status
         success, message = self.order_repo.update_status(order_id, Status.SHIPPED)
