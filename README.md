@@ -2,7 +2,7 @@
 
 A full-featured e-commerce platform built with Python and Flask. It provides a complete online shopping experience with separate functionalities for customers and merchants.
 
-## 🚀 Getting Started
+## Getting Started
 
 Follow these steps to get your local development environment set up and running.
 
