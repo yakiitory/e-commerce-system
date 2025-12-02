@@ -58,13 +58,12 @@ pip install -r requirements.txt
 Create a `.env` file in the root directory of the project. This file will hold your environment-specific configurations, like your database connection string and a secret key for the application.
 
 ```
-DATABASE_URL="loremipsumdolorsitamet"
-FLASK_SECRET_KEY="loremipsumdolorsitamet"
-DB_HOST="loremipsum"
+FLASK_SECRET_KEY="your_secure_password"
+DB_HOST="127.0.0.1"
 DB_PORT=3306
-DB_USER="loremipsum"
-DB_PASSWORD="loremipsum"
-DB_NAME="loremipsum"
+DB_USER="you_mariadb_user"
+DB_PASSWORD="your_mariadb_secure_password"
+DB_NAME="ecommerce"
 DB_POOL_SIZE=5
 ```
 
