@@ -4,3 +4,4 @@ bcrypt
 Pillow
 mysql-connector-python
 pydantic
+sqlparse
