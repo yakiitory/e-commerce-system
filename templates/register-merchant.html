@@ -19,25 +19,7 @@
             </div>
             <input type="email" name="email" placeholder="user@example.com" class="light-input full-width" required>
             <input type="tel" name="phone_number" placeholder="Phone Number" class="light-input full-width" required>
-
-            <div class="input-row">
-                <div class="select-container light-style" id="genderSelect">
-                    <div class="select-trigger">
-                        <span class="trigger-text">Gender</span>
-                        {% include "svg/arrow-right.svg" %}
-                    </div>
-                    <ul class="select-options">
-                        <li data-value="Male">Male</li>
-                        <li data-value="Female">Female</li>
-                        <li data-value="Other">Other</li>
-                    </ul>
-                    <input type="hidden" name="gender" id="genderHiddenInput" required>
-                </div>
-                <input type="number" name="age" placeholder="Age" class="light-input" required>
-            </div>
-
             <input type="text" name="store_name" placeholder="Store Name" class="light-input full-width" required>
-
             <div class="btn-container">
                 <a href="{{ url_for('register_page') }}">
                     <button type="button" class="btn-back">
